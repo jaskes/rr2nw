@@ -27,7 +27,8 @@ namespace {
 
 const std::uint32_t kHowitzerMagic = 0x315A5748u;  // HWZ1
 const std::uint32_t kHowitzerLegacyVersion = 1u;
-const std::uint32_t kHowitzerVersion = 2u;
+const std::uint32_t kHowitzerSourceKindVersion = 2u;
+const std::uint32_t kHowitzerVersion = 3u;
 const std::size_t kMaximumHowitzers = 4096u;
 const std::size_t kMaximumNameBytes = 1024u;
 const int kMaximumEventsPerKind = 32;
@@ -51,6 +52,11 @@ bool FiniteVector(const CFVector3& value) {
 }
 
 struct StableHowitzerRecord {
+  enum Lifecycle {
+    kReady = 0,
+    kPendingStart = 1
+  };
+
   struct Event {
     enum SourceKind {
       kOptionalSymbolic = 0,
@@ -69,6 +75,9 @@ struct StableHowitzerRecord {
   std::string attribute;
   std::string commander;
   std::string enemy;
+  int lifecycle;
+  int startMode;
+  Event startEvent;
   int audibleThisFrame;
   int visible;
   double lastMoveTimeStamp;
@@ -84,7 +93,8 @@ struct StableHowitzerRecord {
   std::vector<Event> actionEvents;
 
   StableHowitzerRecord()
-      : audibleThisFrame(0), visible(0), lastMoveTimeStamp(0.0),
+      : lifecycle(kReady), startMode(0), audibleThisFrame(0), visible(0),
+        lastMoveTimeStamp(0.0),
         position(0.0, 0.0, 0.0), damage(0.0), rotateOy(0.0),
         horizontalAngle(0.0), lastActionTime(0.0),
         lastEnemyScanTime(0.0), shootThisBastard(0), lastShootTime(0.0) {}
@@ -94,6 +104,17 @@ struct HowitzerRosterEntry {
   std::string holder;
   std::string name;
   Howitzer* howitzer;
+  bool ready;
+  KR_ObjectID pendingAttribute;
+  KR_ObjectID pendingSource;
+  double pendingTimeStamp;
+  int pendingMode;
+
+  HowitzerRosterEntry()
+      : howitzer(nullptr), ready(false),
+        pendingAttribute(KR_ObjectID::NUL()),
+        pendingSource(KR_ObjectID::NUL()), pendingTimeStamp(0.0),
+        pendingMode(0) {}
 };
 
 struct HowitzerRoster {
@@ -113,6 +134,38 @@ Howitzer* ResolveHowitzer(SimulationContext* context,
       context->queryInterface(object, IUnknownIID));
 }
 
+bool InspectPendingStart(SimulationContext* context,
+                         const KR_ObjectID& object,
+                         HowitzerRosterEntry* entry) {
+  if (context == nullptr || entry == nullptr) return false;
+  KR_Event events[2];
+  const int count = context->copyEventsTo(pe_EVCMD_START, object, events, 2);
+  if (count != 1 || events[0].destination != object ||
+      !std::isfinite(events[0].timeStamp) || events[0].timeStamp < 0.1)
+    return false;
+  KR_ObjectID attribute = KR_ObjectID::NUL();
+  char holder[HOWITZER_MAX_NAME + 1] = {};
+  int mode = 0;
+  s_EventData& data = events[0].data.open(EDO_READ);
+  data.getObjectID(attribute).getStr(holder, HOWITZER_MAX_NAME);
+  if (data.remaining() != static_cast<int>(sizeof(int))) {
+    data.close();
+    return false;
+  }
+  data.getInt(mode).close();
+  const int holderIndex = HowitzerSubjectState_FindHolder(holder);
+  if ((mode != 0 && mode != 1) || holderIndex < 0 ||
+      !HowitzerSubjectState_AttributeExists(context, attribute) ||
+      !IsNul(HowitzerSubjectState_HolderOccupant(holder)))
+    return false;
+  entry->holder = holder;
+  entry->pendingAttribute = attribute;
+  entry->pendingSource = events[0].source;
+  entry->pendingTimeStamp = events[0].timeStamp;
+  entry->pendingMode = mode;
+  return true;
+}
+
 bool CollectHowitzer(const KR_ObjectID object, void* user) {
   HowitzerRoster* roster = static_cast<HowitzerRoster*>(user);
   Howitzer* howitzer = ResolveHowitzer(roster->context, object);
@@ -128,16 +181,31 @@ bool CollectHowitzer(const KR_ObjectID object, void* user) {
       HowitzerSubjectState_HolderOccupant(holder) == object;
   const bool ready = howitzer != nullptr && howitzer->m_attr != nullptr &&
                      !IsNul(howitzer->m_HowitzerAttrID);
+  const bool allocatedReady = !ready && howitzer != nullptr &&
+      howitzer->m_attr == nullptr && IsNul(howitzer->m_HowitzerAttrID) &&
+      holderOwnsObject;
+  HowitzerRosterEntry entry;
+  entry.name = name == nullptr ? "" : name;
+  entry.howitzer = howitzer;
+  entry.ready = ready || allocatedReady;
+  const bool pending = !entry.ready && howitzer != nullptr &&
+      howitzer->m_attr == nullptr && IsNul(howitzer->m_HowitzerAttrID) &&
+      InspectPendingStart(roster->context, object, &entry);
   if (howitzer == nullptr || name == nullptr || name[0] == '\0' ||
-      std::strlen(name) > kMaximumNameBytes || holder == nullptr ||
-      holder[0] == '\0' || std::strlen(holder) > kMaximumNameBytes ||
-      !holderOwnsObject || (roster->requireReady && !ready)) {
+      std::strlen(name) > kMaximumNameBytes ||
+      (entry.ready && (holder == nullptr || holder[0] == '\0' ||
+                 std::strlen(holder) > kMaximumNameBytes ||
+                 !holderOwnsObject)) || (!entry.ready && !pending) ||
+      (roster->requireReady && !ready)) {
     if (howitzer == nullptr)
       Fail("Howitzer roster contains an unresolved owner");
     else if (name == nullptr || name[0] == '\0')
       Fail("Howitzer roster owner has no symbolic name");
-    else if (holder == nullptr || holder[0] == '\0' || !holderOwnsObject)
+    else if (entry.ready &&
+             (holder == nullptr || holder[0] == '\0' || !holderOwnsObject))
       Fail(std::string("Howitzer holder ownership is invalid: ") + name);
+    else if (!entry.ready && !pending)
+      Fail(std::string("Howitzer pending START is invalid: ") + name);
     else if (!ready)
       Fail(std::string("Howitzer owner is not runtime-ready: ") + name);
     else
@@ -145,10 +213,7 @@ bool CollectHowitzer(const KR_ObjectID object, void* user) {
     roster->valid = false;
     return false;
   }
-  HowitzerRosterEntry entry;
-  entry.holder = holder;
-  entry.name = name;
-  entry.howitzer = howitzer;
+  if (entry.ready) entry.holder = holder;
   roster->entries.push_back(entry);
   return true;
 }
@@ -209,13 +274,14 @@ bool CaptureOptionalReference(SimulationContext* context,
 
 bool CaptureEvents(SimulationContext* context, Howitzer* howitzer,
                    int label,
+                   bool allowEmpty,
                    std::vector<StableHowitzerRecord::Event>* stable) {
   if (context == nullptr || howitzer == nullptr || stable == nullptr)
     return false;
   KR_Event events[kMaximumEventsPerKind + 1];
   const int count = context->copyEventsTo(
       label, howitzer->getObjectID(), events, kMaximumEventsPerKind + 1);
-  if (count < 1 || count > kMaximumEventsPerKind)
+  if (count < (allowEmpty ? 0 : 1) || count > kMaximumEventsPerKind)
     return Fail("Howitzer private scheduler cardinality is invalid (label=" +
                 std::to_string(label) + ", count=" +
                 std::to_string(count) + ")");
@@ -245,18 +311,20 @@ bool CaptureRecord(SimulationContext* context,
                    const HowitzerRosterEntry& entry,
                    StableHowitzerRecord* record) {
   Howitzer* howitzer = entry.howitzer;
+  const KR_ObjectID attributeID = entry.ready
+      ? howitzer->m_HowitzerAttrID : entry.pendingAttribute;
   const char* attribute = howitzer == nullptr
                               ? nullptr
-                              : context->searchObject(
-                                    howitzer->m_HowitzerAttrID);
+                              : context->searchObject(attributeID);
   if (record == nullptr || howitzer == nullptr || attribute == nullptr ||
       attribute[0] == '\0' || std::strlen(attribute) > kMaximumNameBytes ||
-      !HowitzerSubjectState_AttributeExists(
-          context, howitzer->m_HowitzerAttrID))
+      !HowitzerSubjectState_AttributeExists(context, attributeID))
     return Fail("Howitzer symbolic attribute is unavailable");
   record->holder = entry.holder;
   record->name = entry.name;
   record->attribute = attribute;
+  record->lifecycle = entry.ready ? StableHowitzerRecord::kReady
+                                  : StableHowitzerRecord::kPendingStart;
   if (!CaptureOptionalReference(context, howitzer->m_commanderID,
                                 "commander",
                                 false,
@@ -266,6 +334,19 @@ bool CaptureRecord(SimulationContext* context,
                                 true,
                                 &record->enemy))
     return false;
+  if (!entry.ready) {
+    record->startMode = entry.pendingMode;
+    record->startEvent.timeStamp = entry.pendingTimeStamp;
+    if (entry.pendingSource == howitzer->getObjectID()) {
+      record->startEvent.sourceKind =
+          StableHowitzerRecord::Event::kDestinationSelf;
+      record->startEvent.source.clear();
+    } else if (!CaptureOptionalReference(context, entry.pendingSource,
+                                         "START source", false,
+                                         &record->startEvent.source)) {
+      return false;
+    }
+  }
   record->audibleThisFrame = howitzer->m_audibleThisFrame != 0 ? 1 : 0;
   record->visible = howitzer->m_isVisible != 0 ? 1 : 0;
   record->lastMoveTimeStamp = howitzer->m_lastMoveTimeStamp;
@@ -278,9 +359,9 @@ bool CaptureRecord(SimulationContext* context,
   record->shootThisBastard = howitzer->m_shootThisBastard ? 1 : 0;
   record->lastShootTime = howitzer->m_lastShootTime;
   return CaptureEvents(context, howitzer, HOWITZER_FIND_ENEMY,
-                       &record->findEnemyEvents) &&
+                       !entry.ready, &record->findEnemyEvents) &&
          CaptureEvents(context, howitzer, HOWITZER_ACTION,
-                       &record->actionEvents);
+                       !entry.ready, &record->actionEvents);
 }
 
 bool ValidName(const std::string& value, bool allowEmpty) {
@@ -289,8 +370,9 @@ bool ValidName(const std::string& value, bool allowEmpty) {
          value.find('\0') == std::string::npos;
 }
 
-bool ValidEvents(const std::vector<StableHowitzerRecord::Event>& events) {
-  if (events.empty() || events.size() >
+bool ValidEvents(const std::vector<StableHowitzerRecord::Event>& events,
+                 bool allowEmpty = false) {
+  if ((!allowEmpty && events.empty()) || events.size() >
                            static_cast<std::size_t>(kMaximumEventsPerKind))
     return false;
   for (std::size_t index = 0; index < events.size(); ++index)
@@ -311,7 +393,8 @@ bool ValidEvents(const std::vector<StableHowitzerRecord::Event>& events) {
 }
 
 bool ValidateRecord(const StableHowitzerRecord& record) {
-  return ValidName(record.holder, false) && ValidName(record.name, false) &&
+  const bool common =
+      ValidName(record.holder, false) && ValidName(record.name, false) &&
          ValidName(record.attribute, false) &&
          ValidName(record.commander, true) && ValidName(record.enemy, true) &&
          (record.audibleThisFrame == 0 || record.audibleThisFrame == 1) &&
@@ -325,9 +408,25 @@ bool ValidateRecord(const StableHowitzerRecord& record) {
          record.lastActionTime >= 0.0 &&
          std::isfinite(record.lastEnemyScanTime) &&
          record.lastEnemyScanTime >= 0.0 &&
-         std::isfinite(record.lastShootTime) && record.lastShootTime >= 0.0 &&
-         ValidEvents(record.findEnemyEvents) &&
-         ValidEvents(record.actionEvents);
+         std::isfinite(record.lastShootTime) && record.lastShootTime >= 0.0;
+  if (!common) return false;
+  if (record.lifecycle == StableHowitzerRecord::kReady)
+    return record.startMode == 0 &&
+           record.startEvent.timeStamp == 0.0 &&
+           record.startEvent.source.empty() &&
+           ValidEvents(record.findEnemyEvents) &&
+           ValidEvents(record.actionEvents);
+  return record.lifecycle == StableHowitzerRecord::kPendingStart &&
+         (record.startMode == 0 || record.startMode == 1) &&
+         (record.startEvent.sourceKind ==
+              StableHowitzerRecord::Event::kOptionalSymbolic ||
+          record.startEvent.sourceKind ==
+              StableHowitzerRecord::Event::kDestinationSelf) &&
+         ValidName(record.startEvent.source, true) &&
+         std::isfinite(record.startEvent.timeStamp) &&
+         record.startEvent.timeStamp >= 0.1 &&
+         ValidEvents(record.findEnemyEvents, true) &&
+         record.actionEvents.empty();
 }
 
 void PutU32(std::vector<unsigned char>* bytes, std::uint32_t value) {
@@ -363,7 +462,7 @@ void PutEvents(
     std::uint32_t version, const std::string& ownerName) {
   PutU32(bytes, static_cast<std::uint32_t>(events.size()));
   for (const StableHowitzerRecord::Event& event : events) {
-    if (version >= kHowitzerVersion)
+    if (version >= kHowitzerSourceKindVersion)
       PutU32(bytes, static_cast<std::uint32_t>(event.sourceKind));
     PutString(bytes,
               version == kHowitzerLegacyVersion &&
@@ -429,17 +528,18 @@ bool GetVector(const std::vector<unsigned char>& bytes, std::size_t* offset,
 
 bool GetEvents(
     const std::vector<unsigned char>& bytes, std::size_t* offset,
-    std::uint32_t version,
+    std::uint32_t version, bool allowEmpty,
     std::vector<StableHowitzerRecord::Event>* events) {
   std::uint32_t count = 0;
-  if (events == nullptr || !GetU32(bytes, offset, &count) || count == 0 ||
+  if (events == nullptr || !GetU32(bytes, offset, &count) ||
+      (!allowEmpty && count == 0) ||
       count > static_cast<std::uint32_t>(kMaximumEventsPerKind))
     return false;
   events->clear();
   for (std::uint32_t index = 0; index < count; ++index) {
     StableHowitzerRecord::Event event;
     std::uint32_t sourceKind = 0;
-    if ((version >= kHowitzerVersion &&
+    if ((version >= kHowitzerSourceKindVersion &&
          !GetU32(bytes, offset, &sourceKind)) ||
         sourceKind > static_cast<std::uint32_t>(
                          StableHowitzerRecord::Event::kDestinationSelf) ||
@@ -449,12 +549,17 @@ bool GetEvents(
     event.sourceKind = static_cast<int>(sourceKind);
     events->push_back(event);
   }
-  return ValidEvents(*events);
+  return ValidEvents(*events, allowEmpty);
 }
 
 bool PutRecord(std::vector<unsigned char>* bytes,
                const StableHowitzerRecord& record, std::uint32_t version) {
-  if (!ValidateRecord(record)) return false;
+  if (!ValidateRecord(record) ||
+      (version < kHowitzerVersion &&
+       record.lifecycle != StableHowitzerRecord::kReady))
+    return false;
+  if (version >= kHowitzerVersion)
+    PutU32(bytes, static_cast<std::uint32_t>(record.lifecycle));
   PutString(bytes, record.holder);
   PutString(bytes, record.name);
   PutString(bytes, record.attribute);
@@ -473,13 +578,24 @@ bool PutRecord(std::vector<unsigned char>* bytes,
   PutDouble(bytes, record.lastShootTime);
   PutEvents(bytes, record.findEnemyEvents, version, record.name);
   PutEvents(bytes, record.actionEvents, version, record.name);
+  if (version >= kHowitzerVersion) {
+    PutU32(bytes, static_cast<std::uint32_t>(record.startEvent.sourceKind));
+    PutString(bytes, record.startEvent.source);
+    PutDouble(bytes, record.startEvent.timeStamp);
+    PutU32(bytes, static_cast<std::uint32_t>(record.startMode));
+  }
   return true;
 }
 
 bool GetRecord(const std::vector<unsigned char>& bytes, std::size_t* offset,
                std::uint32_t version, StableHowitzerRecord* record) {
-  std::uint32_t audible = 0, visible = 0, shooting = 0;
-  if (record == nullptr || !GetString(bytes, offset, &record->holder) ||
+  std::uint32_t lifecycle = 0, audible = 0, visible = 0, shooting = 0;
+  if (record == nullptr ||
+      (version >= kHowitzerVersion &&
+       !GetU32(bytes, offset, &lifecycle)) ||
+      lifecycle > static_cast<std::uint32_t>(
+                      StableHowitzerRecord::kPendingStart) ||
+      !GetString(bytes, offset, &record->holder) ||
       !GetString(bytes, offset, &record->name) ||
       !GetString(bytes, offset, &record->attribute) ||
       !GetString(bytes, offset, &record->commander) ||
@@ -495,10 +611,15 @@ bool GetRecord(const std::vector<unsigned char>& bytes, std::size_t* offset,
       !GetDouble(bytes, offset, &record->lastEnemyScanTime) ||
       !GetU32(bytes, offset, &shooting) ||
       !GetDouble(bytes, offset, &record->lastShootTime) ||
-      !GetEvents(bytes, offset, version, &record->findEnemyEvents) ||
-      !GetEvents(bytes, offset, version, &record->actionEvents) || audible > 1u ||
+      !GetEvents(bytes, offset, version,
+                 lifecycle == StableHowitzerRecord::kPendingStart,
+                 &record->findEnemyEvents) ||
+      !GetEvents(bytes, offset, version,
+                 lifecycle == StableHowitzerRecord::kPendingStart,
+                 &record->actionEvents) || audible > 1u ||
       visible > 1u || shooting > 1u)
     return false;
+  record->lifecycle = static_cast<int>(lifecycle);
   record->audibleThisFrame = static_cast<int>(audible);
   record->visible = static_cast<int>(visible);
   record->shootThisBastard = static_cast<int>(shooting);
@@ -514,13 +635,26 @@ bool GetRecord(const std::vector<unsigned char>& bytes, std::size_t* offset,
         event.source.clear();
       }
   }
+  if (version >= kHowitzerVersion) {
+    std::uint32_t sourceKind = 0, startMode = 0;
+    if (!GetU32(bytes, offset, &sourceKind) ||
+        sourceKind > static_cast<std::uint32_t>(
+                         StableHowitzerRecord::Event::kDestinationSelf) ||
+        !GetString(bytes, offset, &record->startEvent.source) ||
+        !GetDouble(bytes, offset, &record->startEvent.timeStamp) ||
+        !GetU32(bytes, offset, &startMode) || startMode > 1u)
+      return false;
+    record->startEvent.sourceKind = static_cast<int>(sourceKind);
+    record->startMode = static_cast<int>(startMode);
+  }
   return ValidateRecord(*record);
 }
 
 bool EncodeRecordsVersion(const std::vector<StableHowitzerRecord>& records,
                           std::uint32_t version,
                           std::vector<unsigned char>* bytes) {
-  if (version != kHowitzerLegacyVersion && version != kHowitzerVersion)
+  if (version != kHowitzerLegacyVersion &&
+      version != kHowitzerSourceKindVersion && version != kHowitzerVersion)
     return false;
   if (bytes == nullptr || records.size() > kMaximumHowitzers) return false;
   bytes->clear();
@@ -548,7 +682,9 @@ bool DecodeRecords(const std::vector<unsigned char>& bytes,
   if (records == nullptr || !GetU32(bytes, &offset, &magic) ||
       !GetU32(bytes, &offset, &version) ||
       !GetU32(bytes, &offset, &count) || magic != kHowitzerMagic ||
-      (version != kHowitzerLegacyVersion && version != kHowitzerVersion) ||
+      (version != kHowitzerLegacyVersion &&
+       version != kHowitzerSourceKindVersion &&
+       version != kHowitzerVersion) ||
       count > kMaximumHowitzers)
     return false;
   records->clear();
@@ -567,7 +703,9 @@ bool RosterMatches(const HowitzerRoster& roster,
   if (roster.entries.size() != records.size()) return false;
   for (std::size_t index = 0; index < records.size(); ++index)
     if (roster.entries[index].holder != records[index].holder ||
-        roster.entries[index].name != records[index].name)
+        roster.entries[index].name != records[index].name ||
+        roster.entries[index].ready !=
+            (records[index].lifecycle == StableHowitzerRecord::kReady))
       return false;
   return true;
 }
@@ -595,6 +733,7 @@ std::string FirstEventDifference(
 
 std::string FirstRecordDifference(const StableHowitzerRecord& left,
                                   const StableHowitzerRecord& right) {
+  if (left.lifecycle != right.lifecycle) return "lifecycle";
   if (left.holder != right.holder) return "holder";
   if (left.name != right.name) return "name";
   if (left.attribute != right.attribute) return "attribute";
@@ -624,7 +763,15 @@ std::string FirstRecordDifference(const StableHowitzerRecord& left,
   const std::string event = FirstEventDifference(left.findEnemyEvents,
                                                  right.findEnemyEvents);
   if (!event.empty()) return event;
-  return FirstEventDifference(left.actionEvents, right.actionEvents);
+  const std::string action = FirstEventDifference(left.actionEvents,
+                                                  right.actionEvents);
+  if (!action.empty()) return action;
+  if (left.startMode != right.startMode) return "START mode";
+  if (left.startEvent.sourceKind != right.startEvent.sourceKind ||
+      left.startEvent.source != right.startEvent.source ||
+      left.startEvent.timeStamp != right.startEvent.timeStamp)
+    return "START event";
+  return std::string();
 }
 
 bool ResolveOptionalReference(SimulationContext* context,
@@ -644,6 +791,7 @@ bool ResolveOptionalReference(SimulationContext* context,
 void RemovePrivateEvents(SimulationContext* context,
                          const KR_ObjectID& object) {
   if (context == nullptr) return;
+  context->removeEventsTo(pe_EVCMD_START, object);
   context->removeEventsTo(HOWITZER_FIND_ENEMY, object);
   context->removeEventsTo(HOWITZER_ACTION, object);
 }
@@ -725,6 +873,62 @@ bool ApplyRecord(SimulationContext* context, Howitzer* howitzer,
              howitzer->getObjectID();
 }
 
+bool RestorePendingStartEvent(SimulationContext* context,
+                              Howitzer* howitzer,
+                              const StableHowitzerRecord& record) {
+  if (context == nullptr || howitzer == nullptr ||
+      !context->isExist(record.attribute.c_str()))
+    return false;
+  const KR_ObjectID attribute =
+      context->searchObject(record.attribute.c_str());
+  KR_ObjectID source;
+  if (!HowitzerSubjectState_AttributeExists(context, attribute)) return false;
+  if (record.startEvent.sourceKind ==
+      StableHowitzerRecord::Event::kDestinationSelf)
+    source = howitzer->getObjectID();
+  else if (!ResolveOptionalReference(context, record.startEvent.source,
+                                     IUnknownIID, &source))
+    return false;
+  KR_Event start;
+  start.label = pe_EVCMD_START;
+  start.source = source;
+  start.destination = howitzer->getObjectID();
+  start.timeStamp = record.startEvent.timeStamp;
+  start.data.open(EDO_WRITE)
+      .putObjectID(attribute)
+      .putStr(record.holder.c_str())
+      .putInt(record.startMode)
+      .close();
+  context->addEvent(start);
+  return true;
+}
+
+bool ApplyPendingRecord(SimulationContext* context, Howitzer* howitzer,
+                        const StableHowitzerRecord& record) {
+  if (context == nullptr || howitzer == nullptr ||
+      record.lifecycle != StableHowitzerRecord::kPendingStart ||
+      howitzer->m_attr != nullptr || !IsNul(howitzer->m_HowitzerAttrID) ||
+      !context->isExist(record.attribute.c_str()))
+    return false;
+  const KR_ObjectID attribute =
+      context->searchObject(record.attribute.c_str());
+  const int holder = HowitzerSubjectState_FindHolder(record.holder.c_str());
+  KR_ObjectID commander;
+  if (!HowitzerSubjectState_AttributeExists(context, attribute) || holder < 0 ||
+      !IsNul(HowitzerSubjectState_HolderOccupant(record.holder.c_str())) ||
+      !ResolveOptionalReference(context, record.commander, IUnknownIID,
+                                &commander))
+    return false;
+  RemovePrivateEvents(context, howitzer->getObjectID());
+  howitzer->m_commanderID = commander;
+  if (!RestoreEvents(context, howitzer->getObjectID(), HOWITZER_FIND_ENEMY,
+                     record.findEnemyEvents) ||
+      !RestoreEvents(context, howitzer->getObjectID(), HOWITZER_ACTION,
+                     record.actionEvents))
+    return false;
+  return RestorePendingStartEvent(context, howitzer, record);
+}
+
 }  // namespace
 
 void HowitzerActiveWorldState_Link() { HowitzerSubjectState_Link(); }
@@ -747,7 +951,10 @@ int HowitzerActiveWorldState_SchedulerEventCount(
   int count = 0;
   for (const StableHowitzerRecord& record : records)
     count += static_cast<int>(record.findEnemyEvents.size() +
-                              record.actionEvents.size());
+                              record.actionEvents.size() +
+                              (record.lifecycle ==
+                                       StableHowitzerRecord::kPendingStart
+                                   ? 1u : 0u));
   return count;
 }
 
@@ -768,7 +975,7 @@ bool HowitzerActiveWorldState_CaptureStable(
   g_lastFailure.clear();
   if (bytes == nullptr) return Fail("Howitzer capture output is null");
   HowitzerRoster roster = {};
-  if (!CollectRoster(context, true, &roster)) return false;
+  if (!CollectRoster(context, false, &roster)) return false;
   std::vector<StableHowitzerRecord> records;
   records.reserve(roster.entries.size());
   for (const HowitzerRosterEntry& entry : roster.entries) {
@@ -804,6 +1011,7 @@ bool HowitzerActiveWorldState_CaptureHolder(
   entry.holder = holderName;
   entry.name = name;
   entry.howitzer = howitzer;
+  entry.ready = true;
   StableHowitzerRecord record;
   if (!CaptureRecord(context, entry, &record)) return false;
   std::vector<StableHowitzerRecord> records(1, record);
@@ -830,13 +1038,19 @@ bool HowitzerActiveWorldState_ProbeLegacyVersionCompatibility(
   }
   std::vector<unsigned char> version1;
   std::vector<unsigned char> version2;
+  std::vector<unsigned char> version3;
   return EncodeRecordsVersion(records, kHowitzerLegacyVersion, &version1) &&
-         EncodeRecordsVersion(records, kHowitzerVersion, &version2) &&
+         EncodeRecordsVersion(records, kHowitzerSourceKindVersion,
+                              &version2) &&
+         EncodeRecordsVersion(records, kHowitzerVersion, &version3) &&
          version1 != version2 &&
+         version2 != version3 &&
          HowitzerActiveWorldState_ValidateStable(version1) &&
          HowitzerActiveWorldState_ValidateStable(version2) &&
+         HowitzerActiveWorldState_ValidateStable(version3) &&
          HowitzerActiveWorldState_MatchesStable(context, version1) &&
-         HowitzerActiveWorldState_MatchesStable(context, version2);
+         HowitzerActiveWorldState_MatchesStable(context, version2) &&
+         HowitzerActiveWorldState_MatchesStable(context, version3);
 }
 
 bool HowitzerActiveWorldState_MatchesStable(
@@ -874,7 +1088,7 @@ bool HowitzerActiveWorldState_CollectStableOwners(
   HowitzerRoster roster = {};
   if (context == nullptr || owners == nullptr || !owners->empty() ||
       !DecodeRecords(bytes, &records) ||
-      !CollectRoster(context, true, &roster) ||
+      !CollectRoster(context, false, &roster) ||
       !RosterMatches(roster, records))
     return false;
   for (const HowitzerRosterEntry& entry : roster.entries)
@@ -904,8 +1118,7 @@ bool HowitzerActiveWorldState_CreateStableOwners(
             context, context->searchObject(record.attribute.c_str())))
       return Fail("HowitzerAttr symbolic dependency is unavailable: " +
                   record.attribute);
-    const int holder =
-        HowitzerSubjectState_FindHolder(record.holder.c_str());
+    const int holder = HowitzerSubjectState_FindHolder(record.holder.c_str());
     if (holder < 0 ||
         holder >= HowitzerSubjectState_SupportedHolderCount() ||
         !IsNul(HowitzerSubjectState_HolderOccupant(
@@ -923,22 +1136,23 @@ bool HowitzerActiveWorldState_CreateStableOwners(
       return Fail("Howitzer owner allocation failed: " + record.name);
     }
     Howitzer* howitzer = ResolveHowitzer(context, object);
-    const int holder =
-        HowitzerSubjectState_FindHolder(record.holder.c_str());
+    const int holder = HowitzerSubjectState_FindHolder(record.holder.c_str());
     if (howitzer == nullptr ||
-        g_super.m_level.AttachToHowitzerHolder(holder, object) != holder) {
+        (record.lifecycle == StableHowitzerRecord::kReady &&
+         g_super.m_level.AttachToHowitzerHolder(holder, object) != holder)) {
       context->removeObject(object);
       HowitzerActiveWorldState_RemoveStableOwners(context, created);
-      return Fail("Howitzer holder reservation failed: " + record.holder);
+      return Fail("Howitzer owner preparation failed: " + record.holder);
     }
-    howitzer->m_HolderIndex = holder;
+    if (record.lifecycle == StableHowitzerRecord::kReady)
+      howitzer->m_HolderIndex = holder;
     created->push_back(object);
-  }
-  HowitzerRoster restored = {};
-  if (!CollectRoster(context, false, &restored) ||
-      !RosterMatches(restored, records)) {
-    HowitzerActiveWorldState_RemoveStableOwners(context, created);
-    return Fail("Howitzer symbolic owner allocation did not match");
+    if (record.lifecycle == StableHowitzerRecord::kPendingStart &&
+        !RestorePendingStartEvent(context, howitzer, record)) {
+      HowitzerActiveWorldState_RemoveStableOwners(context, created);
+      return Fail("Howitzer pending START reconstruction failed: " +
+                  record.name);
+    }
   }
   return true;
 }
@@ -952,8 +1166,11 @@ bool HowitzerActiveWorldState_ApplyStableReferences(
       !RosterMatches(roster, records))
     return false;
   for (std::size_t index = 0; index < records.size(); ++index)
-    if (!ApplyRecord(context, roster.entries[index].howitzer,
-                     records[index]))
+    if (!(records[index].lifecycle == StableHowitzerRecord::kReady
+              ? ApplyRecord(context, roster.entries[index].howitzer,
+                            records[index])
+              : ApplyPendingRecord(context, roster.entries[index].howitzer,
+                                   records[index])))
       return Fail("Howitzer symbolic reconstruction failed: " +
                   records[index].holder);
   return HowitzerActiveWorldState_MatchesStable(context, bytes);

@@ -6578,8 +6578,9 @@ authoring the world. Every positive authored timestamp remains an absolute
 scheduler value.
 
 Private Howitzer events also need an identity independent of their optional
-source name. HWZ1 v2 therefore records destination-self explicitly. HWZ1 v1
-continues to decode the historical owner-name representation and LCN1 accepts
+source name. HWZ1 v2 introduced destination-self explicitly and v3 retains
+that relation while adding pending-start lifecycle. HWZ1 v1 continues to
+decode the historical owner-name representation and LCN1 accepts
 the byte difference only after the restored live roster matches every decoded
 semantic field. The active-world probe generates both versions from the same
 real roster, so compatibility is not based on a hand-kept save alone.
@@ -6628,3 +6629,21 @@ objective cleanup, repeat revisit, pre-result rollback, committed reapply and
 fresh-process save restoration remain the same transaction contract. The
 terminal row remains retired with no synthesized Project, Artifact, Portal or
 presentation asset.
+
+### BD-205: positive Howitzer START time is persistent pending state
+
+Status: accepted on 2026-08-08 for installed Level.05D ProjectS19.
+
+The archival script API distinguishes zero, which means immediate at the
+current safe scheduler boundary, from a positive absolute timestamp. Four S19
+guns are authored at time 110. Save admission must neither fast-forward the
+simulation nor execute those START packets merely to make the subjects look
+ready. They are real world owners with a real queued lifecycle transition.
+
+HWZ1 v3 therefore serializes pending-start and ready records separately.
+Pending owners retain symbolic attribute/holder/commander, exact START
+source/time/mode and already queued private events, but do not reserve a holder
+until the original handler runs. Presentation and mission timing remain
+subordinate to the clock section. Older v1/v2 records continue to describe
+ready owners only. Missing attributes, holders, sources, duplicate ownership
+or malformed START payloads still fail closed.

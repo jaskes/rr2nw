@@ -5570,14 +5570,14 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   simulation moment for same-poll delivery; bootstrap zero retains its safe
   `0.1` enqueue. Completed RecruitCenter script admission then closes pending
   zero-time Howitzer STARTs as one bounded lifecycle step, while
-  positive script times remain absolute. HWZ1 v2 represents a private event
+  positive script times remain absolute. HWZ1 v2 introduced a private event
   whose source is its destination explicitly instead of by symbolic name; v1
   decodes and migrates semantically without changing RR2SLOT1 or LCN1. The
   exact absent-holder delete/new pair discards only its unplaceable Howitzer.
   A removed Tank target, a Bullet whose live master name is ambiguous and a
   Howitzer whose selected enemy is one of several identically named live
   Howitzers are persisted through the same NUL transient-reference semantics.
-- Verification: the active-world probe synthesizes HWZ1 v1/v2 from every real
+- Verification: the active-world probe synthesizes HWZ1 v1/v2/v3 from every real
   admitted roster. The persisted Colony gate proves
   `G3 -> G5 -> G4 -> G8 -> A25 -> G10 -> G11 -> G12 -> G14 -> A28 -> G1 -> A29 -> S08 -> G7 -> AER03`,
   including every result rollback/reapply and exact fresh restore through the
@@ -5613,6 +5613,35 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Boundary: this closes the installed Level.04D Colony center graph. It does
   not generalize terminal admission to mixed kill/reached/live graphs or infer
   rewards, Portals and successors absent from retail commands.
+
+### CQ-269: Level.05D S19 owns four future-start Howitzers
+
+- Status: `POSITIVE_SCRIPT_TIME_PRESERVED`, `PENDING_OWNER_SERIALIZED`,
+  `MULTI_REACHED_RESULT_PROVEN`.
+- Evidence: installed `ProjectS19` creates four Robber Howitzers in holders
+  `HwzRbb01/05/12/13` with absolute start time `110`. At the admission
+  boundary all four subjects are intentionally unattached and retain one
+  `pe_EVCMD_START`; `s_SetCommander` has also queued their private scan. The
+  live Level.05D roster is therefore eight Howitzers, four ready and four
+  pending. Installed `ProjectS16` subsequently requires five distinct
+  success-reached steamers while preserving five failure-kill guards.
+- Handling: HWZ1 v3 distinguishes ready and pending-start owners. A pending
+  record stores its symbolic attribute, holder, commander, START source/time/
+  mode and private queue without reserving the holder or advancing the clock.
+  Restore allocates the safe unattached owner and rebuilds those exact events;
+  the archival handler attaches it only when scheduler time reaches 110.
+  HWZ1 v1/v2 remain accepted for their ready-only representation. The bounded
+  no-reward probe now stages every authored reached condition rather than
+  silently narrowing the graph to one actor.
+- Verification: the maintained Level.05D Civilians gate proves
+  `A30 -> S18 -> S11 -> S12 -> S19 -> S16 -> S20 -> A31` through seven
+  committed results. Every row passes pre-result rollback, committed reapply,
+  save and exact fresh-process restore; S19/S16/S20 require `8/4/4`
+  total/ready/stable Howitzers and S16 requires `5/1` reached/transition.
+- Boundary: ProjectA31 is only the exact next candidate. Its script currently
+  reaches a separate fixed-owner capacity boundary and is not claimed by this
+  row. Level.06N checkpoint command 34 and the late Level.01D command-33
+  owners also remain separate campaign slices.
 
 ## Maintenance rule
 

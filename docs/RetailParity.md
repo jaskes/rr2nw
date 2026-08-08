@@ -2491,7 +2491,7 @@ playable Level begins.
   load/overwrite. Every step proves result commit, pre-result rollback,
   committed reapply, exact fresh-process project/count/world fingerprint and
   zero reward/Portal leakage. The old HWZ1 v1 representation also restores
-  through semantic v2 migration without weakening the enclosing LCN1
+  through semantic v2/v3 migration without weakening the enclosing LCN1
   fingerprint.
 - Verification: these first fourteen rows remain green inside the expanded
   `Invoke-ColonyMissionProgressionChainSmoke.ps1` 63/63 gate. The Actek,
@@ -2519,6 +2519,24 @@ playable Level begins.
   fingerprints for every committed result. The terminal stage additionally
   proves its failure guard, idempotent no-candidate revisit and pre-result
   rollback/reapply. Verification is 63/63 across all three configurations.
+
+### RP-CAMPAIGN-030: Level.05D Civilians persist future starts and convoy reach
+
+- Classification: `INSTALLED_RETAIL_DATA_EXECUTED`,
+  `ORDINARY_NO_REWARD_CHAIN_CONFIRMED`, `PENDING_OWNER_PRESERVED`,
+  `MULTI_REACHED_OBJECTIVES_CONFIRMED`.
+- The installed center selects
+  `A30 -> S18 -> S11 -> S12 -> S19 -> S16 -> S20 -> A31`. The first seven
+  results have no command 35 and therefore create no reward or Portal.
+- S19's four absolute-time-110 Howitzers remain live but unattached across
+  save/load. HWZ1 v3 restores their START payloads and commander scan queues
+  without consuming free holders early; v1/v2 ready rosters still migrate.
+  S16 completes only after all five real steamer owners reach their authored
+  destinations while none of their failure-kill guards is true.
+- `Invoke-Level05DCiviliansProgressionChainSmoke.ps1` pins installed BRIEF,
+  S19 and S16 evidence and requires seven result rollback/reapply plus seven
+  exact fresh-process fingerprints per configuration. ProjectA31 remains the
+  explicit next unproved outcome rather than an inferred terminal or reward.
 
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 

@@ -2602,13 +2602,13 @@ bool RecruitCenterSubjectState_CompleteNoRewardMissionProbeForCenter(
     const int successReachedCount = mission.success_needReached.getCount();
     const bool supportedSuccessShape =
         mission.success_needLive.getCount() == 0 &&
-        ((successKillCount > 0 && successReachedCount == 0) ||
-         (successKillCount == 0 && successReachedCount == 1));
+         ((successKillCount > 0 && successReachedCount == 0) ||
+          (successKillCount == 0 && successReachedCount > 0));
     if (projectName == NULL || mission.m_giveArtefact ||
         !supportedSuccessShape)
     {
-        SetError("RecruitCenter no-reward result needs an all-kill or one "
-                 "People-reached mission without COM_SET_GIVEARTEFACT");
+        SetError("RecruitCenter no-reward result needs an all-kill or "
+                 "all-reached mission without COM_SET_GIVEARTEFACT");
         return false;
     }
     std::snprintf(summary->centerName, sizeof(summary->centerName), "%s",
@@ -2643,22 +2643,23 @@ bool RecruitCenterSubjectState_CompleteNoRewardMissionProbeForCenter(
         SetError("RecruitCenter no-reward kill graph is already incomplete");
         return false;
     }
-    if (successReachedCount == 1)
+    for (int reachedIndex = 0; reachedIndex < successReachedCount;
+         ++reachedIndex)
     {
         SPeopleMissionReachedStageSummary reached = {};
         STankMissionReachedStageSummary tankReached = {};
         const bool peopleStaged =
             PeopleSubjectState_StageMissionReachedCondition(
-                context, mission.success_needReached[0],
-                mission.success_reachedPos[0].x,
-                mission.success_reachedPos[0].y,
-                mission.success_reachedRadius[0], &reached);
+                context, mission.success_needReached[reachedIndex],
+                mission.success_reachedPos[reachedIndex].x,
+                mission.success_reachedPos[reachedIndex].y,
+                mission.success_reachedRadius[reachedIndex], &reached);
         const bool tankStaged = !peopleStaged &&
             TankSubjectState_StageMissionReachedCondition(
-                context, mission.success_needReached[0],
-                mission.success_reachedPos[0].x,
-                mission.success_reachedPos[0].y,
-                mission.success_reachedRadius[0], &tankReached);
+                context, mission.success_needReached[reachedIndex],
+                mission.success_reachedPos[reachedIndex].x,
+                mission.success_reachedPos[reachedIndex].y,
+                mission.success_reachedRadius[reachedIndex], &tankReached);
         if ((!peopleStaged && !tankStaged) ||
             (peopleStaged &&
              (reached.available != 1 || reached.initiallyOutside != 1 ||
@@ -2685,7 +2686,7 @@ bool RecruitCenterSubjectState_CompleteNoRewardMissionProbeForCenter(
             SetError(message);
             return false;
         }
-        summary->reachedConditions = 1;
+        ++summary->reachedConditions;
         summary->failureGuardPreserved =
             !EvaluateConditions(&mission, context, false) ? 1 : 0;
         if (summary->failureGuardPreserved != 1)

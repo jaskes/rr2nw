@@ -160,7 +160,7 @@ bool NormalizeCompatibleSectionMigrations(
                    context, expected.payload)) {
       // HWZ1 v1 represents destination-self scheduler sources by a symbolic
       // object name.  Duplicate authored names make that relation ambiguous,
-      // so HWZ1 v2 stores it explicitly.  The owner verifier has proved the
+      // so HWZ1 v2+ stores it explicitly.  The owner verifier has proved the
       // restored v2 graph is semantically identical to the legacy payload.
       howitzerMigrated = true;
     } else {
