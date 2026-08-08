@@ -6672,3 +6672,20 @@ bounded compatibility ownership, not a change to script declarations: the
 installed cumulative campaign needs 171 People scheduling owners and more
 than 150 Routes, while both maintained floors are 256. They are reset after
 the script transaction and do not alter raw PlayerData or public save ABI.
+
+### BD-207: completing the highest mission tier does not retire its alternatives
+
+Status: accepted on 2026-08-08 for the installed Level.05D Robbers center.
+
+`MissionInfo` controls eligibility; it is not a linear successor index. The
+Robbers center first selects one newly eligible Project per tier, then returns
+through the still-live alternatives. Consequently A35 at tier four is followed
+by A36, S17, S13 and A33. Treating A35 as terminal would strand authored
+missions and make save state depend on an invented progression graph.
+
+Result processing therefore retires only the completed Project and asks the
+real ProjectTable for the next candidate. Terminal semantics are admitted only
+after A33 returns no candidate. The maintained gate intentionally attempts
+ordinary result semantics through A35 and uses the stricter terminal probe only
+for A33. Neutral mission Artefacts stay ordinary world population because no
+Robbers Project carries command 35.

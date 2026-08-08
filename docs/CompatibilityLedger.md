@@ -5672,6 +5672,30 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   the source comment describing an artefact do not authorize a reward or
   Portal. The separate Level.05D Robbers center remains unclaimed.
 
+### CQ-271: Level.05D Robbers exhaust every eligible MissionInfo tier
+
+- Status: `FULL_CENTER_GRAPH_CONFIRMED`, `TERMINAL_ONLY_AFTER_ALTERNATIVES`,
+  `NO_COMMAND35_NO_REWARD`.
+- Evidence: installed `CreateTestProject` publishes nine Robbers projects and
+  explicitly comments out S14. The real candidate sequence is
+  `A32 -> A34 -> S21 -> S15 -> A35 -> A36 -> S17 -> S13 -> A33 -> <none>`.
+  A35 has the highest MissionInfo value, but completing it exposes the
+  unretired A36/S17/S13/A33 alternatives rather than terminating the center.
+  The complete installed BRIEF contains no command 35. Mission scripts create
+  neutral `ma34.artf`, `ma35.artf` and `ms17.artf` population only.
+- Handling: selection and result revisit keep using the authored ProjectTable;
+  no successor list is synthesized. Every ordinary result retires only its
+  exact Project, preserves cumulative count and selects the next real
+  candidate. A33 is the sole terminal row. Its admission atomically replaces
+  prior A36 occupants in `HwzCvl15/16`, leaving 17 valid Howitzers.
+- Verification: `Invoke-Level05DRobbersProgressionChainSmoke.ps1` pins BRIEF
+  and all nine mission scripts, exercises every real objective/result, and
+  uses public slots 1..8 with explicit slot-8 overwrite for A33. Every stage
+  proves rollback/reapply and exact fresh-process restore; the full matrix is
+  27/27 across Debug, Release and RelWithDebInfo.
+- Boundary: no reward or Portal is inferred from neutral Artefacts or source
+  comments. Level.06N command 34 and late Level.01D command 33 remain separate.
+
 ## Maintenance rule
 
 When a new quirk is found:

@@ -2559,6 +2559,27 @@ playable Level begins.
   `A30 -> S18 -> S11 -> S12 -> S19 -> S16 -> S20 -> A31 -> <none>`.
   Verification is 24/24 across Debug, Release and RelWithDebInfo.
 
+### RP-CAMPAIGN-032: Level.05D Robbers complete all nine Projects
+
+- Classification: `INSTALLED_RETAIL_DATA_EXECUTED`,
+  `COMPLETE_CENTER_GRAPH_CONFIRMED`, `TERMINAL_NO_REWARD_CONFIRMED`,
+  `SAME_SLOT8_REUSE_CONFIRMED`.
+- Installed ProjectTable selection produces
+  `A32 -> A34 -> S21 -> S15 -> A35 -> A36 -> S17 -> S13 -> A33 -> <none>`.
+  This proves that remaining lower-tier alternatives follow A35; S14 is
+  explicitly disabled in retail source and is not synthesized.
+- All objectives are real kill graphs. A34, S15, A35, A36 and S17 additionally
+  retain authored failure-reached guards, which remain false while success is
+  staged. A33 replaces exactly the two occupied `HwzCvl15/16` holders inherited
+  from A36 and terminates with 17 live/ready/stable Howitzers.
+- BRIEF has no command 35. Neutral `ma34.artf`, `ma35.artf` and `ms17.artf`
+  survive save/load as world population but never create an Artifact reward or
+  Portal. Every result repairs/refills, cleans its objective and preserves the
+  cumulative mission count.
+- The maintained gate pins all nine scripts, proves result rollback/reapply,
+  exact fresh restore and public slot-8 overwrite at the ninth stage.
+  Verification is 27/27 across Debug, Release and RelWithDebInfo.
+
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_CAMERA_PRESERVED`.
