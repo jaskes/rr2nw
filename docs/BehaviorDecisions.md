@@ -6607,3 +6607,24 @@ stale identity so the remaining helper calls remain harmless no-ops. This is
 not general error suppression. Live Commander, Group, Artefact, holder,
 attribute and uniquely named dependency failures remain fatal to stable
 capture and rollback.
+
+### BD-204: terminal no-reward is a proved result shape, not one objective type
+
+Status: accepted on 2026-08-08 for installed Colony ProjectG2 while retaining
+the Level.01N Outsider and Level.04D Actek ProjectA27 gates.
+
+A terminal Project is identified by the installed graph after its committed
+result: no eligible successor and no command 35. The recovered acceptance
+owner had encoded the first observed terminal row too narrowly as exactly one
+reached condition. Retail now proves two bounded shapes: one guarded reached
+condition (Outsider/A27) or a nonempty all-kill set (G2). Both forbid
+success-live conditions and rewards. Mixed shapes remain unsupported until an
+installed Project proves their ordering.
+
+The all-kill probe resolves every authored ObjectID before mutation, removes
+the live owners through Context, and sends the ordinary mission check event.
+It never writes mission status directly. Result commit, repair/refill,
+objective cleanup, repeat revisit, pre-result rollback, committed reapply and
+fresh-process save restoration remain the same transaction contract. The
+terminal row remains retired with no synthesized Project, Artifact, Portal or
+presentation asset.

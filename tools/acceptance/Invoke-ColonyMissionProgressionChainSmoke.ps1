@@ -70,9 +70,46 @@ function Require-Proof {
     }
 }
 
+# Pin the installed March retail scripts that define the remaining Colony
+# handoff.  The runtime proof below verifies behavior, while these hashes keep
+# a different data revision from silently redefining the expected graph.
+$retailEvidence = @(
+    [pscustomobject]@{ file="BRIEF\AER03.SC";   bytes=3958; sha256="3651DDFB087E01CD0930AD61D42D6CC391D3C92FB69DAF482F17470E152EB96B" },
+    [pscustomobject]@{ file="BRIEF\AER13.SC";   bytes=2390; sha256="60A7BA7E2369038244781D5FF9F9EDEB885A32F1F21A8A75DCFF38A02C2CB49F" },
+    [pscustomobject]@{ file="BRIEF\AER15.SC";   bytes=3029; sha256="1566A3AD9DEC7CAC3C9A96A109484A15494A9B2F7A1626ACE75120B40C3ED7E2" },
+    [pscustomobject]@{ file="BRIEF\AER17.SC";   bytes=2226; sha256="8A7EA366B6D0DA5080AB14C75949C81534B6192A0EB3C54BC175452A0D77E480" },
+    [pscustomobject]@{ file="BRIEF\AER20.SC";   bytes=3556; sha256="E7ECF815CCA321F859EBCA23803D2D1CB54322C9BC3E353541FE991C6FD8DEA3" },
+    [pscustomobject]@{ file="BRIEF\AER24.SC";   bytes=4627; sha256="7029ED3D203E110FC0003765E49E49A990DD4778F44EB8AB90AC0EC2416294A8" },
+    [pscustomobject]@{ file="BRIEF\BRIEFG2.SC"; bytes=3510; sha256="C047ED03D8CB2564B6263FA081B21CECD4018885EF5471261D78B518DA42D333" }
+)
+foreach ($evidence in $retailEvidence) {
+    $path = Join-Path (Join-Path $DataRoot "Level.04D") $evidence.file
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        throw "Installed Colony mission script is unavailable: $path"
+    }
+    $item = Get-Item -LiteralPath $path
+    $hash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+    if ($item.Length -ne $evidence.bytes -or $hash -ne $evidence.sha256) {
+        throw "Installed Colony mission evidence changed: $($evidence.file)"
+    }
+}
+
+$briefPath = Join-Path $DataRoot "Level.04D\SCINC\BRIEF.SCI"
+$briefText = Get-Content -LiteralPath $briefPath -Raw
+$expectedProjects = @(
+    "ProjectAER03", "ProjectAER13", "ProjectAER15", "ProjectAER17",
+    "ProjectAER20", "ProjectAER24", "ProjectG2"
+)
+foreach ($project in $expectedProjects) {
+    if ($briefText -notmatch ('s_NewProject\s*\(\s*"' + [regex]::Escape($project) + '"')) {
+        throw "Installed BRIEF.SCI no longer registers $project"
+    }
+}
+
 # This order is not inferred from registration order.  Every edge is the
 # selected successor produced by the installed BRIEF.SCI after the preceding
-# committed result. ProjectG7 is the exact handoff out of the Colony G branch.
+# committed result. ProjectG7 hands off into the AER branch and ProjectG2 is
+# the authored terminal project with no successor, reward or Portal command.
 $stages = @(
     [pscustomobject]@{ project="ProjectG3";  next="ProjectG5";    conditions=1;  created=13; replaced=0; howitzers="0/0/0";    limited=0; limitedName="<none>" },
     [pscustomobject]@{ project="ProjectG5";  next="ProjectG4";    conditions=6;  created=31; replaced=0; howitzers="0/0/0";    limited=0; limitedName="<none>" },
@@ -87,7 +124,14 @@ $stages = @(
     [pscustomobject]@{ project="ProjectG1";  next="ProjectA29";   conditions=5;  created=35; replaced=0; howitzers="15/15/15"; limited=0; limitedName="<none>" },
     [pscustomobject]@{ project="ProjectA29"; next="ProjectS08";   conditions=10; created=52; replaced=4; howitzers="15/15/15"; limited=0; limitedName="<none>" },
     [pscustomobject]@{ project="ProjectS08"; next="ProjectG7";    conditions=5;  created=33; replaced=0; howitzers="11/11/11"; limited=0; limitedName="<none>" },
-    [pscustomobject]@{ project="ProjectG7";  next="ProjectAER03"; conditions=1;  created=37; replaced=2; howitzers="11/11/11"; limited=0; limitedName="<none>" }
+    [pscustomobject]@{ project="ProjectG7";    next="ProjectAER03"; conditions=1; created=37; replaced=2; howitzers="11/11/11"; limited=0; limitedName="<none>" },
+    [pscustomobject]@{ project="ProjectAER03"; next="ProjectAER13"; conditions=5; created=27; replaced=0; howitzers="11/11/11"; limited=0; limitedName="<none>" },
+    [pscustomobject]@{ project="ProjectAER13"; next="ProjectAER15"; conditions=3; created=15; replaced=0; howitzers="11/11/11"; limited=0; limitedName="<none>" },
+    [pscustomobject]@{ project="ProjectAER15"; next="ProjectAER17"; conditions=4; created=17; replaced=0; howitzers="11/11/11"; limited=0; limitedName="<none>" },
+    [pscustomobject]@{ project="ProjectAER17"; next="ProjectAER20"; conditions=3; created=14; replaced=0; howitzers="11/11/11"; limited=0; limitedName="<none>" },
+    [pscustomobject]@{ project="ProjectAER20"; next="ProjectAER24"; conditions=5; created=25; replaced=0; howitzers="11/11/11"; limited=0; limitedName="<none>" },
+    [pscustomobject]@{ project="ProjectAER24"; next="ProjectG2";    conditions=5; created=30; replaced=0; howitzers="11/11/11"; limited=0; limitedName="<none>" },
+    [pscustomobject]@{ project="ProjectG2"; next="<none>"; conditions=3; created=27; replaced=0; howitzers="13/13/13"; limited=0; limitedName="<none>"; terminal=$true }
 )
 
 $records = [Collections.Generic.List[object]]::new()
@@ -109,12 +153,19 @@ foreach ($configurationName in $Configuration) {
     for ($index = 0; $index -lt $stages.Count; ++$index) {
         $stage = $stages[$index]
         $ordinal = $index + 1
+        $terminal = ($stage.PSObject.Properties.Name -contains "terminal") -and
+            [bool]$stage.terminal
         $loadSlot = [Math]::Min($index, 8)
         $saveSlot = [Math]::Min($ordinal, 8)
         $stageRoot = Join-Path $caseRoot ("{0:D2}-{1}" -f $ordinal, $stage.project)
         $resultRoot = Join-Path $stageRoot "result"
+        $resultMode = if ($terminal) {
+            "--mission-terminal-no-reward-result-smoke"
+        } else {
+            "--mission-no-reward-result-smoke"
+        }
         $resultArguments = $common + @(
-            "--mission-no-reward-result-smoke",
+            $resultMode,
             "--mission-center", "C.Recr0",
             "--diagnostics-dir", ('"' + $resultRoot + '"'),
             "--save-slot", "$saveSlot"
@@ -129,15 +180,26 @@ foreach ($configurationName in $Configuration) {
 
         $freshRoot = Join-Path $stageRoot "fresh"
         $fresh = if (-not $result.timed_out -and $result.exit_code -eq 0) {
-            Invoke-ProbeProcess -Executable $executable -PhaseRoot $freshRoot `
-                -Arguments ($common + @(
+            if ($terminal) {
+                $freshArguments = $common + @(
+                    "--mission-terminal-no-reward-fresh-smoke",
+                    "--mission-center", "C.Recr0",
+                    "--mission-project", $stage.project,
+                    "--diagnostics-dir", ('"' + $freshRoot + '"'),
+                    "--load-slot", "$saveSlot"
+                )
+            } else {
+                $freshArguments = $common + @(
                     "--mission-no-reward-fresh-smoke",
                     "--mission-center", "C.Recr0",
                     "--mission-project", $stage.project,
                     "--mission-next-project", $stage.next,
                     "--diagnostics-dir", ('"' + $freshRoot + '"'),
                     "--load-slot", "$saveSlot"
-                ))
+                )
+            }
+            Invoke-ProbeProcess -Executable $executable -PhaseRoot $freshRoot `
+                -Arguments $freshArguments
         } else {
             [pscustomobject]@{ timed_out=$false; exit_code=-2; startup=""; diagnostics=$freshRoot }
         }
@@ -147,7 +209,7 @@ foreach ($configurationName in $Configuration) {
         if ($result.exit_code -ne 0) { $issues.Add("result exit=$($result.exit_code)") }
         if ($fresh.timed_out) { $issues.Add("fresh timeout") }
         if ($fresh.exit_code -ne 0) { $issues.Add("fresh exit=$($fresh.exit_code)") }
-        Require-Proof -Log $result.startup -Issues $issues -Owner "result" -Expected @(
+        $commonResultProof = @(
             "mission_smoke_selected_center=C.Recr0",
             "mission_smoke_selected_project=$($stage.project)",
             "mission_smoke_created_objects=$($stage.created)",
@@ -155,22 +217,51 @@ foreach ($configurationName in $Configuration) {
             "mission_smoke_replaced_howitzers=$($stage.replaced)",
             "mission_smoke_capacity_limited_conditions=$($stage.limited)",
             "mission_smoke_capacity_limited_condition=$($stage.limitedName)",
-            "mission_smoke_howitzers=$($stage.howitzers)",
-            "mission_no_reward_project=$($stage.project)/$($stage.next)",
-            "mission_no_reward_conditions=$($stage.conditions)/1",
-            "mission_no_reward_reached=0/1",
-            "mission_no_reward_commit=1/1/0/1/1/1/1/1",
-            "mission_no_reward_progress=1/0/$ordinal/$ordinal/1/0",
-            "mission_no_reward_save=1/1/1/1",
-            "mission_no_reward_rollback=1/1/1",
-            "mission_no_reward_reapply=1/1/1",
+            "mission_smoke_howitzers=$($stage.howitzers)"
+        )
+        $resultPrefix = if ($terminal) {
+            "mission_terminal_no_reward_"
+        } else {
+            "mission_no_reward_"
+        }
+        $commitState = if ($terminal) {
+            "1/1/0/1/1/1/1/1/1"
+        } else {
+            "1/1/0/1/1/1/1/1"
+        }
+        $resultProof = $commonResultProof + @(
+            "$($resultPrefix)project=$($stage.project)/$($stage.next)",
+            "$($resultPrefix)conditions=$($stage.conditions)/1",
+            "$($resultPrefix)commit=$commitState",
+            "$($resultPrefix)progress=1/0/$ordinal/$ordinal/1/0",
+            "$($resultPrefix)save=1/1/1/1",
+            "$($resultPrefix)rollback=1/1/1",
+            "$($resultPrefix)reapply=1/1/1",
             "save_menu_completed_saves=1",
             "game_services_issues=0",
             "runtime_shutdown=clean"
         )
+        if ($terminal) {
+            $resultProof += "mission_terminal_no_reward_objective=1/0/1/0/1"
+        } else {
+            $resultProof += "mission_no_reward_reached=0/1"
+        }
+        Require-Proof -Log $result.startup -Issues $issues -Owner "result" `
+            -Expected $resultProof
+
+        $freshIdentity = if ($terminal) {
+            "mission_terminal_no_reward_fresh_identity=C.Recr0/$($stage.project)"
+        } else {
+            "mission_no_reward_fresh_identity=C.Recr0/$($stage.project)/$($stage.next)"
+        }
+        $freshState = if ($terminal) {
+            "mission_terminal_no_reward_fresh=1/1/1/0/1"
+        } else {
+            "mission_no_reward_fresh=1/1/1/0/1"
+        }
         Require-Proof -Log $fresh.startup -Issues $issues -Owner "fresh" -Expected @(
-            "mission_no_reward_fresh_identity=C.Recr0/$($stage.project)/$($stage.next)",
-            "mission_no_reward_fresh=1/1/1/0/1",
+            $freshIdentity,
+            $freshState,
             "save_menu_completed_loads=1",
             "game_services_issues=0",
             "runtime_shutdown=clean"

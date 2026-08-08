@@ -2493,9 +2493,32 @@ playable Level begins.
   zero reward/Portal leakage. The old HWZ1 v1 representation also restores
   through semantic v2 migration without weakening the enclosing LCN1
   fingerprint.
-- Verification: `Invoke-ColonyMissionProgressionChainSmoke.ps1` passes 42/42
-  (14/14 in each of Debug, Release and RelWithDebInfo). The Actek, ordinary no-reward,
-  terminal, reward/Portal, presentation and campaign gates remain independent.
+- Verification: these first fourteen rows remain green inside the expanded
+  `Invoke-ColonyMissionProgressionChainSmoke.ps1` 63/63 gate. The Actek,
+  ordinary no-reward, terminal, reward/Portal, presentation and campaign gates
+  remain independent.
+
+### RP-CAMPAIGN-029: the installed Colony branch terminates at ProjectG2
+
+- Classification: `INSTALLED_RETAIL_DATA_EXECUTED`,
+  `ORDINARY_NO_REWARD_CHAIN_CONFIRMED`, `TERMINAL_ALL_KILL_CONFIRMED`,
+  `PUBLIC_SAVE_SLOT_BOUNDARY_PRESERVED`.
+- Installed AER03, AER13, AER15, AER17, AER20 and AER24 form six ordinary
+  no-reward results after G7 and select exact ProjectG2. Their real scripts
+  contribute respectively 5, 3, 4, 3, 5 and 5 retained kill conditions; the
+  acceptance gate pins every script byte length and SHA-256 before execution.
+  No row owns command 35, so no Artifact or Portal is inferred.
+- Installed G2 owns three real success-kill targets, Commander Colony,
+  MissionInfo 0 and authored briefing/script/route references. Destroying all
+  three through the normal mission event retires the row at cumulative count
+  21. Candidate discovery then returns none. No successor, reward or
+  presentation asset is synthesized.
+- The complete maintained branch is
+  `G3 -> G5 -> G4 -> G8 -> A25 -> G10 -> G11 -> G12 -> G14 -> A28 -> G1 -> A29 -> S08 -> G7 -> AER03 -> AER13 -> AER15 -> AER17 -> AER20 -> AER24 -> G2`.
+  Slots 1..8 and repeated slot-8 overwrite preserve exact fresh-process world
+  fingerprints for every committed result. The terminal stage additionally
+  proves its failure guard, idempotent no-candidate revisit and pre-result
+  rollback/reapply. Verification is 63/63 across all three configurations.
 
 ### RP-VEHICLE-001: retail death-camera ascent terminates as state
 

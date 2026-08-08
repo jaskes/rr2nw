@@ -5581,10 +5581,38 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   admitted roster. The persisted Colony gate proves
   `G3 -> G5 -> G4 -> G8 -> A25 -> G10 -> G11 -> G12 -> G14 -> A28 -> G1 -> A29 -> S08 -> G7 -> AER03`,
   including every result rollback/reapply and exact fresh restore through the
-  eight public slots: 42/42 stages across Debug, Release and RelWithDebInfo.
+  eight public slots. Those first fourteen rows remain green inside the
+  expanded 63/63 gate across Debug, Release and RelWithDebInfo.
 - Boundary: Commander, Group, Artefact, holder, attribute and unique live
   object identities still fail closed. This does not legalize arbitrary
   duplicate names, missing holders or broken mission references.
+
+### CQ-268: Colony G2 is an all-kill terminal, not an unfinished handoff
+
+- Status: `INSTALLED_RETAIL_GRAPH_PRESERVED`,
+  `ALL_KILL_TERMINAL_ROW_PRESERVED`, `SAME_SLOT_8_FRESH_LOAD_PROVEN`.
+- Evidence: after AER03 the installed `C.Recr0` catalog selects exact
+  `AER13 -> AER15 -> AER17 -> AER20 -> AER24 -> G2`. The six AER mission
+  scripts have pinned byte lengths and SHA-256 identities in the maintained
+  Colony gate. None owns command 35. Installed `CreateG2Project` has three
+  success-kill conditions, Commander Colony, MissionInfo 0, authored
+  `Brief/brg02.txt`, `Brief/briefg2.sc` and `Route/G02/rout2.rt`, no failure,
+  reached, live, reward or successor command. `BRIEFG2.SC` is 3510 bytes with
+  SHA-256 `C047ED03D8CB2564B6263FA081B21CECD4018885EF5471261D78B518DA42D333`.
+- Handling: terminal completion accepts the two installed result shapes only:
+  a nonempty all-kill objective or one guarded reached objective, always with
+  no success-live condition and no command 35. G2 removes its three real live
+  targets through Context, lets the normal mission check produce success,
+  retires only G2, repairs/refills the player and leaves no candidate,
+  Artifact or Portal. Presentation state is neither invented nor serialized.
+- Verification: the full persisted Colony gate now proves
+  `G3 -> G5 -> G4 -> G8 -> A25 -> G10 -> G11 -> G12 -> G14 -> A28 -> G1 -> A29 -> S08 -> G7 -> AER03 -> AER13 -> AER15 -> AER17 -> AER20 -> AER24 -> G2 -> <none>`.
+  All 21 outcomes prove rollback/reapply and exact fresh-process restore through
+  public slots 1..8 with explicit slot-8 overwrite: 63/63 across Debug,
+  Release and RelWithDebInfo.
+- Boundary: this closes the installed Level.04D Colony center graph. It does
+  not generalize terminal admission to mixed kill/reached/live graphs or infer
+  rewards, Portals and successors absent from retail commands.
 
 ## Maintenance rule
 

@@ -1702,3 +1702,32 @@ mission_terminal_no_reward_fresh=1/1/1/0/1
 The terminal fresh fingerprint must equal the saved reused slot 8. Any next
 candidate, Artifact/Portal output, false failure guard or direct status bypass
 is a failure.
+
+## Complete persisted Colony campaign pass
+
+Run the installed-data Colony chain in all maintained configurations:
+
+```powershell
+& ".\tools\acceptance\Invoke-ColonyMissionProgressionChainSmoke.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration @("Debug","Release","RelWithDebInfo")
+```
+
+It must report `Colony mission progression chain passed: 63/63`. The first 20
+rows are ordinary no-reward results ending `ProjectAER24 -> ProjectG2`; the
+final row is terminal and must report:
+
+```text
+mission_terminal_no_reward_project=ProjectG2/<none>
+mission_terminal_no_reward_conditions=3/1
+mission_terminal_no_reward_commit=1/1/0/1/1/1/1/1/1
+mission_terminal_no_reward_progress=1/0/21/21/1/0
+mission_terminal_no_reward_save=1/1/1/1
+mission_terminal_no_reward_rollback=1/1/1
+mission_terminal_no_reward_reapply=1/1/1
+mission_terminal_no_reward_fresh_identity=C.Recr0/ProjectG2
+mission_terminal_no_reward_fresh=1/1/1/0/1
+```
+
+Every stage must match its saved/fresh world fingerprint while using only the
+eight public slots. Any changed installed mission hash, ninth-slot format,
+surviving candidate, reward/Portal output or unsupported mixed terminal
+condition shape is a failure.

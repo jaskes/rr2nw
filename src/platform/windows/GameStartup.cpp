@@ -5323,10 +5323,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                "/" + (terminalNoReward ? "<none>"
                                            : noReward.nextProjectName));
       log.Line(noRewardPrefix + "conditions=" +
-                std::to_string(terminalNoReward
-                                   ? noReward.reachedConditions
-                                   : noReward.conditionsRemoved +
-                                         noReward.reachedConditions) + "/" +
+                std::to_string(noReward.conditionsRemoved +
+                               noReward.reachedConditions) + "/" +
                 std::to_string(noReward.statusTransitions));
       if (!terminalNoReward)
         log.Line(noRewardPrefix + "reached=" +

@@ -2848,17 +2848,22 @@ bool RecruitCenterSubjectState_CompleteTerminalNoRewardMissionProbeForCenter(
     PlayerMission &mission = player.m_mission[missionIndex];
     const KR_ObjectID completedProject = mission.mID;
     const char *projectName = context->searchObject(completedProject);
+    const int successKillCount = mission.success_needKill.getCount();
+    const int successReachedCount = mission.success_needReached.getCount();
+    const bool supportedSuccessShape =
+        mission.success_needLive.getCount() == 0 &&
+        ((successKillCount > 0 && successReachedCount == 0) ||
+         (successKillCount == 0 && successReachedCount == 1));
     if (projectName == NULL || mission.m_giveArtefact ||
-        mission.success_needKill.getCount() != 0 ||
-        mission.success_needLive.getCount() != 0 ||
-        mission.success_needReached.getCount() != 1 ||
-        !std::isfinite(mission.success_reachedPos[0].x) ||
-        !std::isfinite(mission.success_reachedPos[0].y) ||
-        !std::isfinite(mission.success_reachedRadius[0]) ||
-        mission.success_reachedRadius[0] <= 0.0)
+        !supportedSuccessShape ||
+        (successReachedCount == 1 &&
+         (!std::isfinite(mission.success_reachedPos[0].x) ||
+          !std::isfinite(mission.success_reachedPos[0].y) ||
+          !std::isfinite(mission.success_reachedRadius[0]) ||
+          mission.success_reachedRadius[0] <= 0.0)))
     {
-        SetError("RecruitCenter terminal no-reward needs one real reached "
-                 "condition without success kill/live or "
+        SetError("RecruitCenter terminal no-reward needs an all-kill or one "
+                 "reached mission without success-live or "
                  "COM_SET_GIVEARTEFACT");
         return false;
     }
@@ -2876,9 +2881,6 @@ bool RecruitCenterSubjectState_CompleteTerminalNoRewardMissionProbeForCenter(
         return false;
     }
 
-    const double targetX = mission.success_reachedPos[0].x;
-    const double targetZ = mission.success_reachedPos[0].y;
-    const double radius = mission.success_reachedRadius[0];
     summary->failureGuardPreserved =
         !EvaluateConditions(&mission, context, false) ? 1 : 0;
     if (summary->failureGuardPreserved != 1)
@@ -2887,53 +2889,84 @@ bool RecruitCenterSubjectState_CompleteTerminalNoRewardMissionProbeForCenter(
         return false;
     }
 
-    const KR_ObjectID reachedActor = mission.success_needReached[0];
-    bool reachedStaged = false;
-    if (reachedActor == g_vehicle->getObjectID())
+    std::vector<KR_ObjectID> targets;
+    for (int index = 0; index < successKillCount; ++index)
+        if (context->isExist(mission.success_needKill[index]))
+            targets.push_back(mission.success_needKill[index]);
+    if (targets.size() != static_cast<std::size_t>(successKillCount))
     {
-        const CFVector3 originalPosition = g_vehicle->Pos();
-        const double originalDx = originalPosition.x - targetX;
-        const double originalDz = originalPosition.z - targetZ;
-        if (FiniteVector(originalPosition) &&
-            originalDx * originalDx + originalDz * originalDz >
-                radius * radius)
-        {
-            const CFVector3 target(targetX, originalPosition.y, targetZ);
-            g_vehicle->SetPos(target);
-            g_vehicle->setPosition(target);
-            g_vehicle->Stop();
-            reachedStaged = true;
-        }
-    }
-    else
-    {
-        SPeopleMissionReachedStageSummary people = {};
-        STankMissionReachedStageSummary tank = {};
-        reachedStaged = PeopleSubjectState_StageMissionReachedCondition(
-            context, reachedActor, targetX, targetZ, radius, &people);
-        if (!reachedStaged)
-            reachedStaged = TankSubjectState_StageMissionReachedCondition(
-                context, reachedActor, targetX, targetZ, radius, &tank);
-    }
-    if (!reachedStaged ||
-        !EvaluateConditions(&mission, context, true) ||
-        EvaluateConditions(&mission, context, false))
-    {
-        SetError("RecruitCenter terminal reached staging did not establish "
-                 "a guarded success state");
+        SetError("RecruitCenter terminal kill graph is already incomplete");
         return false;
     }
+    if (successReachedCount == 1)
+    {
+        const double targetX = mission.success_reachedPos[0].x;
+        const double targetZ = mission.success_reachedPos[0].y;
+        const double radius = mission.success_reachedRadius[0];
+        const KR_ObjectID reachedActor = mission.success_needReached[0];
+        bool reachedStaged = false;
+        if (reachedActor == g_vehicle->getObjectID())
+        {
+            const CFVector3 originalPosition = g_vehicle->Pos();
+            const double originalDx = originalPosition.x - targetX;
+            const double originalDz = originalPosition.z - targetZ;
+            if (FiniteVector(originalPosition) &&
+                originalDx * originalDx + originalDz * originalDz >
+                    radius * radius)
+            {
+                const CFVector3 target(targetX, originalPosition.y, targetZ);
+                g_vehicle->SetPos(target);
+                g_vehicle->setPosition(target);
+                g_vehicle->Stop();
+                reachedStaged = true;
+            }
+        }
+        else
+        {
+            SPeopleMissionReachedStageSummary people = {};
+            STankMissionReachedStageSummary tank = {};
+            reachedStaged = PeopleSubjectState_StageMissionReachedCondition(
+                context, reachedActor, targetX, targetZ, radius, &people);
+            if (!reachedStaged)
+                reachedStaged = TankSubjectState_StageMissionReachedCondition(
+                    context, reachedActor, targetX, targetZ, radius, &tank);
+        }
+        if (!reachedStaged)
+        {
+            SetError("RecruitCenter terminal reached staging failed");
+            return false;
+        }
+        summary->reachedConditions = 1;
+        summary->failureGuardPreserved =
+            !EvaluateConditions(&mission, context, false) ? 1 : 0;
+        if (summary->failureGuardPreserved != 1)
+        {
+            SetError("RecruitCenter terminal reached stage killed its guard");
+            return false;
+        }
+    }
     context->removeEventsTo(rc_CHECK_MISSION, center->getObjectID());
+    for (std::size_t index = 0; index < targets.size(); ++index)
+    {
+        context->removeObject(targets[index]);
+        ++summary->conditionsRemoved;
+    }
+    if (!EvaluateConditions(&mission, context, true) ||
+        EvaluateConditions(&mission, context, false))
+    {
+        SetError("RecruitCenter terminal staging did not establish a guarded "
+                 "success state");
+        return false;
+    }
     KR_Event check(rc_CHECK_MISSION, timeStamp,
                    g_vehicle->getObjectID(), center->getObjectID());
     check.data.open(EDO_WRITE).putInt(missionIndex).close();
     context->sendEventNow(check);
     if (player.m_mission[missionIndex].m_status != MISSION_SUCCESS)
     {
-        SetError("RecruitCenter terminal real reached check did not succeed");
+        SetError("RecruitCenter terminal real condition check did not succeed");
         return false;
     }
-    summary->reachedConditions = 1;
     summary->statusTransitions = 1;
 
     const bool artifactExisted = context->isExist("Artifact") != 0;
@@ -2985,7 +3018,10 @@ bool RecruitCenterSubjectState_CompleteTerminalNoRewardMissionProbeForCenter(
         player.m_missCnt == summary->missionsAfter &&
         (context->isExist("Artifact") != 0) == artifactExisted ? 1 : 0;
 
-    const bool exact = summary->reachedConditions == 1 &&
+    const bool exact = summary->conditionsRemoved ==
+                           static_cast<int>(targets.size()) &&
+        summary->conditionsRemoved + summary->reachedConditions ==
+            successKillCount + successReachedCount &&
         summary->failureGuardPreserved == 1 &&
         summary->statusTransitions == 1 &&
         summary->completedMissions == 1 &&
