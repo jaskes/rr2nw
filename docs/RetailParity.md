@@ -3188,6 +3188,25 @@ playable Level begins.
 - Raw legacy timer-record import, broader active-world hashes and renderer
   interpolation are deliberately separate boundaries.
 
+### RP-REPLAY-005: active gameplay-core divergence is component-localized
+
+- This is a modern determinism and diagnostics guarantee, not evidence that
+  the retail executable hashed world state or supported multiplayer replay.
+- RPH1 algorithm 2 retains the existing version-1 container and content/CTJ1
+  binding while expanding each sample to twelve ordered component hashes.
+  Seven of the seventeen LCN1 owner sections are included; People, Tank,
+  Vehicle and Mission use explicit presentation-normalized projections.
+- Two real installed-data executions with 28 and 7 presentation observations
+  reproduce the same 28 active-core hashes. A targeted People mutation names
+  `People`, an event-count mutation names `events`, a live briefing/audio
+  presentation change leaves the hash intact, gameplay damage names `Vehicle`,
+  and fresh LCN1 restore reconstructs the exact aggregate.
+- Startup exposes only algorithm/profile counts and the bounded first mismatch
+  name. Retail payload, pointers, render/audio/UI state and filesystem paths
+  remain outside the profile and diagnostics.
+- The deferred LCN1 owner families are listed in
+  `ActiveWorldReplayHash.md`; this row does not claim complete-world parity.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

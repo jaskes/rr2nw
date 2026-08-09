@@ -6,7 +6,8 @@
 #include <vector>
 
 enum : std::uint32_t {
-  RR2NW_REPLAY_HASH_VEHICLE_CLK1_RNG_FNV1A64 = 1u
+  RR2NW_REPLAY_HASH_VEHICLE_CLK1_RNG_FNV1A64 = 1u,
+  RR2NW_REPLAY_HASH_ACTIVE_GAMEPLAY_CORE_FNV1A64 = 2u
 };
 
 struct SReplayHashSample {
@@ -25,6 +26,12 @@ struct SReplayHashJournal {
 
 bool ReplayHashJournal_Create(
     std::uint64_t contentFingerprint, double simulationStepSeconds,
+    const SVehicleControlJournal& controls,
+    const std::vector<SReplayHashSample>& samples,
+    SReplayHashJournal* journal);
+bool ReplayHashJournal_CreateWithAlgorithm(
+    std::uint64_t contentFingerprint, double simulationStepSeconds,
+    std::uint32_t stateHashAlgorithm,
     const SVehicleControlJournal& controls,
     const std::vector<SReplayHashSample>& samples,
     SReplayHashJournal* journal);

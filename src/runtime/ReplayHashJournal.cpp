@@ -100,12 +100,23 @@ bool ReplayHashJournal_Create(
     const SVehicleControlJournal& controls,
     const std::vector<SReplayHashSample>& samples,
     SReplayHashJournal* journal) {
+  return ReplayHashJournal_CreateWithAlgorithm(
+      contentFingerprint, simulationStepSeconds,
+      RR2NW_REPLAY_HASH_VEHICLE_CLK1_RNG_FNV1A64,
+      controls, samples, journal);
+}
+
+bool ReplayHashJournal_CreateWithAlgorithm(
+    std::uint64_t contentFingerprint, double simulationStepSeconds,
+    std::uint32_t stateHashAlgorithm,
+    const SVehicleControlJournal& controls,
+    const std::vector<SReplayHashSample>& samples,
+    SReplayHashJournal* journal) {
   if (journal == nullptr) return false;
   SReplayHashJournal candidate;
   candidate.contentFingerprint = contentFingerprint;
   candidate.simulationStepSeconds = simulationStepSeconds;
-  candidate.stateHashAlgorithm =
-      RR2NW_REPLAY_HASH_VEHICLE_CLK1_RNG_FNV1A64;
+  candidate.stateHashAlgorithm = stateHashAlgorithm;
   candidate.controls = controls;
   candidate.samples = samples;
   if (!ReplayHashJournal_Validate(candidate)) return false;
@@ -118,8 +129,10 @@ bool ReplayHashJournal_Validate(const SReplayHashJournal& journal) {
       !std::isfinite(journal.simulationStepSeconds) ||
       journal.simulationStepSeconds < kMinimumStepSeconds ||
       journal.simulationStepSeconds > kMaximumStepSeconds ||
-      journal.stateHashAlgorithm !=
-          RR2NW_REPLAY_HASH_VEHICLE_CLK1_RNG_FNV1A64 ||
+      (journal.stateHashAlgorithm !=
+           RR2NW_REPLAY_HASH_VEHICLE_CLK1_RNG_FNV1A64 &&
+       journal.stateHashAlgorithm !=
+           RR2NW_REPLAY_HASH_ACTIVE_GAMEPLAY_CORE_FNV1A64) ||
       !journal.controls.sealed ||
       !VehicleControlJournal_Validate(journal.controls) ||
       journal.samples.empty() ||

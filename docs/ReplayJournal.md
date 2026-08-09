@@ -113,10 +113,14 @@ destination.
 | samples: tick, simulation time, state hash | `u64`, `double`, `u64` |
 
 Algorithm 1 is canonical 64-bit FNV-1a over the recovered Vehicle runtime
-state, the complete `CLK1` fields and the gameplay RNG algorithm/state. It is
-deliberately narrow: other active-world owners are not yet hashed, so RPH1 is
-not called a full game replay or a multiplayer determinism proof. Presentation
-state is absent by design. A journal is admitted only when both its content
+state, the complete `CLK1` fields and the gameplay RNG algorithm/state.
+Algorithm 2 is the ordered twelve-component
+[active gameplay-core profile](ActiveWorldReplayHash.md): content, controller,
+seven normalized/stable LCN1 owner families, Clock, gameplay RNG and semantic
+events. Four owner codecs explicitly zero presentation-only fields before
+hashing. Deferred owner families remain absent, so neither algorithm is called
+a complete-world replay or a multiplayer determinism proof. Presentation state
+is absent by design. A journal is admitted only when both its content
 fingerprint and embedded CTJ1 fingerprint match the requested identities.
 Normal game startup obtains that base identity from the preflighted retail
 script manifest. The direct service acceptance harness intentionally has no
@@ -160,7 +164,10 @@ Runtime telemetry exposes checkpoint/last tick, action/focus/total record
 counts, CTJ1/RPH1 encoded sizes, fingerprints, append failures, recording state
 and application-active state. Startup diagnostics separately publish content,
 RPH1 and sample-stream fingerprints, the `2/28` hash result and the
-`28/28/28/7` simulation/presentation-cadence result. Scheduler telemetry adds
+`28/28/28/7` simulation/presentation-cadence result. The active-world marker
+publishes algorithm/components/LCN1 owners/events/normalized components/hash
+matches/first mismatch; the bounded name marker identifies the component
+without exposing payload. Scheduler telemetry adds
 `1/4/7/3/1/1`: dense/sparse maximum ticks per sample, sparse catch-up samples,
 boundary checks, focus resets and capped samples. Its bounded stall records
 `0.150000` dropped seconds.
@@ -205,6 +212,7 @@ There is still no player replay UI, seeking, interpolation or fast-forward.
 Cross-Level slot reconstruction carries both target and source LCN1/CTJ1
 containers through the main-loop restart. The long-session boundary now proves
 DWORD host wrap, a further synthetic year, 64-bit ticks and magnitude-safe RPH1
-validation without changing serialized bytes. Broader active-world hashes now
-follow separately. Legacy save import remains separate; multiplayer remains
-later.
+validation without changing serialized bytes. Algorithm 2 now covers the
+documented active gameplay core while intentionally deferring ten LCN1 owner
+families or presentation-sensitive projections. Legacy save import and broader
+owner coverage remain separate; multiplayer remains later.

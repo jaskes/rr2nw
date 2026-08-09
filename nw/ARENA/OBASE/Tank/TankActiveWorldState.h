@@ -16,6 +16,10 @@ int TankActiveWorldState_SchedulerEventCount(
     const std::vector<unsigned char> &bytes);
 unsigned long long TankActiveWorldState_Fingerprint(
     SimulationContext *context);
+// Canonical gameplay projection of TAN1. Tank/Cannon visibility and
+// audibility caches are neutralized before hashing.
+unsigned long long TankActiveWorldState_AuthoritativeFingerprint(
+    SimulationContext *context);
 bool TankActiveWorldState_CaptureStable(
     SimulationContext *context, std::vector<unsigned char> *bytes);
 bool TankActiveWorldState_ValidateStable(

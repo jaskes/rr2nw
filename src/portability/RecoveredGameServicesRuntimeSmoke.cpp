@@ -69,6 +69,7 @@
 #include "RecoveredLevelRuntime.h"
 #include "RecoveredModRuntime.h"
 #include "RecoveredRetailScriptManifest.h"
+#include "ReplayHashJournal.h"
 #include "RecoveredSavePreview.h"
 #include "RecoveredSoftwareGraph.h"
 #include "ZavOverallInfoState.h"
@@ -6099,6 +6100,14 @@ int main(int argc, char** argv) {
       replayTelemetry.rollbacks != 3 ||
       replayTelemetry.hashMatches != 2 ||
       replayTelemetry.hashSamples != 28 ||
+      replayTelemetry.activeWorldHashMatches != 2 ||
+      replayTelemetry.activeWorldComponents != 12 ||
+      replayTelemetry.activeWorldOwnerComponents != 7 ||
+      replayTelemetry.activeWorldEventCount < 0 ||
+      replayTelemetry.presentationNormalizedComponents != 4 ||
+      replayTelemetry.stateHashAlgorithm !=
+          RR2NW_REPLAY_HASH_ACTIVE_GAMEPLAY_CORE_FNV1A64 ||
+      replayTelemetry.mismatchComponent != 0u ||
       replayTelemetry.denseSimulationTicks != 28 ||
       replayTelemetry.sparseSimulationTicks != 28 ||
       replayTelemetry.densePresentationSamples != 28 ||
@@ -8533,7 +8542,11 @@ int main(int argc, char** argv) {
     return Fail("accumulated scheduled presentation boundary failed");
   }
   const std::uint64_t focusTickBefore = Session::m_simulationTick;
-  SendMessageA(_gr_hWnd, WM_ACTIVATEAPP, FALSE, 0);
+  if (!RecoveredGameServices_SetApplicationActive(false)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("headless focus-loss seam failed");
+  }
   SRecoveredProductionCadenceTelemetry scheduledFocusLost = {};
   if (!RecoveredGameServices_RunScheduledPresentation(0.1) ||
       !RecoveredGameServices_ProductionCadenceTelemetry(
@@ -8544,11 +8557,28 @@ int main(int argc, char** argv) {
       std::fabs(scheduledFocusLost.droppedSeconds - 0.1) > 1.0e-9 ||
       Session::m_simulationTick != focusTickBefore ||
       RecoveredGameServices_VehicleApplicationActive()) {
+    std::fprintf(
+        stderr,
+        "scheduled-focus-loss diagnostics samples=%llu ticks=%llu "
+        "resets=%llu "
+        "dropped=%.9f tick=%llu/%llu vehicle_active=%d\n",
+        static_cast<unsigned long long>(
+            scheduledFocusLost.presentationSamples),
+        static_cast<unsigned long long>(scheduledFocusLost.simulationTicks),
+        static_cast<unsigned long long>(scheduledFocusLost.focusResets),
+        scheduledFocusLost.droppedSeconds,
+        static_cast<unsigned long long>(Session::m_simulationTick),
+        static_cast<unsigned long long>(focusTickBefore),
+        RecoveredGameServices_VehicleApplicationActive() ? 1 : 0);
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("focus-loss scheduled presentation reset failed");
   }
-  SendMessageA(_gr_hWnd, WM_ACTIVATEAPP, TRUE, 0);
+  if (!RecoveredGameServices_SetApplicationActive(true)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("headless focus-gain seam failed");
+  }
   SRecoveredProductionCadenceTelemetry scheduledFocusRestored = {};
   if (!RecoveredGameServices_RunScheduledPresentation(0.025) ||
       !RecoveredGameServices_ProductionCadenceTelemetry(

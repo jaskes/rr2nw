@@ -254,6 +254,13 @@ foreach ($configurationName in $Configuration) {
                     -not $log.ContainsKey("vehicle_control_replay_hash_journal") -or
                     $log["vehicle_control_replay_hash_journal"] -notmatch
                         '^[1-9][0-9]*/[1-9][0-9]*/[1-9][0-9]*/2/28$' -or
+                    -not $log.ContainsKey("vehicle_control_replay_active_world") -or
+                    $log["vehicle_control_replay_active_world"] -notmatch
+                        '^2/12/7/[0-9]+/4/2/0$' -or
+                    -not $log.ContainsKey(
+                        "vehicle_control_replay_mismatch_component") -or
+                    $log["vehicle_control_replay_mismatch_component"] -ne
+                        "0/none" -or
                     -not $log.ContainsKey("vehicle_control_replay_presentation_cadence") -or
                     $log["vehicle_control_replay_presentation_cadence"] -ne
                         "28/28/28/7" -or

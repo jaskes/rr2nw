@@ -11,6 +11,7 @@
 #include <windows.h>
 
 #include "ActiveWorldRuntimeProbe.h"
+#include "ActiveWorldReplayHash.h"
 #include "ActiveWorldSave.h"
 #include "SimulationRandom.h"
 #include "TimeRuntimeState.h"
@@ -23,6 +24,7 @@
 #include "obase/vehicle/VehicleActiveWorldState.h"
 class CGRPanel;
 #include "h/vehicle.h"
+#include "sound.h"
 #include "storage/h/subject.h"
 
 namespace {
@@ -248,11 +250,60 @@ int main() {
     return Fail("could not build the symbolic source graph");
   }
 
+  const std::uint64_t contentFingerprint = 0x4652455348435458ull;
+  const std::uint64_t controllerFingerprint =
+      VehicleActiveWorldState_AuthoritativeFingerprint(&context);
+  SActiveWorldReplayHashSnapshot hashBefore;
+  std::string hashFailure;
+  if (!ActiveWorldReplayHash_Capture(
+          &context, contentFingerprint, controllerFingerprint,
+          &hashBefore, &hashFailure)) {
+    g_arena.closeSeance();
+    return Fail(hashFailure.c_str());
+  }
+
+  const bool briefingBefore = g_vehicle->m_playedBrief;
+  const double audioIntensityBefore = snd_engineIntensity;
+  g_vehicle->m_playedBrief = !briefingBefore;
+  snd_engineIntensity = audioIntensityBefore + 0.125;
+  SActiveWorldReplayHashSnapshot presentationHash;
+  std::uint32_t presentationMismatch = 0u;
+  const bool presentationExcluded = ActiveWorldReplayHash_Capture(
+          &context, contentFingerprint, controllerFingerprint,
+          &presentationHash, &hashFailure) &&
+      ActiveWorldReplayHash_FirstMismatch(
+          hashBefore, presentationHash, &presentationMismatch) &&
+      presentationMismatch == 0u &&
+      hashBefore.stateHash == presentationHash.stateHash;
+  g_vehicle->m_playedBrief = briefingBefore;
+  snd_engineIntensity = audioIntensityBefore;
+  if (!presentationExcluded) {
+    g_arena.closeSeance();
+    return Fail("presentation/audio state entered the gameplay-core hash");
+  }
+
+  const double damageBefore = g_vehicle->m_damage;
+  g_vehicle->m_damage = damageBefore + 0.125;
+  SActiveWorldReplayHashSnapshot gameplayHash;
+  std::uint32_t gameplayMismatch = 0u;
+  const bool gameplayDetected = ActiveWorldReplayHash_Capture(
+          &context, contentFingerprint, controllerFingerprint,
+          &gameplayHash, &hashFailure) &&
+      ActiveWorldReplayHash_FirstMismatch(
+          hashBefore, gameplayHash, &gameplayMismatch) &&
+      gameplayMismatch == ACTIVE_WORLD_HASH_VEHICLE &&
+      hashBefore.stateHash != gameplayHash.stateHash;
+  g_vehicle->m_damage = damageBefore;
+  if (!gameplayDetected) {
+    g_arena.closeSeance();
+    return Fail("authoritative Vehicle mutation was not localized");
+  }
+
   std::vector<std::uint8_t> bytes;
   SActiveWorldRuntimeProbeSummary capture;
   std::string failure;
   if (!ActiveWorldRuntime_CaptureProbe(
-          &context, 0x4652455348435458ull, "fresh-context", &bytes,
+          &context, contentFingerprint, "fresh-context", &bytes,
           &capture, &failure)) {
     g_arena.closeSeance();
     return Fail(failure.c_str());
@@ -328,6 +379,17 @@ int main() {
     g_arena.closeSeance();
     return Fail("decoded owner allocation or symbolic linking diverged");
   }
+  SActiveWorldReplayHashSnapshot hashAfter;
+  std::uint32_t hashMismatch = 0u;
+  if (!ActiveWorldReplayHash_Capture(
+          &context, contentFingerprint, controllerFingerprint,
+          &hashAfter, &hashFailure) ||
+      !ActiveWorldReplayHash_FirstMismatch(
+          hashBefore, hashAfter, &hashMismatch) || hashMismatch != 0u ||
+      hashBefore.stateHash != hashAfter.stateHash) {
+    g_arena.closeSeance();
+    return Fail("active gameplay-core hash changed across restore/rollback");
+  }
 
   removedVehicles.push_back(vehicle);
   VehicleActiveWorldState_RemoveStableOwners(&context, &removedVehicles);
@@ -364,7 +426,9 @@ int main() {
   std::printf(
       "active world fresh restore sections=15 created=4 refs=15 vehicle=state "
       "ids=reallocated missing-dependency=rollback collision=rejected "
-      "fingerprint=%llu\n",
-      static_cast<unsigned long long>(restored.worldFingerprint));
+      "fingerprint=%llu gameplay_core=%llu normalized=briefing/audio "
+      "mutation=Vehicle\n",
+      static_cast<unsigned long long>(restored.worldFingerprint),
+      static_cast<unsigned long long>(hashAfter.stateHash));
   return EXIT_SUCCESS;
 }

@@ -5428,6 +5428,20 @@ bool RecoveredGameServices_VehicleControlReplayTelemetry(
   telemetry->rollbacks = g_vehicleControlReplayProbe.rollbacks;
   telemetry->hashMatches = g_vehicleControlReplayProbe.hashMatches;
   telemetry->hashSamples = g_vehicleControlReplayProbe.hashSamples;
+  telemetry->activeWorldHashMatches =
+      g_vehicleControlReplayProbe.activeWorldHashMatches;
+  telemetry->activeWorldComponents =
+      g_vehicleControlReplayProbe.activeWorldComponents;
+  telemetry->activeWorldOwnerComponents =
+      g_vehicleControlReplayProbe.activeWorldOwnerComponents;
+  telemetry->activeWorldEventCount =
+      g_vehicleControlReplayProbe.activeWorldEventCount;
+  telemetry->presentationNormalizedComponents =
+      g_vehicleControlReplayProbe.presentationNormalizedComponents;
+  telemetry->stateHashAlgorithm =
+      g_vehicleControlReplayProbe.stateHashAlgorithm;
+  telemetry->mismatchComponent =
+      g_vehicleControlReplayProbe.mismatchComponent;
   telemetry->densePresentationSamples =
       g_vehicleControlReplayProbe.densePresentationSamples;
   telemetry->sparsePresentationSamples =
@@ -7492,6 +7506,17 @@ bool RecoveredGameServices_SetApplicationActive(bool active) {
   if (!g_vehicleControlReady || g_vehicleControlInput.getContext() == nullptr) {
     return false;
   }
+  // Headless service acceptance has no HWND, but scheduled presentation uses
+  // the semantic Windows adapter as its focus authority. Keep this explicit
+  // test seam aligned with the production WM_ACTIVATEAPP path before applying
+  // the same state immediately to Observer/Vehicle ownership.
+  SRecoveredWindowsInputBatch batch = {};
+  if (!g_windowsInputAdapter.ProcessWindowMessage(
+          WM_ACTIVATEAPP, active ? TRUE : FALSE, 0,
+          g_levelAttr.get_double("keySens"), &batch)) {
+    return false;
+  }
+  g_observerInput.SetApplicationActive(active);
   return g_vehicleControlInput.SetApplicationActive(
       active, CurrentInputEventTime());
 }

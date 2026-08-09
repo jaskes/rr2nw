@@ -1,11 +1,13 @@
 #include "ReplayHashJournal.h"
 
+#include "ActiveWorldReplayHash.h"
 #include "SimulationRandom.h"
 #include "TimeRuntimeState.h"
 #include "hardware.h"
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <vector>
 
@@ -80,6 +82,52 @@ int main() {
       ReplayHashJournal_MatchesIdentity(
           decoded, kContentFingerprint, controlFingerprint ^ 1u))
     return Fail("RPH1 round trip or identity validation diverged");
+
+  SReplayHashJournal activeWorldJournal;
+  std::vector<std::uint8_t> activeWorldEncoded;
+  SReplayHashJournal activeWorldDecoded;
+  if (!ReplayHashJournal_CreateWithAlgorithm(
+          kContentFingerprint, kStep,
+          RR2NW_REPLAY_HASH_ACTIVE_GAMEPLAY_CORE_FNV1A64,
+          controls, samples, &activeWorldJournal) ||
+      !ReplayHashJournal_Encode(activeWorldJournal, &activeWorldEncoded) ||
+      !ReplayHashJournal_Decode(activeWorldEncoded, &activeWorldDecoded) ||
+      activeWorldDecoded.stateHashAlgorithm !=
+          RR2NW_REPLAY_HASH_ACTIVE_GAMEPLAY_CORE_FNV1A64 ||
+      ReplayHashJournal_Fingerprint(activeWorldJournal) == 0u ||
+      ReplayHashJournal_Fingerprint(activeWorldJournal) !=
+          ReplayHashJournal_Fingerprint(activeWorldDecoded))
+    return Fail("RPH1 active gameplay-core algorithm did not round trip");
+
+  std::vector<SActiveWorldReplayHashComponent> components;
+  for (std::uint32_t kind = 1u;
+       kind <= kActiveWorldReplayHashComponentCount; ++kind)
+    components.push_back({kind, 0x100000001b3ull * kind});
+  SActiveWorldReplayHashSnapshot componentA;
+  SActiveWorldReplayHashSnapshot componentB;
+  std::uint32_t mismatch = 99u;
+  if (!ActiveWorldReplayHash_Create(components, 3u, &componentA) ||
+      !ActiveWorldReplayHash_Create(components, 3u, &componentB) ||
+      !ActiveWorldReplayHash_FirstMismatch(
+          componentA, componentB, &mismatch) || mismatch != 0u ||
+      componentA.stateHash != componentB.stateHash)
+    return Fail("active gameplay-core component identity diverged");
+  components[ACTIVE_WORLD_HASH_PEOPLE - 1u].fingerprint ^= 0x40u;
+  if (!ActiveWorldReplayHash_Create(components, 3u, &componentB) ||
+      !ActiveWorldReplayHash_FirstMismatch(
+          componentA, componentB, &mismatch) ||
+      mismatch != ACTIVE_WORLD_HASH_PEOPLE ||
+      componentA.stateHash == componentB.stateHash ||
+      std::strcmp(ActiveWorldReplayHash_ComponentName(mismatch),
+                  "People") != 0)
+    return Fail("active gameplay-core mutation was not localized");
+  components[ACTIVE_WORLD_HASH_PEOPLE - 1u].fingerprint ^= 0x40u;
+  if (!ActiveWorldReplayHash_Create(components, 4u, &componentB) ||
+      !ActiveWorldReplayHash_FirstMismatch(
+          componentA, componentB, &mismatch) ||
+      mismatch != ACTIVE_WORLD_HASH_SEMANTIC_EVENTS ||
+      componentA.stateHash == componentB.stateHash)
+    return Fail("semantic-event count mutation was not localized");
 
   SReplayHashJournal destination = decoded;
   const std::uint64_t destinationFingerprint =

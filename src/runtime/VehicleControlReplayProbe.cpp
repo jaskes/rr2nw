@@ -1,5 +1,6 @@
 #include "VehicleControlReplayProbe.h"
 
+#include "ActiveWorldReplayHash.h"
 #include "ReplayHashJournal.h"
 #include "SimulationCadence.h"
 #include "SimulationRandom.h"
@@ -202,32 +203,19 @@ std::uint64_t StateFingerprint(
   return hash;
 }
 
-std::uint64_t AuthoritativeStateFingerprint(
-    SimulationContext* context, const KR_ObjectID& vehicle) {
+bool AuthoritativeStateSnapshot(
+    SimulationContext* context, const KR_ObjectID& vehicle,
+    std::uint64_t contentFingerprint,
+    SActiveWorldReplayHashSnapshot* snapshot) {
   KR_ObjectID vehicleCopy = vehicle;
   SRecoveredVehicleRuntimeState state = {};
-  SSimulationClockState clock;
-  std::vector<std::uint8_t> random;
   if (context == nullptr || vehicleCopy.isNUL() ||
-      !VehicleRuntimeState_Inspect(context, vehicle, &state) ||
-      !SUA_CaptureSimulationClock(&clock) ||
-      !SUA_ValidateSimulationClock(clock) ||
-      !SimulationRandom_Capture(&random) || random.empty())
-    return 0u;
-  std::uint64_t hash = kHashOffset;
-  HashU32(&hash, 1u);
-  HashU64(&hash, StateFingerprint(state));
-  HashU64(&hash, clock.tick);
-  HashDouble(&hash, clock.eventMoment);
-  HashDouble(&hash, clock.viewTime);
-  HashDouble(&hash, clock.frameSeconds);
-  HashDouble(&hash, clock.timerAspect);
-  HashU32(&hash, clock.clampedSamples);
-  HashDouble(&hash, clock.clampedSeconds);
-  HashU32(&hash, SimulationRandom_Algorithm());
-  HashU32(&hash, static_cast<std::uint32_t>(random.size()));
-  Hash(&hash, random.data(), random.size());
-  return hash;
+      !VehicleRuntimeState_Inspect(context, vehicle, &state))
+    return false;
+  std::string failure;
+  return ActiveWorldReplayHash_Capture(
+      context, contentFingerprint, StateFingerprint(state), snapshot,
+      &failure);
 }
 
 bool SamplesMatch(const std::vector<SReplayHashSample>& left,
@@ -238,6 +226,33 @@ bool SamplesMatch(const std::vector<SReplayHashSample>& left,
         left[index].simulationTime != right[index].simulationTime ||
         left[index].stateHash != right[index].stateHash)
       return false;
+  return true;
+}
+
+bool ActiveWorldSnapshotsMatch(
+    const std::vector<SActiveWorldReplayHashSnapshot>& left,
+    const std::vector<SActiveWorldReplayHashSnapshot>& right,
+    std::uint32_t* mismatchComponent) {
+  if (mismatchComponent == nullptr || left.size() != right.size())
+  {
+    if (mismatchComponent != nullptr)
+      *mismatchComponent = ACTIVE_WORLD_HASH_PROFILE_OR_ROSTER;
+    return false;
+  }
+  *mismatchComponent = 0u;
+  for (std::size_t index = 0; index < left.size(); ++index) {
+    std::uint32_t mismatch = 0u;
+    if (!ActiveWorldReplayHash_FirstMismatch(
+            left[index], right[index], &mismatch)) {
+      *mismatchComponent = mismatch == 0u
+          ? ACTIVE_WORLD_HASH_PROFILE_OR_ROSTER : mismatch;
+      return false;
+    }
+    if (mismatch != 0u) {
+      *mismatchComponent = mismatch;
+      return false;
+    }
+  }
   return true;
 }
 
@@ -280,11 +295,14 @@ bool AdvanceTo(SimulationContext* context, std::uint64_t targetTick,
                double targetTime, const KR_ObjectID& vehicle,
                std::uint64_t* tick, double* time, int* frames,
                std::vector<SReplayHashSample>* samples,
+               std::vector<SActiveWorldReplayHashSnapshot>* worldHashes,
+               std::uint64_t contentFingerprint,
                SimulationCadence* cadence, int presentationStride,
                int* presentationSamples) {
   KR_ObjectID vehicleCopy = vehicle;
   if (context == nullptr || tick == nullptr || time == nullptr ||
-      frames == nullptr || samples == nullptr || vehicleCopy.isNUL() ||
+      frames == nullptr || samples == nullptr || worldHashes == nullptr ||
+      contentFingerprint == 0u || vehicleCopy.isNUL() ||
       cadence == nullptr || !cadence->IsConfigured() ||
       presentationStride <= 0 || presentationSamples == nullptr ||
       targetTick < *tick ||
@@ -311,14 +329,16 @@ bool AdvanceTo(SimulationContext* context, std::uint64_t targetTick,
           !VehicleRuntimeState_Advance(context, *time))
         return false;
       ++*frames;
-      const std::uint64_t stateHash =
-          AuthoritativeStateFingerprint(context, vehicle);
-      if (stateHash == 0u) return false;
+      SActiveWorldReplayHashSnapshot state;
+      if (!AuthoritativeStateSnapshot(
+              context, vehicle, contentFingerprint, &state))
+        return false;
       SReplayHashSample sample;
       sample.tick = *tick;
       sample.simulationTime = *time;
-      sample.stateHash = stateHash;
+      sample.stateHash = state.stateHash;
       samples->push_back(sample);
+      worldHashes->push_back(state);
     }
   }
   return NearlyEqual(*time, targetTime) && ApplyClock(*tick, targetTime);
@@ -365,13 +385,16 @@ bool RecordFocus(SimulationContext* context,
 
 bool ReplayJournal(SimulationContext* context,
                    const SVehicleControlJournal& journal,
+                   std::uint64_t contentFingerprint,
                    int presentationStride,
                    std::vector<SReplayHashSample>* samples,
+                   std::vector<SActiveWorldReplayHashSnapshot>* worldHashes,
                    int* frames, int* presentationSamples,
                    int* syntheticReleases,
                    SSimulationCadenceTelemetry* cadenceTelemetry) {
   if (context == nullptr || frames == nullptr ||
-      samples == nullptr || presentationSamples == nullptr ||
+      samples == nullptr || worldHashes == nullptr ||
+      contentFingerprint == 0u || presentationSamples == nullptr ||
       syntheticReleases == nullptr || cadenceTelemetry == nullptr ||
       presentationStride <= 0 ||
       !VehicleControlJournal_Validate(journal) || !journal.sealed)
@@ -399,6 +422,7 @@ bool ReplayJournal(SimulationContext* context,
   for (const SVehicleControlJournalRecord& record : journal.records) {
     if (!AdvanceTo(context, record.tick, record.eventTime,
                    target, &tick, &time, frames, samples,
+                   worldHashes, contentFingerprint,
                    &cadence, presentationStride, presentationSamples))
       return false;
     if (record.kind == VEHICLE_CONTROL_JOURNAL_ACTION) {
@@ -428,6 +452,7 @@ bool ReplayJournal(SimulationContext* context,
   }
   if (!AdvanceTo(context, journal.finalTick, journal.finalTime,
                  target, &tick, &time, frames, samples,
+                 worldHashes, contentFingerprint,
                  &cadence, presentationStride, presentationSamples))
     return false;
   *cadenceTelemetry = cadence.Telemetry();
@@ -492,6 +517,7 @@ bool VehicleControlReplayProbe_Run(
   int recordedPresentationSamples = 0;
   int recordedSyntheticReleases = 0;
   std::vector<SReplayHashSample> recordedSamples;
+  std::vector<SActiveWorldReplayHashSnapshot> recordedWorldHashes;
   std::uint64_t tick = checkpointClock.tick;
   double time = startTime;
   SimulationCadence recordingCadence;
@@ -518,7 +544,8 @@ bool VehicleControlReplayProbe_Run(
   if (succeeded)
     succeeded = AdvanceTo(context, tick + 8u, time + 8.0 * kStep,
                           vehicle, &tick, &time, &recordedFrames,
-                          &recordedSamples, &recordingCadence, 1,
+                          &recordedSamples, &recordedWorldHashes,
+                          contentFingerprint, &recordingCadence, 1,
                           &recordedPresentationSamples);
   if (succeeded)
     succeeded = RecordAction(context, &journal, tick, time,
@@ -526,7 +553,8 @@ bool VehicleControlReplayProbe_Run(
   if (succeeded)
     succeeded = AdvanceTo(context, tick + 8u, time + 8.0 * kStep,
                           vehicle, &tick, &time, &recordedFrames,
-                          &recordedSamples, &recordingCadence, 1,
+                          &recordedSamples, &recordedWorldHashes,
+                          contentFingerprint, &recordingCadence, 1,
                           &recordedPresentationSamples);
   if (succeeded)
     succeeded = RecordAction(context, &journal, tick, time,
@@ -534,7 +562,8 @@ bool VehicleControlReplayProbe_Run(
   if (succeeded)
     succeeded = AdvanceTo(context, tick + 8u, time + 8.0 * kStep,
                           vehicle, &tick, &time, &recordedFrames,
-                          &recordedSamples, &recordingCadence, 1,
+                          &recordedSamples, &recordedWorldHashes,
+                          contentFingerprint, &recordingCadence, 1,
                           &recordedPresentationSamples);
   if (succeeded)
     succeeded = RecordFocus(context, &journal, tick, time, false,
@@ -543,7 +572,8 @@ bool VehicleControlReplayProbe_Run(
   if (succeeded)
     succeeded = AdvanceTo(context, tick + 4u, time + 4.0 * kStep,
                           vehicle, &tick, &time, &recordedFrames,
-                          &recordedSamples, &recordingCadence, 1,
+                          &recordedSamples, &recordedWorldHashes,
+                          contentFingerprint, &recordingCadence, 1,
                           &recordedPresentationSamples);
   if (succeeded)
     succeeded = RecordFocus(context, &journal, tick, time, true,
@@ -579,9 +609,10 @@ bool VehicleControlReplayProbe_Run(
                 VehicleControlJournal_Fingerprint(journal) != 0 &&
                 VehicleControlJournal_Fingerprint(journal) ==
                     VehicleControlJournal_Fingerprint(decoded) &&
-                ReplayHashJournal_Create(
-                    contentFingerprint, kStep, decoded, recordedSamples,
-                    &replayJournal) &&
+                ReplayHashJournal_CreateWithAlgorithm(
+                    contentFingerprint, kStep,
+                    RR2NW_REPLAY_HASH_ACTIVE_GAMEPLAY_CORE_FNV1A64,
+                    decoded, recordedSamples, &replayJournal) &&
                 ReplayHashJournal_Encode(replayJournal, &replayEncoded) &&
                 ReplayHashJournal_Decode(replayEncoded,
                                          &decodedReplayJournal) &&
@@ -598,6 +629,7 @@ bool VehicleControlReplayProbe_Run(
   int densePresentationSamples = 0;
   int denseSyntheticReleases = 0;
   std::vector<SReplayHashSample> denseSamples;
+  std::vector<SActiveWorldReplayHashSnapshot> denseWorldHashes;
   SRecoveredVehicleRuntimeState denseState = {};
   SSimulationClockState denseClock;
   std::vector<std::uint8_t> denseRandom;
@@ -613,8 +645,9 @@ bool VehicleControlReplayProbe_Run(
   }
   if (succeeded)
     succeeded = ReplayJournal(
-                    context, decodedReplayJournal.controls, 1,
-                    &denseSamples, &denseFrames,
+                    context, decodedReplayJournal.controls,
+                    contentFingerprint, 1, &denseSamples,
+                    &denseWorldHashes, &denseFrames,
                     &densePresentationSamples,
                     &denseSyntheticReleases,
                     &denseCadenceTelemetry) &&
@@ -622,7 +655,11 @@ bool VehicleControlReplayProbe_Run(
                     context, vehicle, &denseState) &&
                 SUA_CaptureSimulationClock(&denseClock) &&
                 SimulationRandom_Capture(&denseRandom);
-  const bool denseHashMatch = succeeded &&
+  std::uint32_t denseMismatchComponent = 0u;
+  const bool denseWorldHashMatch = succeeded &&
+      ActiveWorldSnapshotsMatch(recordedWorldHashes, denseWorldHashes,
+                                &denseMismatchComponent);
+  const bool denseHashMatch = denseWorldHashMatch &&
       SamplesMatch(decodedReplayJournal.samples, denseSamples);
   const bool denseRollback = denseActivated &&
       VehicleRuntimeState_Rollback(context);
@@ -635,6 +672,7 @@ bool VehicleControlReplayProbe_Run(
   int sparsePresentationSamples = 0;
   int sparseSyntheticReleases = 0;
   std::vector<SReplayHashSample> sparseSamples;
+  std::vector<SActiveWorldReplayHashSnapshot> sparseWorldHashes;
   SRecoveredVehicleRuntimeState sparseState = {};
   SSimulationClockState sparseClock;
   std::vector<std::uint8_t> sparseRandom;
@@ -650,8 +688,9 @@ bool VehicleControlReplayProbe_Run(
   }
   if (succeeded)
     succeeded = ReplayJournal(
-                    context, decodedReplayJournal.controls, 4,
-                    &sparseSamples, &sparseFrames,
+                    context, decodedReplayJournal.controls,
+                    contentFingerprint, 4, &sparseSamples,
+                    &sparseWorldHashes, &sparseFrames,
                     &sparsePresentationSamples,
                     &sparseSyntheticReleases,
                     &sparseCadenceTelemetry) &&
@@ -659,7 +698,11 @@ bool VehicleControlReplayProbe_Run(
                     context, vehicle, &sparseState) &&
                 SUA_CaptureSimulationClock(&sparseClock) &&
                 SimulationRandom_Capture(&sparseRandom);
-  const bool sparseHashMatch = succeeded &&
+  std::uint32_t sparseMismatchComponent = 0u;
+  const bool sparseWorldHashMatch = succeeded &&
+      ActiveWorldSnapshotsMatch(recordedWorldHashes, sparseWorldHashes,
+                                &sparseMismatchComponent);
+  const bool sparseHashMatch = sparseWorldHashMatch &&
       SamplesMatch(decodedReplayJournal.samples, sparseSamples) &&
       SamplesMatch(denseSamples, sparseSamples);
   const bool sparseRollback = sparseActivated &&
@@ -680,6 +723,19 @@ bool VehicleControlReplayProbe_Run(
   if (randomMatch) summary->randomMatches = 1;
   summary->hashMatches = (denseHashMatch ? 1 : 0) +
                          (sparseHashMatch ? 1 : 0);
+  summary->activeWorldHashMatches =
+      (denseWorldHashMatch ? 1 : 0) + (sparseWorldHashMatch ? 1 : 0);
+  summary->activeWorldComponents =
+      static_cast<int>(kActiveWorldReplayHashComponentCount);
+  summary->activeWorldOwnerComponents =
+      static_cast<int>(kActiveWorldReplayHashOwnerComponentCount);
+  summary->activeWorldEventCount = recordedWorldHashes.empty()
+      ? 0 : static_cast<int>(recordedWorldHashes.back().eventCount);
+  summary->presentationNormalizedComponents = 4;
+  summary->stateHashAlgorithm =
+      RR2NW_REPLAY_HASH_ACTIVE_GAMEPLAY_CORE_FNV1A64;
+  summary->mismatchComponent = denseMismatchComponent != 0u
+      ? denseMismatchComponent : sparseMismatchComponent;
 
   SRecoveredVehicleRuntimeState worldAfter = {};
   const bool worldRestored = sparseRollback &&
@@ -742,6 +798,13 @@ bool VehicleControlReplayProbe_Run(
          statistics.actionRecords == 3u && statistics.focusRecords == 2u &&
          recordedSyntheticReleases == 1 && recordedFrames == 28 &&
          summary->hashMatches == 2 && summary->hashSamples == 28 &&
+         summary->activeWorldHashMatches == 2 &&
+         summary->activeWorldComponents == 12 &&
+         summary->activeWorldOwnerComponents == 7 &&
+         summary->presentationNormalizedComponents == 4 &&
+         summary->stateHashAlgorithm ==
+             RR2NW_REPLAY_HASH_ACTIVE_GAMEPLAY_CORE_FNV1A64 &&
+         summary->mismatchComponent == 0u &&
          summary->replayEncodedBytes > summary->encodedBytes &&
          summary->contentFingerprint != 0u &&
          summary->replayFingerprint != 0u &&
@@ -755,7 +818,7 @@ bool VehicleControlReplayProbe_Run(
         "vehicle-control-replay-probe: failed succeeded=%d state=%d "
         "clock=%d rng=%d world=%d globals=%d stats=%d "
         "frames=%d/%d/%d present=%d/%d/%d scheduler=%d/%d/%d/%d "
-        "hashes=%d/%d "
+        "hashes=%d/%d active=%d/%u/%s "
         "releases=%d/%d/%d records=%u/%u rollbacks=%d "
         "control_failure=%d frame_failure=%d\n",
         succeeded ? 1 : 0, stateMatch ? 1 : 0, clockMatch ? 1 : 0,
@@ -767,8 +830,10 @@ bool VehicleControlReplayProbe_Run(
         summary->denseMaximumTicksPerPresentation,
         summary->sparseMaximumTicksPerPresentation,
         summary->sparseCatchUpSamples, summary->cadenceBoundaryChecks,
-        summary->hashMatches,
-        summary->hashSamples, recordedSyntheticReleases,
+        summary->hashMatches, summary->hashSamples,
+        summary->activeWorldHashMatches, summary->mismatchComponent,
+        ActiveWorldReplayHash_ComponentName(summary->mismatchComponent),
+        recordedSyntheticReleases,
         denseSyntheticReleases, sparseSyntheticReleases,
         statistics.actionRecords, statistics.focusRecords,
         summary->rollbacks,

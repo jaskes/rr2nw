@@ -1229,6 +1229,26 @@ unsigned long long PeopleActiveWorldState_Fingerprint(
     return hash;
 }
 
+unsigned long long PeopleActiveWorldState_AuthoritativeFingerprint(
+    SimulationContext *context)
+{
+    std::vector<StablePeopleRecord> records;
+    std::vector<unsigned char> bytes;
+    if (!CollectRecords(context, &records))
+        return 0;
+    for (std::size_t index = 0; index < records.size(); ++index)
+    {
+        records[index].audibleThisFrame = 0;
+        records[index].visible = 0;
+    }
+    if (!EncodeRecords(records, &bytes))
+        return 0;
+    unsigned long long hash = 14695981039346656037ull;
+    if (!bytes.empty())
+        HashBytes(&hash, &bytes[0], bytes.size());
+    return hash;
+}
+
 bool PeopleActiveWorldState_CaptureStable(
     SimulationContext *context, std::vector<unsigned char> *bytes)
 {

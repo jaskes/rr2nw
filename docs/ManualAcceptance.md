@@ -1752,13 +1752,17 @@ vehicle_control_replay_clock_match=1
 vehicle_control_replay_random_match=1
 vehicle_control_replay_rollbacks=3
 vehicle_control_replay_hash_journal=<content>/<RPH1>/<sample-stream>/2/28
+vehicle_control_replay_active_world=2/12/7/<events>/4/2/0
+vehicle_control_replay_mismatch_component=0/none
 vehicle_control_replay_presentation_cadence=28/28/28/7
 ```
 
 The three fingerprints must be non-zero. This pass proves two identical
-per-tick Vehicle/CLK1/RNG streams under dense and sparse presentation
-observation. It does not test a production fixed-step scheduler or real
-alternative renderer FPS; those remain the next M4 gate.
+per-tick active gameplay-core streams under dense and sparse presentation
+observation: algorithm 2, twelve components, seven LCN1 owner families, four
+presentation-normalized codecs, two matches and no component mismatch. It does
+not claim complete-world coverage; the deferred owner list and exact profile
+are in `ActiveWorldReplayHash.md`.
 
 ## Complete persisted Colony campaign pass
 

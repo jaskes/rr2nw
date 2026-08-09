@@ -11,6 +11,10 @@ void VehicleActiveWorldState_Link();
 int VehicleActiveWorldState_LiveCount(SimulationContext *context);
 unsigned long long VehicleActiveWorldState_Fingerprint(
     SimulationContext *context);
+// Canonical gameplay projection of VEH1. The one-shot briefing presentation
+// latch is deliberately absent from replay state.
+unsigned long long VehicleActiveWorldState_AuthoritativeFingerprint(
+    SimulationContext *context);
 bool VehicleActiveWorldState_CaptureStable(
     SimulationContext *context, std::vector<unsigned char> *bytes);
 bool VehicleActiveWorldState_ValidateStable(

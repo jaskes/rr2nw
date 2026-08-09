@@ -3699,6 +3699,8 @@ target_compile_definitions(rr2nw_windows_input_adapter PRIVATE
 add_library(rr2nw_recovered_game_services_runtime STATIC
   nw/ARENA/OBASE/Corpse/CorpseActiveWorldState.cpp
   nw/ARENA/OBASE/Corpse/CorpseActiveWorldState.h
+  src/runtime/ActiveWorldReplayHash.cpp
+  src/runtime/ActiveWorldReplayHash.h
   src/runtime/ActiveWorldSemanticEvents.cpp
   src/runtime/ActiveWorldSemanticEvents.h
   src/runtime/ClockActiveWorldState.cpp

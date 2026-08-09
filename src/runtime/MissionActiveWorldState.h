@@ -15,6 +15,11 @@ struct SMissionRouteRequirement {
 
 bool MissionActiveWorldState_CaptureStable(
     SimulationContext *context, std::vector<unsigned char> *bytes);
+// Canonical gameplay projection of MSH1. Mission objectives, result,
+// Project/checkpoint state and authored route identity remain; player-facing
+// summary text, layout and colour are neutralized.
+unsigned long long MissionActiveWorldState_AuthoritativeFingerprint(
+    SimulationContext *context);
 bool MissionActiveWorldState_ValidateStable(
     const std::vector<unsigned char> &bytes);
 bool MissionActiveWorldState_ProbeLegacyVersionCompatibility(

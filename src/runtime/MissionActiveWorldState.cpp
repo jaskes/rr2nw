@@ -980,6 +980,30 @@ bool MissionActiveWorldState_CaptureStable(
          EncodeState(state, bytes);
 }
 
+unsigned long long MissionActiveWorldState_AuthoritativeFingerprint(
+    SimulationContext *context) {
+  StableState state;
+  std::vector<unsigned char> bytes;
+  if (!CaptureState(context, &state) || !ValidateState(state))
+    return 0;
+  for (std::size_t index = 0; index < state.missions.size(); ++index) {
+    StableMission &mission = state.missions[index];
+    mission.summaryName.clear();
+    mission.summaryText.clear();
+    mission.widthStart = 0.0;
+    mission.widthEnd = 0.0;
+    mission.color = 0;
+  }
+  if (!EncodeState(state, &bytes))
+    return 0;
+  unsigned long long hash = 14695981039346656037ull;
+  for (std::size_t index = 0; index < bytes.size(); ++index) {
+    hash ^= bytes[index];
+    hash *= 1099511628211ull;
+  }
+  return hash;
+}
+
 bool MissionActiveWorldState_ValidateStable(
     const std::vector<unsigned char> &bytes) {
   StableState state;

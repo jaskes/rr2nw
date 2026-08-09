@@ -25,6 +25,10 @@ int PeopleActiveWorldState_SchedulerEventCount(
     const std::vector<unsigned char> &bytes);
 unsigned long long PeopleActiveWorldState_Fingerprint(
     SimulationContext *context);
+// Canonical gameplay projection of PEO1. Per-frame visibility and audibility
+// are presentation caches and are neutralized before hashing.
+unsigned long long PeopleActiveWorldState_AuthoritativeFingerprint(
+    SimulationContext *context);
 bool PeopleActiveWorldState_CaptureStable(
     SimulationContext *context, std::vector<unsigned char> *bytes);
 bool PeopleActiveWorldState_ValidateStable(

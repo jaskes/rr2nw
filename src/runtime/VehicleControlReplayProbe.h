@@ -19,6 +19,13 @@ struct SRecoveredVehicleControlReplayProbeSummary {
   int rollbacks = 0;
   int hashMatches = 0;
   int hashSamples = 0;
+  int activeWorldHashMatches = 0;
+  int activeWorldComponents = 0;
+  int activeWorldOwnerComponents = 0;
+  int activeWorldEventCount = 0;
+  int presentationNormalizedComponents = 0;
+  unsigned int stateHashAlgorithm = 0;
+  unsigned int mismatchComponent = 0;
   int densePresentationSamples = 0;
   int sparsePresentationSamples = 0;
   int denseSimulationTicks = 0;

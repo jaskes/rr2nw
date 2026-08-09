@@ -1385,6 +1385,33 @@ unsigned long long TankActiveWorldState_Fingerprint(
     return hash;
 }
 
+unsigned long long TankActiveWorldState_AuthoritativeFingerprint(
+    SimulationContext *context)
+{
+    g_lastFailure.clear();
+    std::vector<StableTankRecord> records;
+    std::vector<unsigned char> bytes;
+    if (!CollectRecords(context, &records))
+        return 0;
+    for (std::size_t index = 0; index < records.size(); ++index)
+    {
+        records[index].audibleThisFrame = 0;
+        records[index].visible = 0;
+        for (std::size_t child = 0;
+             child < records[index].cannons.size(); ++child)
+        {
+            records[index].cannons[child].audibleThisFrame = 0;
+            records[index].cannons[child].visible = 0;
+        }
+    }
+    if (!EncodeRecords(records, &bytes))
+        return 0;
+    unsigned long long hash = 14695981039346656037ull;
+    if (!bytes.empty())
+        HashBytes(&hash, &bytes[0], bytes.size());
+    return hash;
+}
+
 bool TankActiveWorldState_CaptureStable(
     SimulationContext *context, std::vector<unsigned char> *bytes)
 {

@@ -924,6 +924,23 @@ unsigned long long VehicleActiveWorldState_Fingerprint(
     return hash;
 }
 
+unsigned long long VehicleActiveWorldState_AuthoritativeFingerprint(
+    SimulationContext *context)
+{
+    std::vector<StableVehicleRecord> records;
+    std::vector<unsigned char> bytes;
+    if (!CollectStableRecords(context, &records))
+        return 0;
+    for (std::size_t index = 0; index < records.size(); ++index)
+        records[index].briefingPlayed = 0;
+    if (!EncodeRecords(records, &bytes))
+        return 0;
+    unsigned long long hash = 14695981039346656037ull;
+    if (!bytes.empty())
+        HashBytes(&hash, &bytes[0], bytes.size());
+    return hash;
+}
+
 bool VehicleActiveWorldState_CaptureStable(
     SimulationContext *context, std::vector<unsigned char> *bytes)
 {

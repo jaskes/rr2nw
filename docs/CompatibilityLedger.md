@@ -5913,6 +5913,36 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   remains evidence-bounded legacy-import work. UI `GetTickCount64` deadlines
   and archival FPS/terrain diagnostics are not simulation owners.
 
+### CQ-279: RPH1 algorithm 2 hashes the bounded active gameplay core
+
+- Status: `ACTIVE_GAMEPLAY_CORE_12_COMPONENTS`,
+  `SEVEN_LCN1_OWNERS_INCLUDED`, `FOUR_PRESENTATION_FIELDS_NORMALIZED`,
+  `RPH1_ALGORITHM_1_COMPATIBLE`.
+- Handling: the binary RPH1 v1 container now admits algorithm 2. Its canonical
+  aggregate orders content, controller, Commander, TankGroup, People, Tank,
+  Vehicle, Mission, Bullet, Clock, RNG and semantic-event components. Stable
+  People/Tank/Vehicle/Mission projections zero only known presentation fields.
+- Diagnostics: a mismatch reports the first bounded component ID/name; invalid
+  profile or roster reports component 13. No canonical payload, retail text,
+  pointer, allocation identity or platform path is logged.
+- Verification: both 28 x 25 ms and 7 x 100 ms installed replays match all 28
+  algorithm-2 samples and component sets. Pure tests localize People and event
+  mutations. A live Vehicle briefing toggle plus engine-audio intensity change
+  leaves the aggregate unchanged, while gameplay damage localizes to Vehicle.
+  Fresh active-world reconstruction restores the same aggregate; its
+  pre-existing missing-dependency rollback remains atomic. The ordinary retail
+  matrix requires `2/12/7/<events>/4/2/0` and `0/none`.
+- Headless gate quirk: the full fresh-continuation executable deliberately
+  initializes the software graph with a null `HINSTANCE`, so it has no HWND and
+  cannot receive `SendMessage(WM_ACTIVATEAPP)`. Its explicit focus seam now
+  synchronizes the semantic Windows adapter and immediate Vehicle/Observer
+  owners. Production still receives the real window message. This changed the
+  false 0/27 gate into a complete 27/27 pass without weakening focus reset.
+- Boundary: Explosion, Spark, Smoke, Corpse, Taxi, Orphan, Howitzer, Artefact
+  and Portal are not hidden behind an overbroad claim. They require later
+  deterministic projections. Algorithm 1 remains readable and LCN1/RR2SLOT1/
+  CTJ1 bytes are unchanged.
+
 ## Maintenance rule
 
 When a new quirk is found:

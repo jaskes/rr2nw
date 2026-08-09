@@ -6871,3 +6871,28 @@ Raw legacy `TimerData`/`SimulationContext::load()` import is not silently
 redesigned in this slice. RR2SLOT1/LCN1 do not use it, and its exact semantics
 remain part of legacy-save import. This also avoids re-encoding an ancient
 non-UTF source file solely to produce an unrelated mechanical diff.
+
+### BD-215: replay hashes use an explicit active gameplay-core profile
+
+Status: accepted on 2026-08-09 for the broader M4 hash boundary.
+
+LCN1 can reconstruct seventeen owner sections, but hashing every encoded byte
+would incorrectly make presentation cadence authoritative. People and Tank
+carry per-frame audible/visible flags, Vehicle carries briefing presentation
+state, and Mission carries summary text/layout/colour. Conversely, silently
+omitting whole gameplay families would make mismatch telemetry untrustworthy.
+
+RPH1 algorithm 2 therefore hashes an explicit, ordered profile. It contains
+content and controller identity; Commander, TankGroup, normalized People,
+normalized Tank/Cannon, normalized Vehicle, normalized Mission and Bullet;
+canonical Clock and gameplay RNG; and semantic events. Each normalized codec
+reuses its stable symbolic ordering and zeroes only identified presentation
+fields. Raw pointers, allocation order, renderer/audio/UI state, wall clock,
+diagnostics and paths never enter the aggregate.
+
+The RPH1 container remains version 1 because its algorithm field already
+versions sample meaning, and algorithm-1 files remain accepted. First-mismatch
+telemetry exposes only a bounded component ID/name. Explosion, Spark, Smoke,
+Corpse, Taxi, Orphan, Howitzer, Artefact and Portal are explicitly deferred
+until deterministic projections can be proved; algorithm 2 is consequently
+named active gameplay core, not complete world.

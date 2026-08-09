@@ -3,6 +3,7 @@
 #include "WindowsAudioRuntime.h"
 
 #include "RR2NWBuildRevision.h"
+#include "ActiveWorldReplayHash.h"
 #include "ActiveWorldSave.h"
 #include "GameEntryRuntimeState.h"
 #include "RecoveredArenaSeanceRuntime.h"
@@ -2740,6 +2741,21 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(replayTelemetry.hashStreamFingerprint) + "/" +
              std::to_string(replayTelemetry.hashMatches) + "/" +
              std::to_string(replayTelemetry.hashSamples));
+    log.Line("vehicle_control_replay_active_world=" +
+             std::to_string(replayTelemetry.stateHashAlgorithm) + "/" +
+             std::to_string(replayTelemetry.activeWorldComponents) + "/" +
+             std::to_string(replayTelemetry.activeWorldOwnerComponents) +
+             "/" +
+             std::to_string(replayTelemetry.activeWorldEventCount) + "/" +
+             std::to_string(
+                 replayTelemetry.presentationNormalizedComponents) +
+             "/" +
+             std::to_string(replayTelemetry.activeWorldHashMatches) + "/" +
+             std::to_string(replayTelemetry.mismatchComponent));
+    log.Line("vehicle_control_replay_mismatch_component=" +
+             std::to_string(replayTelemetry.mismatchComponent) + "/" +
+             ActiveWorldReplayHash_ComponentName(
+                 replayTelemetry.mismatchComponent));
     log.Line("vehicle_control_replay_presentation_cadence=" +
              std::to_string(replayTelemetry.denseSimulationTicks) + "/" +
              std::to_string(replayTelemetry.sparseSimulationTicks) + "/" +

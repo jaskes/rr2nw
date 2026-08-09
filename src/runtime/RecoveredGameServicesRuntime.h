@@ -317,6 +317,13 @@ struct SRecoveredVehicleControlReplayTelemetry {
   int rollbacks;
   int hashMatches;
   int hashSamples;
+  int activeWorldHashMatches;
+  int activeWorldComponents;
+  int activeWorldOwnerComponents;
+  int activeWorldEventCount;
+  int presentationNormalizedComponents;
+  unsigned int stateHashAlgorithm;
+  unsigned int mismatchComponent;
   int densePresentationSamples;
   int sparsePresentationSamples;
   int denseSimulationTicks;
