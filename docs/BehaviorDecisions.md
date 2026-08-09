@@ -6896,3 +6896,27 @@ telemetry exposes only a bounded component ID/name. Explosion, Spark, Smoke,
 Corpse, Taxi, Orphan, Howitzer, Artefact and Portal are explicitly deferred
 until deterministic projections can be proved; algorithm 2 is consequently
 named active gameplay core, not complete world.
+
+### BD-216: legacy artifacts must stage before maintained state can change
+
+Status: accepted on 2026-08-09 for the evidence-bounded import boundary.
+
+The installed `PIN_SaveFile` stream is real and structurally recoverable, but
+its numeric Level index is not a content identity and its object graph includes
+Route, Lamp, Smoker and Fountain outside the current 17-owner LCN1 contract.
+Calling the destructive archival `SimulationContext::load()` before validating
+that complete graph would turn a compatibility experiment into a partial live
+world mutation. Structural detection is therefore read-only and explicitly
+reports that conversion is not ready.
+
+The separate `CONFIG.CFG` grammar has complete source and installed evidence.
+It parses into a neutral bounded structure first, then commits only proven
+mouse/audio values and lossless controls through the existing atomic schema-6
+settings owner. Unsupported multi-bind, joystick and unknown actions retain
+the current modern bindings instead of guessing. Safe mode rejects import;
+the legacy source can never be the modern destination; a failed parse or write
+restores the prior shell state and modern settings bytes.
+
+This decision does not waive the M4 legacy-save gate. Full world conversion
+still requires deterministic projections for every admitted owner and an
+explicit reviewed content-identity binding.

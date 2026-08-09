@@ -45,6 +45,7 @@
 #include "GameEntryRuntimeState.h"
 #include "LevelContinuation.h"
 #include "LevelSaveSlot.h"
+#include "LegacyImport.h"
 #include "MissionActiveWorldState.h"
 #include "RecoveredArenaSeanceRuntime.h"
 #include "RecoveredDrawableSceneRuntime.h"
@@ -6284,6 +6285,96 @@ bool RecoveredGameServices_ConfigureInGameShell(
     return false;
   }
   RefreshInGameDeveloperCatalog();
+  return true;
+}
+
+bool RecoveredGameServices_ImportLegacyConfig(
+    const std::wstring& path, SLegacyConfigImport* imported,
+    SLegacyImportStatus* status) {
+  if (!g_inGameShellState.configured || g_inGameShellState.safeMode ||
+      g_inGameShellState.open ||
+      g_inGameShellState.pendingVideoCommand != RECOVERED_SHELL_VIDEO_NONE) {
+    if (status != nullptr) {
+      status->error = ELegacyImportError::UnsupportedConfig;
+      status->offset = 0u;
+      status->detail = g_inGameShellState.safeMode
+          ? "legacy config import is disabled in safe mode"
+          : "legacy config import requires a closed configured shell boundary";
+    }
+    return false;
+  }
+  if (_wcsicmp(path.c_str(), g_inGameShellState.settingsPath.c_str()) == 0) {
+    if (status != nullptr) {
+      status->error = ELegacyImportError::UnsupportedConfig;
+      status->offset = 0u;
+      status->detail =
+          "legacy source and modern settings destination must be different";
+    }
+    return false;
+  }
+
+  SLegacyConfigImport candidate;
+  SLegacyImportStatus candidateStatus;
+  if (!LegacyImport_ReadConfigFile(path, &candidate, &candidateStatus)) {
+    if (status != nullptr) *status = candidateStatus;
+    return false;
+  }
+
+  const SRecoveredInGameShellState previousState = g_inGameShellState;
+  const SRecoveredInputBindings previousBindings = g_inGameShellBindings;
+  if (candidate.bindingsProjected &&
+      !g_windowsInputAdapter.SetBindings(candidate.bindings)) {
+    if (status != nullptr) {
+      status->error = ELegacyImportError::AtomicCommitFailed;
+      status->offset = 0u;
+      status->detail =
+          "legacy bindings could not be staged at a neutral input boundary";
+    }
+    return false;
+  }
+
+  if (candidate.bindingsProjected)
+    g_inGameShellBindings = candidate.bindings;
+  g_inGameShellState.mouseSensitivityX = candidate.mouseSensitivityX;
+  g_inGameShellState.mouseSensitivityY = candidate.mouseSensitivityY;
+  g_inGameShellState.mouseInvertY = candidate.mouseInvertY;
+  g_inGameShellState.effectsVolume = candidate.effectsVolume;
+  g_inGameShellState.vehicleVolume = candidate.vehicleVolume;
+  g_inGameShellState.cinematicVolume = candidate.cinematicVolume;
+  if (!WriteInGameShellSettings()) {
+    if (candidate.bindingsProjected)
+      (void)g_windowsInputAdapter.SetBindings(previousBindings);
+    g_inGameShellBindings = previousBindings;
+    g_inGameShellState = previousState;
+    ApplyShellMouseSettingsToRuntime();
+    ApplyShellAudioSettingsToRuntime();
+    if (status != nullptr) {
+      status->error = ELegacyImportError::AtomicCommitFailed;
+      status->offset = 0u;
+      status->detail =
+          "modern settings commit failed; the prior shell state was restored";
+    }
+    Report(RECOVERED_GAME_SERVICES_IN_GAME_SHELL_FAILURE);
+    return false;
+  }
+
+  ApplyShellMouseSettingsToRuntime();
+  ApplyShellAudioSettingsToRuntime();
+  ++g_inGameShellState.legacyConfigImports;
+  if (candidate.bindingsProjected)
+    ++g_inGameShellState.legacyConfigBindingProjections;
+  g_inGameShellState.legacyConfigIgnoredSettings = candidate.ignoredSettings;
+  g_inGameShellState.legacyConfigSourceBindings = candidate.sourceBindings;
+  g_inGameShellState.legacyConfigSourceFingerprint =
+      candidate.sourceFingerprint;
+  g_inGameShellState.legacyConfigBindingBoundary =
+      candidate.bindingBoundary;
+  g_inGameShellState.status = candidate.bindingsProjected
+      ? "Legacy CONFIG.CFG imported"
+      : "Legacy CONFIG.CFG values imported; current controls retained";
+  g_inGameShellState.lastError.clear();
+  if (imported != nullptr) *imported = candidate;
+  if (status != nullptr) *status = {};
   return true;
 }
 

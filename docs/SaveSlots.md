@@ -381,5 +381,9 @@ The later interactive 1.0 persistence pass is deliberately narrower:
 - retain a failed preview archive and diagnostics if WIC falls back to its
   placeholder while the otherwise compatible save remains loadable.
 
-Retail-save import, cross-Level mission transitions, fixed-tick replay,
-Linux/macOS and multiplayer remain separate later work.
+Retail-save world conversion remains later work. The M4 legacy-import boundary
+now has a read-only full-stream detector and an atomic `CONFIG.CFG` subset
+importer, but correctly refuses to feed a save with missing content identity
+and deferred Route/Lamp/Smoker/Fountain owners into LCN1 or the live world.
+Cross-Level mission transitions, Linux/macOS and multiplayer remain separate
+later work.

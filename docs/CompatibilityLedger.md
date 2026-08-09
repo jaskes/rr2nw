@@ -5943,6 +5943,30 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   deterministic projections. Algorithm 1 remains readable and LCN1/RR2SLOT1/
   CTJ1 bytes are unchanged.
 
+### CQ-280: legacy save structure is not legacy world compatibility
+
+- Status: `PIN_PROFILE_1_DETECTED`, `CONFIG_PROFILE_1_IMPORTABLE`,
+  `RAW_WORLD_LOAD_FORBIDDEN`, `SOURCE_READ_ONLY`.
+- Evidence: both installed save examples are complete framed streams with the
+  same 25-record prelude, 8-byte `KR_ObjectID`, bounded events/objects and a
+  final marker. They do not contain modern content identity and include tables
+  outside LCN1. Both installed config copies use `[Setings]`, 44 binding rows
+  and the same proven mouse/audio scalar grammar.
+- Handling: the save detector validates and inventories the complete stream but
+  always reports `conversion_ready=0`. The config importer stages into a
+  neutral representation and atomically emits schema 6; lossy controls retain
+  the current modern bindings. It never imports display state, developer mode,
+  paths or unowned physical devices.
+- Verification: `legacy-import-smoke` covers generated valid/corrupt/truncated/
+  oversized/nonfinite cases and transactional output. The game-services smoke
+  proves idempotent commit, source immutability, rejected-import byte stability
+  and safe-mode denial. `Invoke-LegacyImportEvidence.ps1` hashes each installed
+  source before/after the read-only three-configuration matrix.
+- Revisit when: Route, Lamp, Smoker and Fountain have deterministic LCN1
+  projections and a reviewed content-identity selection can bind an old
+  numeric Level to the active retail/mod catalog. Do not call raw context load
+  as a shortcut.
+
 ## Maintenance rule
 
 When a new quirk is found:

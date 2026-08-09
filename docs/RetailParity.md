@@ -3207,6 +3207,22 @@ playable Level begins.
 - The deferred LCN1 owner families are listed in
   `ActiveWorldReplayHash.md`; this row does not claim complete-world parity.
 
+### RP-IMPORT-001: installed legacy evidence is admitted without mutation
+
+- The retail `PIN_SaveFile` framing, context prelude, event/object identities
+  and final marker are source- and installed-evidence facts. The maintained
+  detector accepts both installed examples but does not claim they are safe to
+  restore: missing content identity and deferred LCN1 owners are reported as an
+  explicit conversion boundary.
+- The `[Setings]` config grammar is sufficiently complete to import the proven
+  mouse and audio subset. Its 44-row controls exceed the modern two-key and
+  contextual model, so those installed controls are retained only as evidence;
+  current modern bindings remain active.
+- This is a port safety and migration guarantee, not evidence that retail had
+  atomic import, schema 6 or content fingerprints. Read-only installed
+  acceptance proves source hashes are unchanged in Debug, Release and
+  RelWithDebInfo.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

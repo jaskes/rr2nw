@@ -3696,6 +3696,17 @@ target_compile_definitions(rr2nw_windows_input_adapter PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_library(rr2nw_legacy_import STATIC
+  src/runtime/LegacyImport.cpp
+  src/runtime/LegacyImport.h
+)
+target_link_libraries(rr2nw_legacy_import PUBLIC
+  rr2nw_windows_input_adapter
+)
+target_include_directories(rr2nw_legacy_import PUBLIC src/runtime)
+target_compile_features(rr2nw_legacy_import PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_legacy_import PRIVATE UNICODE _UNICODE)
+
 add_library(rr2nw_recovered_game_services_runtime STATIC
   nw/ARENA/OBASE/Corpse/CorpseActiveWorldState.cpp
   nw/ARENA/OBASE/Corpse/CorpseActiveWorldState.h
@@ -3744,6 +3755,7 @@ add_library(rr2nw_recovered_game_services_runtime STATIC
 )
 target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_active_world_save
+  rr2nw_legacy_import
   rr2nw_windows_input_adapter
   rr2nw_mod_runtime
   rr2nw_presentation_trace
@@ -3816,6 +3828,7 @@ target_compile_definitions(rr2nw_recovered_game_services_runtime PRIVATE
 
 if(MSVC)
   target_compile_options(rr2nw_active_world_save PRIVATE /W4 /permissive-)
+  target_compile_options(rr2nw_legacy_import PRIVATE /W4 /permissive-)
   target_compile_options(
     rr2nw_scene_runtime_core PRIVATE /W3 /permissive- /Gy /wd4081 /wd4244
   )
@@ -4590,6 +4603,13 @@ target_compile_definitions(rr2nw_windows_input_adapter_smoke PRIVATE
   _CRT_SECURE_NO_WARNINGS
 )
 
+add_executable(rr2nw_legacy_import_smoke
+  src/portability/LegacyImportSmoke.cpp
+)
+target_link_libraries(rr2nw_legacy_import_smoke PRIVATE rr2nw_legacy_import)
+target_compile_features(rr2nw_legacy_import_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_legacy_import_smoke PRIVATE UNICODE _UNICODE)
+
 add_executable(rr2nw_recovered_gameplay_tuning_smoke
   src/portability/RecoveredGameplayTuningSmoke.cpp
 )
@@ -5034,6 +5054,9 @@ if(MSVC)
     rr2nw_windows_input_adapter_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(
+    rr2nw_legacy_import_smoke PRIVATE /W4 /permissive-
+  )
+  target_compile_options(
     rr2nw_recovered_gameplay_tuning_smoke PRIVATE /W4 /permissive- /wd4081
   )
   target_compile_options(
@@ -5248,6 +5271,10 @@ if(BUILD_TESTING)
   add_test(
     NAME windows-input-adapter-smoke
     COMMAND rr2nw_windows_input_adapter_smoke
+  )
+  add_test(
+    NAME legacy-import-smoke
+    COMMAND rr2nw_legacy_import_smoke
   )
   add_test(
     NAME recovered-gameplay-tuning-smoke

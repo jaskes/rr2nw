@@ -74,6 +74,7 @@ struct StartupOptions {
   std::wstring diagnosticsDirectory;
   std::wstring saveDirectory;
   std::wstring settingsFile;
+  std::wstring legacyConfigImport;
   std::vector<std::wstring> modDirectories;
   std::wstring modsDirectory;
   std::vector<std::wstring> selectedMods;
@@ -504,6 +505,19 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
         *failure = L"empty value for --settings-file";
         return false;
       }
+    } else if (argument == L"--import-legacy-config") {
+      if (!ParseOptionValue(argc, argv, &index,
+                            L"--import-legacy-config",
+                            &options->legacyConfigImport, failure)) {
+        return false;
+      }
+    } else if (argument.compare(0, 23,
+                                L"--import-legacy-config=") == 0) {
+      options->legacyConfigImport = argument.substr(23);
+      if (options->legacyConfigImport.empty()) {
+        *failure = L"empty value for --import-legacy-config";
+        return false;
+      }
     } else if (argument == L"--start-level") {
       if (!ParseOptionValue(argc, argv, &index, L"--start-level",
                             &options->startLevel, failure)) {
@@ -609,6 +623,10 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
   if (options->levelBriefingSmoke && options->skipLevelBriefing) {
     *failure = L"--level-briefing-smoke cannot be combined with "
                L"--skip-level-briefing";
+    return false;
+  }
+  if (!options->legacyConfigImport.empty() && options->safeMode) {
+    *failure = L"--import-legacy-config cannot be combined with --safe-mode";
     return false;
   }
   if (options->missionObjectiveChainSmoke) {
@@ -1890,6 +1908,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"          [--diagnostics-dir <path>] [--save-dir <path>]\n"
                 L"          [--save-slot <1..8>] [--load-slot <1..8>]\n"
                 L"          [--settings-file <path>]\n"
+                L"          [--import-legacy-config <CONFIG.CFG>]\n"
                 L"          [--developer-mode] [--native-diagnostic-menu]\n"
                 L"          [--debug-menu] [--safe-mode]\n"
                 L"          [--launch-smoke] [--runtime-smoke]\n"
@@ -1933,6 +1952,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     directory = AbsolutePath(directory);
   if (!options.modsDirectory.empty())
     options.modsDirectory = AbsolutePath(options.modsDirectory);
+  if (!options.legacyConfigImport.empty())
+    options.legacyConfigImport = AbsolutePath(options.legacyConfigImport);
   const bool defaultSaveDirectory = options.saveDirectory.empty();
   if (defaultSaveDirectory) {
     options.saveDirectory = DefaultSaveDirectory();
@@ -2226,6 +2247,36 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"The in-game settings shell could not be configured.\n\n"
                 L"Diagnostic log:\n" + log.path());
     return kRuntimeNotReady;
+  }
+  if (!options.legacyConfigImport.empty()) {
+    SLegacyConfigImport imported;
+    SLegacyImportStatus importStatus;
+    if (!RecoveredGameServices_ImportLegacyConfig(
+            options.legacyConfigImport, &imported, &importStatus)) {
+      log.Line(std::string("legacy_config_import_error=") +
+               LegacyImport_ErrorName(importStatus.error));
+      log.Line("legacy_config_import_offset=" +
+               std::to_string(importStatus.offset));
+      log.Line("legacy_config_import_detail=" + importStatus.detail);
+      log.Line("marker=legacy-config-import-not-ready");
+      ShowMessage(options.runtimeSmoke, MB_ICONERROR,
+                  L"RR2NW legacy config import error",
+                  Utf8ToWide(importStatus.detail.c_str()) +
+                      L"\n\nDiagnostic log:\n" + log.path());
+      return kRuntimeNotReady;
+    }
+    log.Line("legacy_config_import=1");
+    log.Line("legacy_config_profile=" + std::to_string(imported.profile));
+    log.Line(std::string("legacy_config_bindings_projected=") +
+             (imported.bindingsProjected ? "1" : "0"));
+    log.Line("legacy_config_source_bindings=" +
+             std::to_string(imported.sourceBindings));
+    log.Line("legacy_config_ignored_settings=" +
+             std::to_string(imported.ignoredSettings));
+    WindowsCrashDiagnostics_RecordBreadcrumb(
+        "settings", "legacy-config-imported");
+  } else {
+    log.Line("legacy_config_import=0");
   }
   const SRecoveredInGameShellState* configuredShell =
       RecoveredGameServices_InGameShellState();

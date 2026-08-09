@@ -7,6 +7,7 @@
 
 #include "LevelContinuation.h"
 #include "LevelSaveSlot.h"
+#include "LegacyImport.h"
 #include "RecoveredFramePreview.h"
 #include "RecoveredSaveSlotCatalog.h"
 #include "RecoveredWindowsInputAdapter.h"
@@ -656,6 +657,12 @@ struct SRecoveredInGameShellState {
   unsigned int developerCatalogBlockedSelections = 0;
   unsigned int developerCommandsQueued = 0;
   unsigned int commandFailurePresentations = 0;
+  unsigned int legacyConfigImports = 0;
+  unsigned int legacyConfigBindingProjections = 0;
+  unsigned int legacyConfigIgnoredSettings = 0;
+  unsigned int legacyConfigSourceBindings = 0;
+  std::uint64_t legacyConfigSourceFingerprint = 0;
+  std::string legacyConfigBindingBoundary;
   std::wstring settingsPath;
   std::string status;
   std::string lastError;
@@ -810,6 +817,9 @@ bool RecoveredGameServices_ConfigureDebugMenu(
     bool enabled, const std::vector<std::string>& levelCatalog);
 bool RecoveredGameServices_ConfigureInGameShell(
     const std::wstring& settingsPath, bool developerMode, bool safeMode);
+bool RecoveredGameServices_ImportLegacyConfig(
+    const std::wstring& path, SLegacyConfigImport* imported,
+    SLegacyImportStatus* status);
 const SRecoveredInGameShellState* RecoveredGameServices_InGameShellState();
 const SRecoveredSaveSlotCatalogSnapshot*
 RecoveredGameServices_InGameShellSaveCatalog();

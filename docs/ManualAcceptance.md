@@ -1792,3 +1792,30 @@ Every stage must match its saved/fresh world fingerprint while using only the
 eight public slots. Any changed installed mission hash, ninth-slot format,
 surviving candidate, reward/Portal output or unsupported mixed terminal
 condition shape is a failure.
+
+## M4 legacy import boundary pass
+
+Build the detector/runtime in all maintained configurations, then run the
+read-only installed evidence matrix:
+
+```powershell
+& ".\tools\acceptance\Invoke-LegacyImportEvidence.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration @("Debug","Release","RelWithDebInfo")
+```
+
+It must report `Legacy import installed evidence: 12/12`. Each save row must be
+structurally valid while retaining `conversion_ready=0` and
+`content_identity=0`; every artifact hash must be unchanged.
+
+For a manual one-shot settings migration, first choose a fresh modern settings
+destination and keep the retail source read-only:
+
+```powershell
+& ".\build\windows-msvc-x86\RelWithDebInfo\rr2nw.exe" --data-dir "E:\Games\The Next Worlds" --settings-file "$env:LOCALAPPDATA\RR2NW\legacy-import-check.cfg" --import-legacy-config "E:\Games\The Next Worlds\saves\config.cfg"
+```
+
+The startup log must contain `legacy_config_import=1`, profile 1, 44 source
+bindings and `legacy_config_bindings_projected=0`. Mouse sensitivity and the
+proven audio categories must match the old file; modern controls, video,
+developer capability and paths must remain unchanged. A second run must be
+idempotent. `--safe-mode --import-legacy-config ...` must fail argument parsing
+without changing either file.

@@ -96,6 +96,41 @@ struct SModRuntimeCleanup {
   ~SModRuntimeCleanup() { RecoveredModRuntime_Release(); }
 };
 
+bool WriteBoundedFixture(const std::wstring& path, const std::string& bytes) {
+  FILE* file = nullptr;
+  if (_wfopen_s(&file, path.c_str(), L"wb") != 0 || file == nullptr)
+    return false;
+  const bool body = bytes.empty() ||
+      std::fwrite(bytes.data(), 1u, bytes.size(), file) == bytes.size();
+  return std::fclose(file) == 0 && body;
+}
+
+bool ReadBoundedFixture(const std::wstring& path,
+                        std::vector<unsigned char>* bytes) {
+  if (bytes == nullptr) return false;
+  FILE* file = nullptr;
+  if (_wfopen_s(&file, path.c_str(), L"rb") != 0 || file == nullptr)
+    return false;
+  if (std::fseek(file, 0, SEEK_END) != 0) {
+    std::fclose(file);
+    return false;
+  }
+  const long size = std::ftell(file);
+  if (size < 0 || size > 1024 * 1024 ||
+      std::fseek(file, 0, SEEK_SET) != 0) {
+    std::fclose(file);
+    return false;
+  }
+  std::vector<unsigned char> candidate(static_cast<std::size_t>(size));
+  const bool body = candidate.empty() ||
+      std::fread(candidate.data(), 1u, candidate.size(), file) ==
+          candidate.size();
+  const bool closed = std::fclose(file) == 0;
+  if (!body || !closed) return false;
+  *bytes = std::move(candidate);
+  return true;
+}
+
 bool SplitRetailLevelDirectory(const char* directory, std::string* root,
                                std::string* identity) {
   if (directory == nullptr || root == nullptr || identity == nullptr)
@@ -5701,6 +5736,87 @@ int main(int argc, char** argv) {
     ZAV_Deinit();
     return Fail("schema-6 audio volumes did not round-trip exactly");
   }
+  const std::wstring legacyConfigPath =
+      saveSlotDirectory + L"\\legacy-config.cfg";
+  const std::string legacyImportBody =
+      "# privacy-safe runtime import fixture\r\n"
+      "[Setings]\r\n"
+      "Bind0=Forward,E\r\n"
+      "Bind1=FirePrimary,MouseL\r\n"
+      "Bind2=FirePrimary,LCtrl\r\n"
+      "UserBindsNum=3\r\n"
+      "UseMouse=1\r\n"
+      "MouseSensX=0.625\r\n"
+      "MouseSensY=0.375\r\n"
+      "MouseInvY=1\r\n"
+      "Sound=1\r\n"
+      "3DrawSound=1\r\n"
+      "EngineSound=1\r\n"
+      "EngineIntensity=0.750\r\n";
+  std::vector<unsigned char> legacySourceBefore;
+  SLegacyConfigImport importedLegacyConfig;
+  SLegacyImportStatus legacyImportStatus;
+  if (!WriteBoundedFixture(legacyConfigPath, legacyImportBody) ||
+      !ReadBoundedFixture(legacyConfigPath, &legacySourceBefore) ||
+      !RecoveredGameServices_ImportLegacyConfig(
+          legacyConfigPath, &importedLegacyConfig, &legacyImportStatus) ||
+      !RecoveredGameServices_ImportLegacyConfig(
+          legacyConfigPath, &importedLegacyConfig, &legacyImportStatus)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("legacy CONFIG.CFG could not commit idempotently");
+  }
+  shell = RecoveredGameServices_InGameShellState();
+  std::vector<unsigned char> legacySourceAfter;
+  std::vector<unsigned char> modernBeforeRejectedImport;
+  if (shell == nullptr || shell->legacyConfigImports != 2u ||
+      shell->legacyConfigBindingProjections != 2u ||
+      shell->legacyConfigIgnoredSettings != 1u ||
+      shell->legacyConfigSourceBindings != 3u ||
+      shell->legacyConfigSourceFingerprint == 0u ||
+      shell->settingsWrites != 2u ||
+      !importedLegacyConfig.bindingsProjected ||
+      std::fabs(shell->mouseSensitivityX - 0.625) > 1.0e-12 ||
+      std::fabs(shell->mouseSensitivityY - 0.375) > 1.0e-12 ||
+      !shell->mouseInvertY ||
+      std::fabs(shell->effectsVolume - 1.0) > 1.0e-12 ||
+      std::fabs(shell->vehicleVolume - 0.75) > 1.0e-12 ||
+      std::fabs(shell->cinematicVolume - 1.0) > 1.0e-12 ||
+      RecoveredGameServices_InputBindings() == nullptr ||
+      RecoveredGameServices_InputBindings()
+              ->key[RECOVERED_BIND_MOVE_FORWARD] != 'E' ||
+      !ReadBoundedFixture(legacyConfigPath, &legacySourceAfter) ||
+      legacySourceAfter != legacySourceBefore ||
+      !ReadBoundedFixture(shellSettingsPath,
+                          &modernBeforeRejectedImport)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("legacy CONFIG.CFG projection/immutability is incorrect");
+  }
+  if (!WriteBoundedFixture(legacyConfigPath,
+                           legacyImportBody + "MouseSensX=nan\r\n") ||
+      RecoveredGameServices_ImportLegacyConfig(
+          legacyConfigPath, nullptr, &legacyImportStatus) ||
+      legacyImportStatus.error != ELegacyImportError::InvalidConfig) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("invalid legacy CONFIG.CFG did not fail closed");
+  }
+  shell = RecoveredGameServices_InGameShellState();
+  std::vector<unsigned char> modernAfterRejectedImport;
+  if (shell == nullptr || shell->legacyConfigImports != 2u ||
+      shell->settingsWrites != 2u ||
+      std::fabs(shell->mouseSensitivityX - 0.625) > 1.0e-12 ||
+      RecoveredGameServices_InputBindings() == nullptr ||
+      RecoveredGameServices_InputBindings()
+              ->key[RECOVERED_BIND_MOVE_FORWARD] != 'E' ||
+      !ReadBoundedFixture(shellSettingsPath,
+                          &modernAfterRejectedImport) ||
+      modernAfterRejectedImport != modernBeforeRejectedImport) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("rejected legacy import mutated modern settings");
+  }
   FILE* legacySettings = nullptr;
   if (_wfopen_s(&legacySettings, shellSettingsPath.c_str(), L"wb") != 0 ||
       legacySettings == nullptr) {
@@ -5955,6 +6071,16 @@ int main(int argc, char** argv) {
     return Fail("in-game shell safe recovery state was not fail-closed");
   }
   shell = RecoveredGameServices_InGameShellState();
+  SLegacyImportStatus safeModeLegacyStatus;
+  if (RecoveredGameServices_ImportLegacyConfig(
+          legacyConfigPath, nullptr, &safeModeLegacyStatus) ||
+      safeModeLegacyStatus.error != ELegacyImportError::UnsupportedConfig ||
+      shell == nullptr || shell->legacyConfigImports != 0u ||
+      shell->settingsWrites != 0u) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("safe mode admitted a legacy config import");
+  }
   if (shell == nullptr || shell->developerMode || !shell->safeMode ||
       shell->settingsLoads != 0u || shell->settingsWrites != 0u ||
       shell->corruptSettingsRecoveries != 0u || shell->windowMode != 0 ||
