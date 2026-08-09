@@ -120,6 +120,43 @@ int main() {
       std::fabs(focusTelemetry.droppedSeconds - 0.1125) > 1.0e-9)
     return Fail("focus reset telemetry diverged");
 
+  const double hostWrapSeconds =
+      static_cast<double>((std::numeric_limits<std::uint32_t>::max)()) /
+      1000.0;
+  const double longOrigin =
+      hostWrapSeconds + 365.0 * 24.0 * 60.0 * 60.0;
+  const int longDenseSamples = 40000;
+  const int longSparseSamples = longDenseSamples / 4;
+  SimulationCadence longDense;
+  SimulationCadence longSparse;
+  std::vector<double> longDenseTicks;
+  std::vector<double> longSparseTicks;
+  if (!longDense.Configure(config, longOrigin) ||
+      !longSparse.Configure(config, longOrigin) ||
+      !AppendSchedule(&longDense, 0.025, longDenseSamples, true,
+                      &longDenseTicks) ||
+      !AppendSchedule(&longSparse, 0.1, longSparseSamples, true,
+                      &longSparseTicks) ||
+      longDenseTicks.size() != static_cast<std::size_t>(longDenseSamples) ||
+      !SameTicks(longDenseTicks, longSparseTicks) ||
+      longDenseTicks.front() <= longOrigin ||
+      longDenseTicks.back() !=
+          longOrigin + static_cast<double>(longDenseSamples) * 0.025)
+    return Fail("long-session dense and sparse schedules diverged");
+  const SSimulationCadenceTelemetry longDenseTelemetry =
+      longDense.Telemetry();
+  const SSimulationCadenceTelemetry longSparseTelemetry =
+      longSparse.Telemetry();
+  if (longDenseTelemetry.simulationTicks !=
+          static_cast<std::uint64_t>(longDenseSamples) ||
+      longSparseTelemetry.simulationTicks !=
+          static_cast<std::uint64_t>(longDenseSamples) ||
+      longDenseTelemetry.droppedSeconds != 0.0 ||
+      longSparseTelemetry.droppedSeconds != 0.0 ||
+      longDenseTelemetry.accumulatorSeconds != 0.0 ||
+      longSparseTelemetry.accumulatorSeconds != 0.0)
+    return Fail("long-session cadence accumulated drift or dropped time");
+
   std::cout << "simulation-cadence-smoke: OK dense="
             << denseTelemetry.presentationSamples << "/"
             << denseTelemetry.simulationTicks << " sparse="
@@ -127,6 +164,7 @@ int main() {
             << sparseTelemetry.simulationTicks << " max="
             << sparseTelemetry.maximumTicksPerSample << " stall_drop="
             << stalledTelemetry.droppedSeconds << " focus_resets="
-            << focusTelemetry.focusResets << '\n';
+            << focusTelemetry.focusResets << " long_ticks="
+            << longDenseTelemetry.simulationTicks << '\n';
   return EXIT_SUCCESS;
 }

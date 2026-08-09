@@ -2869,13 +2869,11 @@ bool ConfigureHardwareControls() {
 }
 
 double CurrentInputEventTime() {
-  // Window messages are queued into the simulation, so stamp them at the
-  // currently owned event boundary. A wall-clock stamp can sit ahead of the
-  // simulation and let a later focus transition overtake still-future input.
-  const double eventMoment = Session::m_moment;
-  return !std::isfinite(eventMoment) || eventMoment < 0.1
-             ? 0.1
-             : eventMoment;
+  // Window messages are queued into the simulation, so both the recovered
+  // adapter and retained Hardware mouse path use this single authoritative
+  // boundary. A wall-clock stamp can sit ahead of the simulation, wrap after
+  // 49.7 days, or let focus overtake still-future input.
+  return SUA_AuthoritativeInputTime();
 }
 
 bool DispatchWindowsInputAction(
@@ -4345,9 +4343,7 @@ bool BeginVehicleControl(SimulationContext* context,
   }
   Vehicle::preserveExternalControlSubscription(false);
 
-  const double timerTime = g_timer.GetTime();
-  const double startTime =
-      !std::isfinite(timerTime) || timerTime < 0.1 ? 0.1 : timerTime;
+  const double startTime = CurrentInputEventTime();
   if (!VehicleRuntimeState_Activate(
           context, vehicle, position, startTime)) {
     return false;
@@ -7496,10 +7492,8 @@ bool RecoveredGameServices_SetApplicationActive(bool active) {
   if (!g_vehicleControlReady || g_vehicleControlInput.getContext() == nullptr) {
     return false;
   }
-  const double timerTime = g_timer.GetTime();
-  const double eventTime =
-      !std::isfinite(timerTime) || timerTime < 0.1 ? 0.1 : timerTime;
-  return g_vehicleControlInput.SetApplicationActive(active, eventTime);
+  return g_vehicleControlInput.SetApplicationActive(
+      active, CurrentInputEventTime());
 }
 
 bool RecoveredGameServices_VehicleApplicationActive() {

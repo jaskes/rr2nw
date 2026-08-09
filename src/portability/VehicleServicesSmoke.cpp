@@ -61,6 +61,57 @@ bool ExerciseTaxiRegistry() {
 
 bool ExerciseTimeService() {
   SUA_BindSession(nullptr);
+  if (SUA_HostTickDelta(0x80000010u, 0x7ffffff0u) != 32u ||
+      SUA_HostTickDelta(0x00000018u, 0xfffffff0u) != 40u) {
+    return false;
+  }
+
+  g_timer.m_aspect = 1.0;
+  g_timer.m_curTime = 0.0;
+  g_timer.m_pauseTime = 0.0;
+  g_timer.m_prevTime = static_cast<long>(0x7ffffff0u);
+  double sampledTime = 0.0;
+  if (!SUA_SampleLegacyTimerAtHostTick(0x80000010u, &sampledTime) ||
+      std::fabs(sampledTime - 0.132) > 1.0e-12) {
+    return false;
+  }
+  g_timer.m_curTime = 0.0;
+  g_timer.m_pauseTime = 0.0;
+  g_timer.m_prevTime = static_cast<long>(0xfffffff0u);
+  if (!SUA_SampleLegacyTimerAtHostTick(0x00000018u, &sampledTime) ||
+      std::fabs(sampledTime - 0.14) > 1.0e-12) {
+    return false;
+  }
+
+  const unsigned int clampCountBefore = SUA_ClampedTimerSampleCount();
+  const double clampSecondsBefore = SUA_ClampedTimerSeconds();
+  g_timer.m_curTime = 0.0;
+  g_timer.m_pauseTime = 0.0;
+  g_timer.m_prevTime = static_cast<long>(0xfffffff0u);
+  if (!SUA_SampleLegacyTimerAtHostTick(0x00000080u, &sampledTime) ||
+      std::fabs(sampledTime - 0.15) > 1.0e-12 ||
+      SUA_ClampedTimerSampleCount() != clampCountBefore + 1u ||
+      std::fabs(SUA_ClampedTimerSeconds() -
+                (clampSecondsBefore + 0.094)) > 1.0e-12) {
+    return false;
+  }
+  g_timer.m_curTime = 0.0;
+  g_timer.m_pauseTime = 0.0;
+  g_timer.m_prevTime = static_cast<long>(0xfffffff0u);
+  if (!SUA_SampleLegacyTimerAtHostTick(0x00000ba8u, &sampledTime) ||
+      std::fabs(sampledTime - 0.1) > 1.0e-12 ||
+      SUA_ClampedTimerSampleCount() != clampCountBefore + 2u ||
+      std::fabs(SUA_ClampedTimerSeconds() -
+                (clampSecondsBefore + 3.094)) > 1.0e-12) {
+    return false;
+  }
+
+  g_timer.m_startTick = static_cast<long>(0xfffffff0u);
+  g_timer.m_pauseTime = 0.0;
+  if (std::fabs(g_timer.ConvertSysTime(0x00000400u) - 1.04) > 1.0e-12) {
+    return false;
+  }
+
   g_timer.m_aspect = 1.0;
   g_timer.m_curTime = 4000.0;
   g_timer.m_pauseTime = 0.0;
@@ -75,7 +126,18 @@ bool ExerciseTimeService() {
   }
 
   Session empty_session;
+  const double longSessionTime =
+      static_cast<double>((std::numeric_limits<std::uint32_t>::max)()) /
+          1000.0 + 365.0 * 24.0 * 60.0 * 60.0;
+  Session::m_moment = longSessionTime;
+  Session::m_viewTime = longSessionTime;
   SUA_BindSession(&empty_session);
+  if (g_timer.ConvertSysTime(0xfffffff0u) != longSessionTime ||
+      g_timer.ConvertSysTime(0x00000018u) != longSessionTime ||
+      SUA_AuthoritativeInputTime() != longSessionTime) {
+    SUA_BindSession(nullptr);
+    return false;
+  }
   SUA_ProcessEvents();
 
   SimulationContext context(8, 8);

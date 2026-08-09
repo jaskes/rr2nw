@@ -1,7 +1,9 @@
 #include "ReplayHashJournal.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <limits>
 
 namespace {
 
@@ -75,7 +77,12 @@ struct Reader {
 };
 
 bool NearlyEqual(double left, double right) {
-  return std::fabs(left - right) <= kTimeTolerance;
+  const double scale = (std::max)(
+      1.0, (std::max)(std::fabs(left), std::fabs(right)));
+  const double precisionFloor =
+      8.0 * (std::numeric_limits<double>::epsilon)() * scale;
+  return std::fabs(left - right) <=
+      (std::max)(kTimeTolerance, precisionFloor);
 }
 
 void HashBytes(std::uint64_t* hash, const std::uint8_t* bytes,
@@ -123,20 +130,21 @@ bool ReplayHashJournal_Validate(const SReplayHashJournal& journal) {
     return false;
 
   std::uint64_t previousTick = journal.controls.checkpointTick;
-  double previousTime = journal.controls.checkpointTime;
   for (std::size_t index = 0; index < journal.samples.size(); ++index) {
     const SReplayHashSample& sample = journal.samples[index];
+    const double expectedTime = journal.controls.checkpointTime +
+        static_cast<double>(index + 1u) * journal.simulationStepSeconds;
     if (sample.tick != previousTick + 1u ||
         !std::isfinite(sample.simulationTime) ||
-        !NearlyEqual(sample.simulationTime - previousTime,
-                     journal.simulationStepSeconds) ||
+        !std::isfinite(expectedTime) ||
+        !NearlyEqual(sample.simulationTime, expectedTime) ||
         sample.stateHash == 0u)
       return false;
     previousTick = sample.tick;
-    previousTime = sample.simulationTime;
   }
   return previousTick == journal.controls.finalTick &&
-         NearlyEqual(previousTime, journal.controls.finalTime);
+         NearlyEqual(journal.samples.back().simulationTime,
+                     journal.controls.finalTime);
 }
 
 bool ReplayHashJournal_MatchesIdentity(

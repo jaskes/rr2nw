@@ -3172,6 +3172,22 @@ playable Level begins.
   build configurations. Complete active-world hashes, interpolation and
   long-session proof remain open.
 
+### RP-REPLAY-004: long-session time is a port stability guarantee
+
+- No surviving source proves that retail supported a 49.7-day process or a
+  particular global tick rate. This slice therefore claims modern stability,
+  not retail cadence parity.
+- The production loop remains on `steady_clock`; CLK1 remains the serialized
+  Session authority. Windows input no longer derives gameplay ordering from a
+  wrapping host tick, while the isolated legacy fallback preserves unsigned
+  DWORD behavior.
+- Synthetic acceptance crosses `0x7fffffff` and `0xffffffff`, then starts a
+  fixed-step/RPH1 route beyond one complete wrap plus 365 days. Dense/sparse
+  schedules retain the same 40,000 boundaries and independently constructed
+  RPH1 journals retain the same fingerprint.
+- Raw legacy timer-record import, broader active-world hashes and renderer
+  interpolation are deliberately separate boundaries.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

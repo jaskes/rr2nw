@@ -3,6 +3,8 @@
 
 #include <cmath>
 
+#include "TimeRuntimeState.h"
+
 namespace {
 Session *rr2nw_active_session = NULL;
 
@@ -13,6 +15,34 @@ Session *rr2nw_active_session = NULL;
 const double rr2nw_max_timer_sample_ms = 50.0;
 unsigned int rr2nw_clamped_timer_samples = 0;
 double rr2nw_clamped_timer_seconds = 0.0;
+
+double rr2nw_sample_timer_at_tick(a_TTimer *timer, DWORD tick)
+{
+    if (timer == NULL)
+        return 0.0;
+    double addTime = static_cast<double>(SUA_HostTickDelta(
+        static_cast<std::uint32_t>(tick),
+        static_cast<std::uint32_t>(timer->m_prevTime)));
+
+    if (addTime > 2000.0)
+    {
+        timer->m_pauseTime += addTime / 1000.0;
+        rr2nw_clamped_timer_seconds += addTime / 1000.0;
+        ++rr2nw_clamped_timer_samples;
+        addTime = 0;
+    }
+    else if (addTime > rr2nw_max_timer_sample_ms)
+    {
+        const double dropped = addTime - rr2nw_max_timer_sample_ms;
+        timer->m_pauseTime += dropped / 1000.0;
+        rr2nw_clamped_timer_seconds += dropped / 1000.0;
+        ++rr2nw_clamped_timer_samples;
+        addTime = rr2nw_max_timer_sample_ms;
+    }
+    timer->m_curTime += addTime;
+    timer->m_prevTime = static_cast<long>(tick);
+    return (timer->m_curTime / 1000.0 + 0.1) * timer->m_aspect;
+}
 
 void rr2nw_rebase_timer(a_TTimer *timer, double interval)
 {
@@ -30,7 +60,8 @@ void rr2nw_rebase_timer(a_TTimer *timer, double interval)
 
 bool a_TTimer::dump(PIN_SaveFile &sf)
 {
-    m_deltaTime = m_prevTime - m_startTick;
+    m_deltaTime = static_cast<long>(
+        static_cast<DWORD>(m_prevTime) - static_cast<DWORD>(m_startTick));
 
     if (!sf.WriteData((char *)&m_aspect, sizeof(TimerData)))
         return false;
@@ -43,8 +74,9 @@ bool a_TTimer::load(PIN_SaveFile &sf)
     if (!sf.GetData((char *)&m_aspect, sizeof(TimerData)))
         return false;
 
-    m_prevTime = ::GetTickCount();
-    m_startTick = m_prevTime - m_deltaTime;
+    m_prevTime = static_cast<long>(::GetTickCount());
+    m_startTick = static_cast<long>(
+        static_cast<DWORD>(m_prevTime) - static_cast<DWORD>(m_deltaTime));
 
     return true;
 }
@@ -73,7 +105,18 @@ void a_TTimer::SetCurTime(double)
 
 double a_TTimer::ConvertSysTime(dword tick)
 {
-    double t = (double)(((long)tick) - m_startTick) / 1000.0 - m_pauseTime;
+    // The recovered Windows adapter and the retained Hardware mouse path must
+    // share one event clock. A bound Session is authoritative and cannot be
+    // displaced by the signed 24.8-day boundary or 49.7-day host wrap.
+    if (rr2nw_active_session != NULL)
+        return SUA_AuthoritativeInputTime();
+
+    // The unbound compatibility path is still used by isolated legacy tests.
+    // Its start-relative interval is valid across one DWORD wrap as long as
+    // callers observe the original less-than-one-wrap contract.
+    double t = static_cast<double>(SUA_HostTickDelta(
+        static_cast<std::uint32_t>(tick),
+        static_cast<std::uint32_t>(m_startTick))) / 1000.0 - m_pauseTime;
     if (t < 0.1)
         t = 0.1;
     return t * m_aspect;
@@ -87,31 +130,30 @@ void a_TTimer::addTime(double t)
 
 double a_TTimer::GetTime()
 {
-    const DWORD tick = ::GetTickCount();
-    // DWORD subtraction has the modulo-2^32 behavior required by
-    // GetTickCount.  Subtracting its signed long aliases would overflow at the
-    // 0x7fffffff boundary, weeks before the documented 49-day wrap.
-    double addTime = static_cast<double>(
-        tick - static_cast<DWORD>(m_prevTime));
+    return rr2nw_sample_timer_at_tick(this, ::GetTickCount());
+}
 
-    if (addTime > 2000.0)
-    {
-        m_pauseTime += addTime / 1000.0;
-        rr2nw_clamped_timer_seconds += addTime / 1000.0;
-        ++rr2nw_clamped_timer_samples;
-        addTime = 0;
-    }
-    else if (addTime > rr2nw_max_timer_sample_ms)
-    {
-        const double dropped = addTime - rr2nw_max_timer_sample_ms;
-        m_pauseTime += dropped / 1000.0;
-        rr2nw_clamped_timer_seconds += dropped / 1000.0;
-        ++rr2nw_clamped_timer_samples;
-        addTime = rr2nw_max_timer_sample_ms;
-    }
-    m_curTime += addTime;
-    m_prevTime = static_cast<long>(tick);
-    return (m_curTime / 1000.0 + 0.1) * m_aspect;
+std::uint32_t SUA_HostTickDelta(std::uint32_t currentTick,
+                                std::uint32_t previousTick)
+{
+    return currentTick - previousTick;
+}
+
+bool SUA_SampleLegacyTimerAtHostTick(std::uint32_t hostTick,
+                                     double *timeSeconds)
+{
+    if (timeSeconds == NULL)
+        return false;
+    *timeSeconds = rr2nw_sample_timer_at_tick(
+        &g_timer, static_cast<DWORD>(hostTick));
+    return std::isfinite(*timeSeconds) && *timeSeconds >= 0.1;
+}
+
+double SUA_AuthoritativeInputTime()
+{
+    const double eventMoment = Session::m_moment;
+    return !std::isfinite(eventMoment) || eventMoment < 0.1
+        ? 0.1 : eventMoment;
 }
 
 unsigned int SUA_ClampedTimerSampleCount()

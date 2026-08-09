@@ -6,6 +6,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <limits>
 #include <vector>
 
 namespace {
@@ -108,6 +109,61 @@ int main() {
   invalid.samples[7].simulationTime += kStep;
   if (ReplayHashJournal_Validate(invalid))
     return Fail("a non-uniform simulation step was admitted");
+
+  // A process may remain alive beyond GetTickCount's 49.7-day wrap and then
+  // continue for months. At that magnitude a double's ULP is wider than the
+  // original absolute 1 ns validation tolerance even though the exact 25 ms
+  // cadence and authoritative hashes are unchanged.
+  const double hostWrapSeconds =
+      static_cast<double>((std::numeric_limits<std::uint32_t>::max)()) /
+      1000.0;
+  const double longOrigin =
+      hostWrapSeconds + 365.0 * 24.0 * 60.0 * 60.0;
+  SSimulationClockState longCheckpoint = checkpoint;
+  longCheckpoint.tick = 0x100000000ull + 1532u;
+  longCheckpoint.eventMoment = longOrigin;
+  longCheckpoint.viewTime = longOrigin;
+  if (!SUA_ApplySimulationClock(longCheckpoint))
+    return Fail("could not install the long-session clock checkpoint");
+  SVehicleControlJournal longControls;
+  if (!VehicleControlJournal_Begin(
+          "Vehicle.Default", true, held, &longControls) ||
+      !VehicleControlJournal_Seal(
+          &longControls, longCheckpoint.tick + 12u,
+          longOrigin + 12.0 * kStep))
+    return Fail("could not build the long-session CTJ1 fixture");
+  std::vector<SReplayHashSample> longSamples;
+  for (std::uint64_t index = 1u; index <= 12u; ++index) {
+    SReplayHashSample sample;
+    sample.tick = longCheckpoint.tick + index;
+    sample.simulationTime = longOrigin +
+        static_cast<double>(index) * kStep;
+    sample.stateHash = 0x6eed0e9da4d94a4full ^
+                       (sample.tick * 0x100000001b3ull);
+    longSamples.push_back(sample);
+  }
+  SReplayHashJournal longJournalA;
+  SReplayHashJournal longJournalB;
+  std::vector<std::uint8_t> longEncoded;
+  SReplayHashJournal longDecoded;
+  if (!ReplayHashJournal_Create(
+          kContentFingerprint, kStep, longControls, longSamples,
+          &longJournalA) ||
+      !ReplayHashJournal_Create(
+          kContentFingerprint, kStep, longControls, longSamples,
+          &longJournalB) ||
+      ReplayHashJournal_Fingerprint(longJournalA) == 0u ||
+      ReplayHashJournal_Fingerprint(longJournalA) !=
+          ReplayHashJournal_Fingerprint(longJournalB) ||
+      !ReplayHashJournal_Encode(longJournalA, &longEncoded) ||
+      !ReplayHashJournal_Decode(longEncoded, &longDecoded) ||
+      ReplayHashJournal_Fingerprint(longJournalA) !=
+          ReplayHashJournal_Fingerprint(longDecoded))
+    return Fail("long-session RPH1 identity or round trip diverged");
+  SReplayHashJournal longInvalid = longJournalA;
+  longInvalid.samples[5].simulationTime += kStep;
+  if (ReplayHashJournal_Validate(longInvalid))
+    return Fail("long-session RPH1 admitted a whole-tick time drift");
 
   if (!SUA_ApplySimulationClock(clockBefore) ||
       !SimulationRandom_Apply(SimulationRandom_Algorithm(), randomBefore) ||

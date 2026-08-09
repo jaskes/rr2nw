@@ -5889,6 +5889,30 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   Renderer interpolation, complete-world RPH hashes and long-session drift are
   still separate M4 work.
 
+### CQ-278: 32-bit host wrap is outside authoritative Session time
+
+- Status: `GETTICKCOUNT_WRAP_PROVEN`, `INPUT_CLOCK_UNIFIED`,
+  `LONG_ORIGIN_RPH1_PROVEN`.
+- Cause: retained `ConvertSysTime()` performed signed `long` subtraction on
+  `GetMessageTime`, creating a negative input timestamp at `0x80000000` and a
+  second discontinuity at DWORD wrap. RPH1 also compared a 25 ms difference to
+  an absolute 1 ns tolerance that becomes smaller than one `double` ULP after
+  a sufficiently long session.
+- Handling: production keyboard/buttons and compatibility mouse motion now use
+  the same authoritative `Session::m_moment`. The unbound timer sampler uses
+  explicit unsigned modulo arithmetic; RPH1 compares samples with
+  `checkpoint + ordinal * step` and a magnitude-aware precision floor.
+- Verification: `legacy-vehicle-services-smoke` crosses both signed and DWORD
+  boundaries and proves the 50 ms cap plus a 3-second stall drop.
+  `simulation-cadence-smoke` starts beyond one host wrap plus 365 days and
+  proves identical dense/sparse 40,000-tick schedules with zero drift/drop.
+  `replay-hash-journal-smoke` uses a tick above `UINT32_MAX`, retains identical
+  fingerprints across two constructions and decode, and rejects a full-tick
+  tamper. See `LongSessionTiming.md` for the owner matrix.
+- Boundary: old raw `TimerData`/Context save import is not RR2SLOT1/LCN1 and
+  remains evidence-bounded legacy-import work. UI `GetTickCount64` deadlines
+  and archival FPS/terrain diagnostics are not simulation owners.
+
 ## Maintenance rule
 
 When a new quirk is found:

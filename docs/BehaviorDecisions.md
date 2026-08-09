@@ -6845,3 +6845,29 @@ presentation and an accumulated one-tick presentation to yield five Session
 and Vehicle steps but only three renders. The direct service gate additionally
 proves focus loss/gain and exact LCN1 rebase. Interpolation, complete-world
 hashes and long-session drift/wrap are separate decisions.
+
+### BD-214: host uptime cannot timestamp authoritative gameplay input
+
+Status: accepted on 2026-08-09 for the long-session timing boundary.
+
+The production presentation loop already owns a monotonic `steady_clock`, and
+Session owns persisted `double` seconds plus a 64-bit simulation tick. The last
+gameplay-facing 32-bit host-time path was the retained Hardware mouse adapter:
+`a_TTimer::ConvertSysTime(GetMessageTime())` subtracted signed `long` values.
+It could jump backwards at the 24.8-day sign boundary and again at the
+49.7-day DWORD wrap even though keyboard/button input was already stamped at
+the authoritative event boundary.
+
+A bound Session now makes `Session::m_moment` the sole timestamp for both input
+paths. The unbound legacy timer fallback retains explicit modulo-2^32
+subtraction and its existing 50 ms clamp/stall-drop policy. An injectable host
+tick sampler proves both sign and wrap boundaries without sleeping. RPH1 time
+validation derives each expected point from checkpoint plus integer ordinal
+and uses a magnitude-aware ULP floor, because an absolute one-nanosecond
+tolerance is narrower than a `double` ULP after months of simulation. A whole
+25 ms drift remains rejected.
+
+Raw legacy `TimerData`/`SimulationContext::load()` import is not silently
+redesigned in this slice. RR2SLOT1/LCN1 do not use it, and its exact semantics
+remain part of legacy-save import. This also avoids re-encoding an ancient
+non-UTF source file solely to produce an unrelated mechanical diff.

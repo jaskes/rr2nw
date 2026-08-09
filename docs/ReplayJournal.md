@@ -203,6 +203,8 @@ discards the nonserialized accumulator and establishes a fresh cadence epoch.
 There is still no player replay UI, seeking, interpolation or fast-forward.
 
 Cross-Level slot reconstruction carries both target and source LCN1/CTJ1
-containers through the main-loop restart. Long-session wrap/drift proof and
-broader active-world hashes now follow separately. Legacy save import remains
-separate; multiplayer remains later.
+containers through the main-loop restart. The long-session boundary now proves
+DWORD host wrap, a further synthetic year, 64-bit ticks and magnitude-safe RPH1
+validation without changing serialized bytes. Broader active-world hashes now
+follow separately. Legacy save import remains separate; multiplayer remains
+later.
