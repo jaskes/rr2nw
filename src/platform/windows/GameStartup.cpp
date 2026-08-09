@@ -39,6 +39,8 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
+#include <cmath>
 #include <cerrno>
 #include <cstdint>
 #include <cstdio>
@@ -83,6 +85,7 @@ struct StartupOptions {
   bool launchSmoke = false;
   bool runtimeSmoke = false;
   bool runtimeSmokeExplicit = false;
+  bool productionCadenceSmoke = false;
   bool crashDiagnosticSmoke = false;
   bool legacyFatalDiagnosticSmoke = false;
   bool missionSmoke = false;
@@ -328,6 +331,9 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
     } else if (argument == L"--runtime-smoke") {
       options->runtimeSmoke = true;
       options->runtimeSmokeExplicit = true;
+    } else if (argument == L"--production-cadence-smoke") {
+      options->runtimeSmoke = true;
+      options->productionCadenceSmoke = true;
     } else if (argument == L"--crash-diagnostic-smoke") {
       options->runtimeSmoke = true;
       options->crashDiagnosticSmoke = true;
@@ -1886,6 +1892,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"          [--developer-mode] [--native-diagnostic-menu]\n"
                 L"          [--debug-menu] [--safe-mode]\n"
                 L"          [--launch-smoke] [--runtime-smoke]\n"
+                L"          [--production-cadence-smoke]\n"
                 L"          [--mission-smoke | --mission-briefing-smoke |\n"
                 L"           --mission-checkpoint-smoke |\n"
                 L"           --mission-reached-script-smoke |\n"
@@ -3793,8 +3800,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
           static_cast<std::uint32_t>(options.startupLoadSlot))) {
     loopFailed = true;
   }
-  const auto runCompleteFrame = [&]() {
-    if (!RecoveredGameServices_RunFrame()) return false;
+  const auto finishPresentedFrame = [&]() {
     // Audio remains subordinate to simulation. An invalid or unavailable
     // device records telemetry but cannot reject an otherwise valid frame.
     (void)Frame_PublishAudioListener();
@@ -3834,6 +3840,13 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
         frameShell != nullptr && frameShell->open);
     return true;
   };
+  const auto runCompleteFrame = [&]() {
+    return RecoveredGameServices_RunFrame() && finishPresentedFrame();
+  };
+  const auto runScheduledPresentation = [&](double elapsedSeconds) {
+    return RecoveredGameServices_RunScheduledPresentation(elapsedSeconds) &&
+           finishPresentedFrame();
+  };
   // Ordinary startup save/load is itself a closed-frame operation. Complete
   // it before staging the synthetic map mission. Mission acceptance saves are
   // deliberately postponed so a fresh process has to reconstruct the real
@@ -3852,6 +3865,44 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                  !RecoveredGameServices_ProbeDebugMapControls() ||
                  !RecoveredGameServices_RequestDebugMapToggle() ||
                  !RecoveredGameServices_ClearMissionMapProbe();
+  }
+  if (!loopFailed && options.productionCadenceSmoke) {
+    const std::uint64_t tickBefore = Session::m_simulationTick;
+    const double timeBefore = Session::m_viewTime;
+    const unsigned int vehicleFramesBefore =
+        RecoveredGameServices_VehicleFrameCount();
+    const unsigned int cameraFramesBefore =
+        RecoveredGameServices_VehicleCameraFrameCount();
+    const DWORD presentationsBefore = dwFrames;
+    const bool submitted = runScheduledPresentation(0.1) &&
+        runScheduledPresentation(0.0125) &&
+        runScheduledPresentation(0.0125);
+    SRecoveredProductionCadenceTelemetry cadence = {};
+    const bool telemetryReady =
+        RecoveredGameServices_ProductionCadenceTelemetry(&cadence);
+    const bool exact = submitted && telemetryReady && cadence.active &&
+        cadence.presentationSamples == 3u &&
+        cadence.simulationTicks == 5u &&
+        cadence.zeroTickPresentations == 1u &&
+        cadence.catchUpPresentations == 1u &&
+        cadence.maximumTicksPerPresentation == 4u &&
+        cadence.accumulatorSeconds == 0.0 &&
+        cadence.droppedSeconds == 0.0 &&
+        Session::m_simulationTick == tickBefore + 5u &&
+        std::fabs(Session::m_viewTime - (timeBefore + 0.125)) < 1.0e-9 &&
+        RecoveredGameServices_VehicleFrameCount() ==
+            vehicleFramesBefore + 5u &&
+        RecoveredGameServices_VehicleCameraFrameCount() ==
+            cameraFramesBefore + 3u &&
+        dwFrames == presentationsBefore + 3u;
+    log.Line("production_cadence_smoke=" +
+             std::to_string(exact ? 1 : 0) + "/" +
+             std::to_string(cadence.presentationSamples) + "/" +
+             std::to_string(cadence.simulationTicks) + "/" +
+             std::to_string(cadence.zeroTickPresentations) + "/" +
+             std::to_string(cadence.catchUpPresentations) + "/" +
+             std::to_string(cadence.maximumTicksPerPresentation));
+    loopFailed = !exact;
   }
   if (!loopFailed && options.portalTransitionSmoke) {
     const int sourceLevelIndex = currentLevelIndex;
@@ -6564,9 +6615,21 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       log.Line(std::string("audio_interactive_device_error=") +
                activatedAudio->lastError);
   }
+  typedef std::chrono::steady_clock PresentationClock;
+  PresentationClock::time_point previousPresentationSample =
+      PresentationClock::now();
   while (!loopFailed && !options.runtimeSmoke &&
          !RecoveredGameServices_QuitRequested()) {
-    if (!runCompleteFrame()) {
+    const PresentationClock::time_point currentPresentationSample =
+        PresentationClock::now();
+    const double elapsedSeconds = std::chrono::duration<double>(
+        currentPresentationSample - previousPresentationSample).count();
+    previousPresentationSample = currentPresentationSample;
+    if (elapsedSeconds <= 0.0) {
+      Sleep(1);
+      continue;
+    }
+    if (!runScheduledPresentation(elapsedSeconds)) {
       loopFailed = !RecoveredGameServices_QuitRequested();
       break;
     }
@@ -7136,6 +7199,26 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(frameTiming.boundaryMicroseconds));
     log.Line("frame_profile_boundary_max_us=" +
              std::to_string(frameTiming.maximumBoundaryMicroseconds));
+  }
+  SRecoveredProductionCadenceTelemetry productionCadence = {};
+  if (RecoveredGameServices_ProductionCadenceTelemetry(
+          &productionCadence)) {
+    log.Line("production_cadence_active=" +
+             std::to_string(productionCadence.active ? 1 : 0));
+    log.Line("production_cadence_samples_ticks=" +
+             std::to_string(productionCadence.presentationSamples) + "/" +
+             std::to_string(productionCadence.simulationTicks));
+    log.Line("production_cadence_zero_catchup=" +
+             std::to_string(productionCadence.zeroTickPresentations) + "/" +
+             std::to_string(productionCadence.catchUpPresentations));
+    log.Line("production_cadence_cap_focus_max=" +
+             std::to_string(productionCadence.cappedPresentations) + "/" +
+             std::to_string(productionCadence.focusResets) + "/" +
+             std::to_string(
+                 productionCadence.maximumTicksPerPresentation));
+    log.Line("production_cadence_accumulator_dropped=" +
+             std::to_string(productionCadence.accumulatorSeconds) + "/" +
+             std::to_string(productionCadence.droppedSeconds));
   }
   SGRSoftwareRasterStats rasterStats = {};
   GRSoftwareGetTotalStats(&rasterStats);

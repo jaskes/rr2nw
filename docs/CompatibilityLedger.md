@@ -5865,6 +5865,30 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   Renderer interpolation, complete-world hashes and long-session drift remain
   later M4 slices.
 
+### CQ-277: the Windows loop owns fixed ticks without multiplying presentation
+
+- Status: `PRODUCTION_FIXED_STEP_ACTIVE`, `TRANSACTIONS_AFTER_ONE_PRESENT`,
+  `LCN1_EPOCH_REBASE_PROVEN`.
+- Handling: ordinary play submits `steady_clock` presentation deltas to the
+  integer cadence owner. One call pumps messages and input once, executes zero
+  to four explicit Session/Vehicle ticks, renders/presents once and then owns
+  every world transaction. The semantic Windows input adapter is the sole
+  focus owner; inactive/shell time is dropped rather than replayed.
+- Restore boundary: cadence state is intentionally absent from LCN1/RR2SLOT1.
+  Both committed restore and successful backup rollback invalidate it; the next
+  presentation configures a fresh epoch at restored CLK1 view time.
+- Verification: `recovered-game-services-runtime-smoke` proves `4 ticks / 1
+  present`, `0 / 1`, accumulated `1 / 1`, focus reset/resume and LCN1 rebase.
+  `rr2nw.exe --production-cadence-smoke` proves the physical path and records
+  `production_cadence_smoke=1/3/5/1/1/4`, zero dropped time and
+  `game_services_issues=0`. The retail matrix requires that contract on all
+  nine installed Levels and passed 27/27 across Debug, Release and
+  RelWithDebInfo; cross-Level Save/Load passed 2/2, Portal 9/9, campaign 6/6,
+  presentation 3/3 and in-game shell 3/3.
+- Boundary: 25 ms is a modern compatibility policy, not a retail-rate claim.
+  Renderer interpolation, complete-world RPH hashes and long-session drift are
+  still separate M4 work.
+
 ## Maintenance rule
 
 When a new quirk is found:

@@ -58,6 +58,7 @@
 #include "RecoveredSoftwareFrame.h"
 #include "RecoveredSoftwareGraph.h"
 #include "RecoveredWindowsInputAdapter.h"
+#include "SimulationCadence.h"
 #include "SupervisorShutdownState.h"
 #include "TimeRuntimeState.h"
 #include "VehicleControlJournal.h"
@@ -1067,6 +1068,8 @@ STaxiVehicleTransitionProbeSummary g_taxiVehicleTransitionProbe = {};
 SRecoveredVehicleControlReplayProbeSummary g_vehicleControlReplayProbe = {};
 SRecoveredVehicleDriveTelemetry g_vehicleDriveTelemetry = {};
 SRecoveredFrameTimingTelemetry g_frameTimingTelemetry = {};
+SimulationCadence g_productionCadence;
+bool g_productionCadenceReady = false;
 CFVector3 g_vehicleTelemetryStartPosition(0.0, 0.0, 0.0);
 CFVector3 g_vehicleTelemetryStartForward(0.0, 0.0, 1.0);
 bool g_vehicleDriveTelemetryReady = false;
@@ -4795,6 +4798,7 @@ void BeginLoop() {
   dwFrames = 0;
   dwTime0 = GetTickCount();
   g_frameTimingTelemetry = {};
+  g_productionCadenceReady = false;
   pScene->CheckDynamicMap();
   GRSetViewport(ppViewports[0]);
   g_loopReady = true;
@@ -4916,6 +4920,7 @@ void RecoveredGameServices_Release() {
   g_comOwned = false;
   g_platformReady = false;
   g_loopReady = false;
+  g_productionCadenceReady = false;
 }
 
 bool RecoveredGameServices_PlatformReady() { return g_platformReady; }
@@ -5614,6 +5619,11 @@ bool RecoveredGameServices_RestoreLevelContinuation(
   }
   if (authorityReady) {
     *summary = restoredSummary;
+    // Cadence accumulation is presentation state and is deliberately absent
+    // from LCN1. A committed restore establishes a new authoritative clock
+    // origin; the next scheduled presentation must start a fresh epoch rather
+    // than consuming wall time accumulated against the replaced world.
+    g_productionCadenceReady = false;
     g_levelContinuationFailure.clear();
     return true;
   }
@@ -5650,6 +5660,10 @@ bool RecoveredGameServices_RestoreLevelContinuation(
         ? "; backup CTJ1 adoption failed: " +
               g_vehicleControlInput.ControlJournalAdoptionFailure()
         : "; backup world restore failed: " + rollbackFailure;
+  } else {
+    // A failed target still replaced the live world before backup adoption.
+    // Rebase the nonserialized cadence on the rolled-back CLK1 origin too.
+    g_productionCadenceReady = false;
   }
   return false;
 }
@@ -7837,6 +7851,26 @@ bool RecoveredGameServices_FrameTimingTelemetry(
   return true;
 }
 
+bool RecoveredGameServices_ProductionCadenceTelemetry(
+    SRecoveredProductionCadenceTelemetry* telemetry) {
+  if (telemetry == nullptr || !g_productionCadenceReady) return false;
+  const SSimulationCadenceTelemetry source =
+      g_productionCadence.Telemetry();
+  *telemetry = {};
+  telemetry->active = true;
+  telemetry->presentationSamples = source.presentationSamples;
+  telemetry->simulationTicks = source.simulationTicks;
+  telemetry->zeroTickPresentations = source.zeroTickSamples;
+  telemetry->catchUpPresentations = source.catchUpSamples;
+  telemetry->cappedPresentations = source.cappedSamples;
+  telemetry->focusResets = source.focusResets;
+  telemetry->maximumTicksPerPresentation =
+      source.maximumTicksPerSample;
+  telemetry->accumulatorSeconds = source.accumulatorSeconds;
+  telemetry->droppedSeconds = source.droppedSeconds;
+  return true;
+}
+
 bool RecoveredGameServices_VehicleAuthorityState(
     SRecoveredVehicleAuthorityState* authority) {
   if (authority == nullptr || g_super.m_context == nullptr) return false;
@@ -8093,11 +8127,24 @@ bool StageRecruitCenterLevelTransition() {
 
 }  // namespace
 
-static int RunFrameInternal(const double* explicitSimulationTime) {
+static SSimulationCadenceConfig ProductionCadenceConfig() {
+  SSimulationCadenceConfig config;
+  config.fixedStepSeconds = 0.025;
+  config.maximumCatchUpTicks = 4u;
+  config.maximumFrameDeltaSeconds = 0.1;
+  config.hardDeltaLimitSeconds = 60.0;
+  return config;
+}
+
+static int RunFrameInternal(const double* explicitSimulationTime,
+                            const double* presentationElapsedSeconds) {
   if (!RecoveredGameServices_IsReady()) {
     Report(RECOVERED_GAME_SERVICES_BEGIN_LOOP_FAILURE);
     return FALSE;
   }
+  if (explicitSimulationTime != nullptr &&
+      presentationElapsedSeconds != nullptr)
+    return FALSE;
   if (explicitSimulationTime != nullptr &&
       (!std::isfinite(*explicitSimulationTime) ||
        *explicitSimulationTime <= Session::m_viewTime ||
@@ -8112,6 +8159,28 @@ static int RunFrameInternal(const double* explicitSimulationTime) {
   if (explicitSimulationTime != nullptr && shellPaused) {
     return FALSE;
   }
+
+  std::vector<double> scheduledTimes;
+  if (presentationElapsedSeconds != nullptr) {
+    if (!std::isfinite(*presentationElapsedSeconds) ||
+        *presentationElapsedSeconds <= 0.0)
+      return FALSE;
+    if (!g_productionCadenceReady) {
+      g_productionCadenceReady = g_productionCadence.Configure(
+          ProductionCadenceConfig(), Session::m_viewTime);
+      if (!g_productionCadenceReady) return FALSE;
+    }
+    // WM_ACTIVATEAPP has already been translated by PumpMessages into the
+    // semantic adapter before this decision. Do not resample foreground
+    // ownership through another Win32 state machine: tests, remote desktop
+    // and exclusive-mode recovery all share this admitted focus owner.
+    const bool applicationFocused = !shellPaused &&
+        g_windowsInputAdapter.ApplicationActive();
+    if (!g_productionCadence.Submit(
+            *presentationElapsedSeconds, applicationFocused,
+            &scheduledTimes))
+      return FALSE;
+  }
   if (shellPaused) {
     // The session poll is intentionally skipped while the shell is open.
     // Rebase the timer sample owner as well, otherwise the first unpaused
@@ -8119,78 +8188,96 @@ static int RunFrameInternal(const double* explicitSimulationTime) {
     // clock invariants even though no simulation tick owned that interval.
     RebasePausedRuntimeClock();
   }
-  bool vehicleFrame = g_vehicleControlReady && !shellPaused;
-  if (vehicleFrame && g_vehicleFrameCount == 0) {
-    // First-frame Vehicle ownership is established at the already committed
-    // Session origin. The explicit target is consumed exactly once by the
-    // subsequent Session poll; using it here as well would advance viewTime
-    // twice and make pollAt correctly reject an equal boundary.
-    const double timerTime = explicitSimulationTime == nullptr
-        ? g_timer.GetTime() : Session::m_viewTime;
-    if (!VehicleRuntimeState_SynchronizeFirstFrame(
-            g_super.m_context,
-            !std::isfinite(timerTime) || timerTime < 0.1
-                ? 0.1
-                : timerTime)) {
-      if (!ActivateVehicleFallback(1)) return FALSE;
+
+  const bool naturalFrame = explicitSimulationTime == nullptr &&
+      presentationElapsedSeconds == nullptr;
+  const std::size_t simulationSteps = shellPaused
+      ? 0u
+      : naturalFrame || explicitSimulationTime != nullptr
+            ? 1u
+            : scheduledTimes.size();
+  bool inputFlushed = false;
+  for (std::size_t step = 0; step < simulationSteps; ++step) {
+    const double* targetTime = explicitSimulationTime;
+    if (presentationElapsedSeconds != nullptr)
+      targetTime = &scheduledTimes[step];
+    bool vehicleFrame = g_vehicleControlReady;
+    if (vehicleFrame && g_vehicleFrameCount == 0) {
+      // First-frame Vehicle ownership is established at the already committed
+      // Session origin. The explicit target is consumed exactly once by the
+      // subsequent Session poll; using it here as well would advance viewTime
+      // twice and make pollAt correctly reject an equal boundary.
+      const double timerTime = targetTime == nullptr
+          ? g_timer.GetTime() : Session::m_viewTime;
+      if (!VehicleRuntimeState_SynchronizeFirstFrame(
+              g_super.m_context,
+              !std::isfinite(timerTime) || timerTime < 0.1
+                  ? 0.1
+                  : timerTime)) {
+        if (!ActivateVehicleFallback(1)) return FALSE;
+        vehicleFrame = false;
+      }
+    }
+    if (vehicleFrame &&
+        !VehicleRuntimeState_BeginFrame(g_super.m_context)) {
+      if (!ActivateVehicleFallback(2)) return FALSE;
       vehicleFrame = false;
     }
-  }
-  if (vehicleFrame &&
-      !VehicleRuntimeState_BeginFrame(g_super.m_context)) {
-    if (!ActivateVehicleFallback(2)) return FALSE;
-    vehicleFrame = false;
-  }
-  if (!FlushPendingWindowsInput(CurrentInputEventTime())) {
-    if (!ActivateVehicleFallback(3)) return FALSE;
-    vehicleFrame = false;
-  }
-  if (!shellPaused) {
-    if (explicitSimulationTime == nullptr) {
+    if (!inputFlushed) {
+      if (!FlushPendingWindowsInput(CurrentInputEventTime())) {
+        if (!ActivateVehicleFallback(3)) return FALSE;
+        vehicleFrame = false;
+      }
+      inputFlushed = true;
+    }
+    if (targetTime == nullptr) {
       SUA_ProcessEvents();
-    } else if (!SUA_ProcessEventsAt(*explicitSimulationTime)) {
+    } else if (!SUA_ProcessEventsAt(*targetTime)) {
       Report(RECOVERED_GAME_SERVICES_FRAME_FAILURE);
       return FALSE;
     }
-    // Observe the real post-event roster once per rendered frame.  This keeps
-    // diagnostics out of the encoding-preserved People implementation and
-    // distinguishes an advancing MOVE deadline from actual displacement.
+    // Sample the real post-event roster once per authoritative simulation
+    // tick, not once per presentation. Sparse rendering must not change AI
+    // diagnostics or pending Taxi settlement lifetime.
     PeopleSubjectState_SampleLiveCombat(g_super.m_context);
     ObserveDebugTaxiSettlements();
-  }
-  if (vehicleFrame) {
-    bool droppedTime = false;
-    if (g_vehicleControlInput.ForwardingFailed()) {
-      if (!ActivateVehicleFallback(3)) return FALSE;
-      vehicleFrame = false;
-    } else if (!VehicleRuntimeState_CompleteLiveFrame(
-            g_super.m_context, Session::m_viewTime,
-            &droppedTime)) {
-      if (!ActivateVehicleFallback(4)) return FALSE;
-      vehicleFrame = false;
-    } else {
-      ++g_vehicleFrameCount;
-      if (droppedTime) ++g_vehicleDroppedTimeFrameCount;
-      SRecoveredVehicleRuntimeState telemetryState = {};
-      if (!VehicleRuntimeState_Inspect(
-              g_super.m_context,
-              g_super.m_context->searchObject("Vehicle.Default"),
-              &telemetryState)) {
-        if (!ActivateVehicleFallback(6)) return FALSE;
+    if (vehicleFrame) {
+      bool droppedTime = false;
+      if (g_vehicleControlInput.ForwardingFailed()) {
+        if (!ActivateVehicleFallback(3)) return FALSE;
+        vehicleFrame = false;
+      } else if (!VehicleRuntimeState_CompleteLiveFrame(
+              g_super.m_context, Session::m_viewTime,
+              &droppedTime)) {
+        if (!ActivateVehicleFallback(4)) return FALSE;
         vehicleFrame = false;
       } else {
-        UpdateVehicleDriveTelemetry(telemetryState);
-        g_vehicleControlInput.ObserveVehicleHandoff();
-        UpdatePrimaryFireTelemetry(g_super.m_context);
+        ++g_vehicleFrameCount;
+        if (droppedTime) ++g_vehicleDroppedTimeFrameCount;
+        SRecoveredVehicleRuntimeState telemetryState = {};
+        if (!VehicleRuntimeState_Inspect(
+                g_super.m_context,
+                g_super.m_context->searchObject("Vehicle.Default"),
+                &telemetryState)) {
+          if (!ActivateVehicleFallback(6)) return FALSE;
+          vehicleFrame = false;
+        } else {
+          UpdateVehicleDriveTelemetry(telemetryState);
+          g_vehicleControlInput.ObserveVehicleHandoff();
+          UpdatePrimaryFireTelemetry(g_super.m_context);
+        }
       }
     }
+    if (!vehicleFrame)
+      g_observerInput.Advance(Session::m_frameSec);
+    if (!RecruitCenterSubjectState_PollCheckpoints(g_super.m_context)) {
+      Report(RECOVERED_GAME_SERVICES_FRAME_FAILURE);
+      return FALSE;
+    }
   }
-  if (!vehicleFrame && !shellPaused)
-    g_observerInput.Advance(Session::m_frameSec);
-  if (!shellPaused &&
-      !RecruitCenterSubjectState_PollCheckpoints(g_super.m_context)) {
-    Report(RECOVERED_GAME_SERVICES_FRAME_FAILURE);
-    return FALSE;
+  if (!inputFlushed &&
+      !FlushPendingWindowsInput(CurrentInputEventTime())) {
+    if (!ActivateVehicleFallback(3)) return FALSE;
   }
   const FrameClock::time_point simulationEnd = FrameClock::now();
 
@@ -8377,9 +8464,18 @@ static int RunFrameInternal(const double* explicitSimulationTime) {
 }
 
 int RecoveredGameServices_RunFrame() {
-  return RunFrameInternal(nullptr);
+  const int result = RunFrameInternal(nullptr, nullptr);
+  if (result != FALSE) g_productionCadenceReady = false;
+  return result;
 }
 
 int RecoveredGameServices_RunFrameAt(double simulationTime) {
-  return RunFrameInternal(&simulationTime);
+  const int result = RunFrameInternal(&simulationTime, nullptr);
+  if (result != FALSE) g_productionCadenceReady = false;
+  return result;
+}
+
+int RecoveredGameServices_RunScheduledPresentation(
+    double elapsedSeconds) {
+  return RunFrameInternal(nullptr, &elapsedSeconds);
 }

@@ -63,6 +63,22 @@ struct SRecoveredFrameTimingTelemetry {
   std::uint64_t maximumBoundaryMicroseconds;
 };
 
+// Presentation-owned fixed-cadence telemetry.  The 25 ms step is an explicit
+// modern compatibility policy, not a claim about the retail scheduler.  This
+// state is diagnostic only and is never serialized into LCN1/RR2SLOT1.
+struct SRecoveredProductionCadenceTelemetry {
+  bool active;
+  std::uint64_t presentationSamples;
+  std::uint64_t simulationTicks;
+  std::uint64_t zeroTickPresentations;
+  std::uint64_t catchUpPresentations;
+  std::uint64_t cappedPresentations;
+  std::uint64_t focusResets;
+  unsigned int maximumTicksPerPresentation;
+  double accumulatorSeconds;
+  double droppedSeconds;
+};
+
 struct SRecoveredMissionMapProbeTelemetry {
   int staged = 0;
   int summaryPublished = 0;
@@ -903,6 +919,8 @@ bool RecoveredGameServices_VehicleDriveTelemetry(
     SRecoveredVehicleDriveTelemetry* telemetry);
 bool RecoveredGameServices_FrameTimingTelemetry(
     SRecoveredFrameTimingTelemetry* telemetry);
+bool RecoveredGameServices_ProductionCadenceTelemetry(
+    SRecoveredProductionCadenceTelemetry* telemetry);
 bool RecoveredGameServices_VehicleAuthorityState(
     SRecoveredVehicleAuthorityState* state);
 unsigned int RecoveredGameServices_VehicleFrameCount();
@@ -921,6 +939,11 @@ unsigned int RecoveredGameServices_Issues();
 const SRecoveredObserverState* RecoveredGameServices_ObserverState();
 int RecoveredGameServices_RunFrame();
 // Executes the existing complete input/simulation/render/present/boundary
-// frame at one caller-owned Session time. This is the integration seam for a
-// future cadence orchestrator; the ordinary Windows loop remains host-timed.
+// frame at one caller-owned Session time. This remains the one-tick diagnostic
+// seam beneath the production multi-tick presentation orchestrator.
 int RecoveredGameServices_RunFrameAt(double simulationTime);
+// Production presentation boundary. Windows messages are pumped once, zero
+// or more bounded simulation ticks are consumed, and the world is rendered,
+// presented and transactionally closed exactly once. The elapsed time is a
+// host presentation sample; focus loss and the in-game shell discard it.
+int RecoveredGameServices_RunScheduledPresentation(double elapsedSeconds);

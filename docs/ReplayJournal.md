@@ -167,9 +167,15 @@ boundary checks, focus resets and capped samples. Its bounded stall records
 
 The runtime also exposes a one-frame `RunFrameAt` integration seam. It retains
 the existing input, render, present and transactional boundary order while
-allowing one validated Session target to replace the host timer sample. Current
-production still calls `RunFrame`; only bounded reconstruction acceptance uses
-the explicit form until all dynamic-object clocks can be rebased together.
+allowing one validated Session target to replace the host timer sample.
+
+Ordinary Windows play now uses the production presentation orchestrator above
+that seam. One Windows-message/input batch owns an integer cadence submission,
+zero to four explicit `Session::pollAt + Vehicle pre/update/post` ticks, one
+render/present, and finally one Save/Load/Portal/debug transaction boundary.
+The current compatibility policy is 25 ms with a 100 ms admitted presentation
+cap. This is a modern deterministic policy, not a recovered retail-frequency
+claim. Focus loss and the in-game shell discard their elapsed interval.
 
 ## LCN1 resume contract
 
@@ -190,17 +196,13 @@ moves from its restored position.
 ## Current limits and next step
 
 CTJ1 now crosses fresh-Level reconstruction inside public RR2SLOT1 files, but
-neither CTJ1 nor RPH1 is exposed as a player replay file. The normal Windows
-loop remains variable-rate and presentation-coupled. The RPH1 proof drives an
-isolated 25 ms simulation route through real dense and four-tick scheduler
-submissions, but it does not claim that the production loop already supports
-arbitrary render FPS. `Session::pollAt()` is the admitted explicit-time seam
-for that later switch. There is no seeking or fast-forward.
+neither CTJ1 nor RPH1 is exposed as a player replay file. The Windows loop is
+fixed-step live: presentation may consume zero, one or up to four simulation
+ticks, while rendering and closed-frame commands occur once. LCN1 restore
+discards the nonserialized accumulator and establishes a fresh cadence epoch.
+There is still no player replay UI, seeking, interpolation or fast-forward.
 
 Cross-Level slot reconstruction carries both target and source LCN1/CTJ1
-containers through the main-loop restart. The next timing step is the
-closed-frame production orchestrator that applies the bounded owner to complete
-Session/Vehicle ticks without moving Save/Load, Portal or debug transactions
-inside a simulation tick. Long-session wrap/drift proof and broader active-world
-hashes follow separately. Legacy save import remains separate; multiplayer
-remains later.
+containers through the main-loop restart. Long-session wrap/drift proof and
+broader active-world hashes now follow separately. Legacy save import remains
+separate; multiplayer remains later.

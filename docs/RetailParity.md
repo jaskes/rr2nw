@@ -3152,6 +3152,26 @@ playable Level begins.
   `28/28/28/7` and `2/28` RPH1 contracts. Production render/simulation
   decoupling remains deliberately unclaimed.
 
+### RP-REPLAY-003: production presentation cadence is deterministic
+
+- The ordinary Windows loop now uses the bounded cadence owner, while retaining
+  the explicit statement that 25 ms is a port policy rather than recovered
+  retail timing evidence.
+- One presentation owns one message/input batch, zero to four authoritative
+  Session/Vehicle ticks, one render/present and one post-present transaction
+  boundary. Sparse presentation therefore cannot duplicate rendering, audio
+  listener publication, Save/Load, Portal or Developer mutations per catch-up
+  tick.
+- Focus and shell pauses discard inactive elapsed time. Successful LCN1 restore
+  and rollback discard the presentation accumulator and rebase on restored
+  CLK1 without changing save bytes.
+- The direct real-window gate proves 4/0/1 ticks over three presentations,
+  focus loss/resume and restore rebase. The executable gate publishes
+  `production_cadence_smoke=1/3/5/1/1/4` and zero service issues; the installed
+  retail matrix requires it on every Level and passes 27/27 across the three
+  build configurations. Complete active-world hashes, interpolation and
+  long-session proof remain open.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

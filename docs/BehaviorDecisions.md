@@ -6818,3 +6818,30 @@ render/present and retain ordered input, focus neutralization and closed-frame
 Save/Load/Portal/debug transactions. Until that separate acceptance passes,
 startup telemetry calls this a scheduler boundary rather than fixed-step live
 gameplay. No cadence or presentation state is added to LCN1/RR2SLOT1.
+
+### BD-213: one presentation owns zero to four complete simulation ticks
+
+Status: accepted on 2026-08-09 for production Windows fixed-step activation.
+
+The outer Windows loop now measures presentation elapsed time with
+`steady_clock` and submits it to the bounded integer cadence owner. The runtime
+pumps messages once, consumes the semantic focus state, and executes zero to
+four complete `Session::pollAt()` plus Vehicle pre/update/post lifecycles. It
+then renders and presents exactly once and only afterwards executes mission,
+Developer, restart, Save/Load and video transactions. Input is flushed before
+the first admitted tick; a zero-tick presentation may stage input but cannot
+advance gameplay.
+
+The 25 ms step is an explicit modern compatibility policy because surviving
+source and installed scripts still do not prove a retail global frequency.
+Presentation samples are capped at 100 ms and catch-up at four ticks. Focus
+loss and the in-game shell discard accumulator and inactive time, preventing a
+resume storm. LCN1 remains authoritative: successful restore or backup
+rollback invalidates the nonserialized cadence epoch, and the next presentation
+starts at restored CLK1 time.
+
+The real-window runtime gate requires a four-tick presentation, a zero-tick
+presentation and an accumulated one-tick presentation to yield five Session
+and Vehicle steps but only three renders. The direct service gate additionally
+proves focus loss/gain and exact LCN1 rebase. Interpolation, complete-world
+hashes and long-session drift/wrap are separate decisions.

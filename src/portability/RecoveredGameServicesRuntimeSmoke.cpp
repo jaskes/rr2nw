@@ -8464,6 +8464,135 @@ int main(int argc, char** argv) {
     ZAV_Deinit();
     return Fail("service reconstruction failed");
   }
+
+  const std::uint64_t scheduledTickBefore = Session::m_simulationTick;
+  const double scheduledTimeBefore = Session::m_viewTime;
+  const unsigned int scheduledVehicleFramesBefore =
+      RecoveredGameServices_VehicleFrameCount();
+  const unsigned int scheduledCameraFramesBefore =
+      RecoveredGameServices_VehicleCameraFrameCount();
+  const DWORD scheduledPresentationsBefore = dwFrames;
+  SRecoveredProductionCadenceTelemetry scheduledCatchUp = {};
+  if (!RecoveredGameServices_RunScheduledPresentation(0.1) ||
+      !RecoveredGameServices_ProductionCadenceTelemetry(
+          &scheduledCatchUp) ||
+      !scheduledCatchUp.active ||
+      scheduledCatchUp.presentationSamples != 1u ||
+      scheduledCatchUp.simulationTicks != 4u ||
+      scheduledCatchUp.catchUpPresentations != 1u ||
+      scheduledCatchUp.maximumTicksPerPresentation != 4u ||
+      Session::m_simulationTick != scheduledTickBefore + 4u ||
+      std::fabs(Session::m_viewTime -
+                (scheduledTimeBefore + 0.1)) > 1.0e-9 ||
+      std::fabs(Session::m_frameSec - 0.025) > 1.0e-9 ||
+      RecoveredGameServices_VehicleFrameCount() !=
+          scheduledVehicleFramesBefore + 4u ||
+      RecoveredGameServices_VehicleCameraFrameCount() !=
+          scheduledCameraFramesBefore + 1u ||
+      dwFrames != scheduledPresentationsBefore + 1u) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("four-tick scheduled presentation boundary failed");
+  }
+  const std::uint64_t zeroTickBefore = Session::m_simulationTick;
+  const unsigned int zeroVehicleFramesBefore =
+      RecoveredGameServices_VehicleFrameCount();
+  const unsigned int zeroCameraFramesBefore =
+      RecoveredGameServices_VehicleCameraFrameCount();
+  const DWORD zeroPresentationsBefore = dwFrames;
+  SRecoveredProductionCadenceTelemetry scheduledZero = {};
+  if (!RecoveredGameServices_RunScheduledPresentation(0.0125) ||
+      !RecoveredGameServices_ProductionCadenceTelemetry(&scheduledZero) ||
+      scheduledZero.presentationSamples != 2u ||
+      scheduledZero.simulationTicks != 4u ||
+      scheduledZero.zeroTickPresentations != 1u ||
+      std::fabs(scheduledZero.accumulatorSeconds - 0.0125) > 1.0e-9 ||
+      Session::m_simulationTick != zeroTickBefore ||
+      RecoveredGameServices_VehicleFrameCount() != zeroVehicleFramesBefore ||
+      RecoveredGameServices_VehicleCameraFrameCount() !=
+          zeroCameraFramesBefore + 1u ||
+      dwFrames != zeroPresentationsBefore + 1u) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("zero-tick scheduled presentation boundary failed");
+  }
+  SRecoveredProductionCadenceTelemetry scheduledAccumulated = {};
+  if (!RecoveredGameServices_RunScheduledPresentation(0.0125) ||
+      !RecoveredGameServices_ProductionCadenceTelemetry(
+          &scheduledAccumulated) ||
+      scheduledAccumulated.presentationSamples != 3u ||
+      scheduledAccumulated.simulationTicks != 5u ||
+      scheduledAccumulated.zeroTickPresentations != 1u ||
+      scheduledAccumulated.accumulatorSeconds != 0.0 ||
+      Session::m_simulationTick != zeroTickBefore + 1u ||
+      RecoveredGameServices_VehicleFrameCount() !=
+          zeroVehicleFramesBefore + 1u ||
+      dwFrames != zeroPresentationsBefore + 2u) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("accumulated scheduled presentation boundary failed");
+  }
+  const std::uint64_t focusTickBefore = Session::m_simulationTick;
+  SendMessageA(_gr_hWnd, WM_ACTIVATEAPP, FALSE, 0);
+  SRecoveredProductionCadenceTelemetry scheduledFocusLost = {};
+  if (!RecoveredGameServices_RunScheduledPresentation(0.1) ||
+      !RecoveredGameServices_ProductionCadenceTelemetry(
+          &scheduledFocusLost) ||
+      scheduledFocusLost.presentationSamples != 4u ||
+      scheduledFocusLost.simulationTicks != 5u ||
+      scheduledFocusLost.focusResets != 1u ||
+      std::fabs(scheduledFocusLost.droppedSeconds - 0.1) > 1.0e-9 ||
+      Session::m_simulationTick != focusTickBefore ||
+      RecoveredGameServices_VehicleApplicationActive()) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("focus-loss scheduled presentation reset failed");
+  }
+  SendMessageA(_gr_hWnd, WM_ACTIVATEAPP, TRUE, 0);
+  SRecoveredProductionCadenceTelemetry scheduledFocusRestored = {};
+  if (!RecoveredGameServices_RunScheduledPresentation(0.025) ||
+      !RecoveredGameServices_ProductionCadenceTelemetry(
+          &scheduledFocusRestored) ||
+      scheduledFocusRestored.presentationSamples != 5u ||
+      scheduledFocusRestored.simulationTicks != 6u ||
+      scheduledFocusRestored.maximumTicksPerPresentation != 4u ||
+      Session::m_simulationTick != focusTickBefore + 1u ||
+      !RecoveredGameServices_VehicleApplicationActive()) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("focus-gain scheduled presentation restart failed");
+  }
+  std::vector<std::uint8_t> cadenceCheckpoint;
+  SLevelContinuationSummary cadenceCaptured;
+  SLevelContinuationSummary cadenceRestored;
+  const double cadenceCheckpointTime = Session::m_viewTime;
+  if (!RecoveredGameServices_CaptureLevelContinuation(
+          &cadenceCheckpoint, &cadenceCaptured) ||
+      !RecoveredGameServices_RunScheduledPresentation(0.025) ||
+      !RecoveredGameServices_RestoreLevelContinuation(
+          cadenceCheckpoint, &cadenceRestored)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("scheduled presentation LCN1 checkpoint failed");
+  }
+  SRecoveredProductionCadenceTelemetry staleCadence = {};
+  if (RecoveredGameServices_ProductionCadenceTelemetry(&staleCadence) ||
+      std::fabs(Session::m_viewTime - cadenceCheckpointTime) > 1.0e-9 ||
+      !RecoveredGameServices_RunScheduledPresentation(0.025)) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("LCN1 restore did not rebase scheduled cadence");
+  }
+  SRecoveredProductionCadenceTelemetry restoredCadence = {};
+  if (!RecoveredGameServices_ProductionCadenceTelemetry(&restoredCadence) ||
+      restoredCadence.presentationSamples != 1u ||
+      restoredCadence.simulationTicks != 1u ||
+      std::fabs(Session::m_viewTime -
+                (cadenceCheckpointTime + 0.025)) > 1.0e-9) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("rebased scheduled cadence did not resume exactly");
+  }
   SLevelSaveSlotSummary loadedSlot;
   SLevelContinuationSummary restoredContinuation;
   if (RecoveredGameServices_RequestLoadSlot(LevelSaveSlot_Count()) ||

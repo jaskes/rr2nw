@@ -175,7 +175,7 @@ foreach ($configurationName in $Configuration) {
                 "--save-dir", $saveDirectory
             )
             if ($Mode -eq "RuntimeSmoke") {
-                $arguments = @("--runtime-smoke") + $arguments
+                $arguments = @("--runtime-smoke", "--production-cadence-smoke") + $arguments
             }
             $nativeArguments = @($arguments | ForEach-Object { Quote-NativeArgument $_ })
 
@@ -265,6 +265,13 @@ foreach ($configurationName in $Configuration) {
                     $log["vehicle_control_replay_scheduler_dropped_seconds"] -ne
                         "0.150000") {
                     $issues.Add("RPH1 authoritative hash/presentation-cadence proof changed")
+                }
+                if (-not $log.ContainsKey("production_cadence_smoke") -or
+                    $log["production_cadence_smoke"] -ne "1/3/5/1/1/4" -or
+                    -not $log.ContainsKey("production_cadence_accumulator_dropped") -or
+                    $log["production_cadence_accumulator_dropped"] -ne
+                        "0.000000/0.000000") {
+                    $issues.Add("production fixed-step/catch-up proof changed")
                 }
                 if ((Get-LogInteger $log "renderer_frames") -lt 1) {
                     $issues.Add("renderer produced no frames")
@@ -791,6 +798,12 @@ foreach ($configurationName in $Configuration) {
                 } else { "" }
                 replay_scheduler_dropped_seconds = if ($log.ContainsKey("vehicle_control_replay_scheduler_dropped_seconds")) {
                     $log["vehicle_control_replay_scheduler_dropped_seconds"]
+                } else { "" }
+                production_cadence_smoke = if ($log.ContainsKey("production_cadence_smoke")) {
+                    $log["production_cadence_smoke"]
+                } else { "" }
+                production_cadence_accumulator_dropped = if ($log.ContainsKey("production_cadence_accumulator_dropped")) {
+                    $log["production_cadence_accumulator_dropped"]
                 } else { "" }
                 renderer_frames = Get-LogInteger $log "renderer_frames"
                 renderer_submitted = Get-LogInteger $log "renderer_polygons_submitted"
