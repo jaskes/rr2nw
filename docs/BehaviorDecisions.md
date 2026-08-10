@@ -7017,3 +7017,29 @@ prove exact manifest closure and CodeView identity, reproduce supported
 validator/runtime behavior and create a ledger bound to archive and manifest
 hashes. Human rows alone can advance that ledger. Automation, Developer mode
 and hermetic evidence cannot promote, tag or publish it.
+
+### BD-221: synchronous cinematics own presentation, never a gameplay tick
+
+Status: accepted on 2026-08-11 for the Level-intro presentation boundary.
+
+The archived briefing implementation is intentionally synchronous, but its
+inner FLIC and camera-flight loops cannot become nested game loops. The modern
+runtime therefore supplies a bounded platform pump that dispatches Win32
+messages only. It does not call `SUA_ProcessEvents`, advance Session, run a
+Vehicle pre/update/post lifecycle or execute a closed-frame transaction.
+
+Entering the presenter neutralizes admitted Player/Vehicle input. Escape and
+Enter are consumed as explicit one-shot skip requests; the historical Space
+binding remains accepted by the briefing code. A consumed physical key stays
+outside gameplay and the pause shell until its matching release. Leaving the
+presenter proves neutral input, round-trips the already committed simulation
+clock through its existing owner to rebase the sampled legacy timer, and
+discards presentation wall time from the fixed-step accumulator before
+ordinary play resumes. Resetting only the host sample is not sufficient because
+the synchronous renderer itself samples and advances `g_timer.m_curTime`.
+
+Palette installation remains part of FLIC decoding, but a palette change does
+not authorize presenting an incomplete black buffer. Only complete decoded
+frames reach the software presentation owner. These input, timing and palette
+states are diagnostic presentation state and are deliberately absent from
+LCN1, RR2SLOT1 and RPH1.

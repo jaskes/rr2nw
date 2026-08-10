@@ -146,6 +146,57 @@ static int paletteChange = 0;
 static int bufferSize = 0;
 static const int maxProb = 1000;
 static SGRViewport *oldViewPort = NULL, *viewPort = NULL;
+static TBriefingPresentationPump g_presentationPump = NULL;
+static TBriefingPresentationBoundary g_presentationBoundary = NULL;
+static SBriefingPresentationTelemetry g_presentationTelemetry = {};
+
+static int IsBriefingSkipKey(int key){
+   return key == g_hardware.SearchCode("Esc") ||
+          key == g_hardware.SearchCode("Space") || key == VK_RETURN;
+}
+
+static int PumpBriefingPresentation(){
+   ++g_presentationTelemetry.pumpCalls;
+   if(g_presentationPump != NULL) return g_presentationPump();
+
+   // Preserve the archival fallback for isolated legacy-shell users. The
+   // maintained Windows runtime always installs a platform pump and therefore
+   // never advances gameplay recursively from a presentation loop.
+   g_hardware.MessageLoop();
+   SUA_ProcessEvents();
+   ++g_presentationTelemetry.legacySessionPolls;
+   return 0;
+}
+
+class TBriefingPresentationScope {
+public:
+   TBriefingPresentationScope(){
+      Briefing_ResetPresentationTelemetry();
+      if(g_presentationBoundary != NULL) g_presentationBoundary(TRUE);
+   }
+   ~TBriefingPresentationScope(){
+      if(g_presentationTelemetry.lastSkipKey != 0)
+         ++g_presentationTelemetry.skippedCompletions;
+      else
+         ++g_presentationTelemetry.normalCompletions;
+      if(g_presentationBoundary != NULL) g_presentationBoundary(FALSE);
+   }
+};
+
+void Briefing_ConfigurePresentationRuntime(
+   TBriefingPresentationPump pump,
+   TBriefingPresentationBoundary boundary){
+   g_presentationPump = pump;
+   g_presentationBoundary = boundary;
+}
+
+void Briefing_ResetPresentationTelemetry(){
+   memset(&g_presentationTelemetry, 0, sizeof(g_presentationTelemetry));
+}
+
+SBriefingPresentationTelemetry Briefing_PresentationTelemetry(){
+   return g_presentationTelemetry;
+}
 
 //---------------------------------------------------
 void VRectangle(int x, int y, int len, int h, int c, bool trans, int opasity = 128, int transCoords = 1){
@@ -570,8 +621,6 @@ int TFlicPlayer::Play(CConfigFile &cfg, const char *flicSectName,
    FLC_Header flch;
    byte *frame;
    FILE *fh;
-   int esc = g_hardware.SearchCode("Esc"), space = g_hardware.SearchCode("Space");
-
    ASSERT(fName  != NULL);
    ASSERT(scrBuf != NULL);
 
@@ -615,14 +664,15 @@ int TFlicPlayer::Play(CConfigFile &cfg, const char *flicSectName,
    delayC = 1./ 15.;//flch.Speed;  // fixme
    for(i = 0; i < flch.CadrCnt; ++i){
 
-	  g_hardware.MessageLoop();
-      SUA_ProcessEvents();
-      if(m_key == esc || m_key == space) break;
+      key = PumpBriefingPresentation();
+      if(key != 0) m_key = key;
+      if(IsBriefingSkipKey(m_key)) break;
 
       time       = Session::m_realTimer->GetTime();
       m_frameBuf = frame;
       RTCHECK2(LoadFrame(fh, scrX, scrY, pal64, flch.Height, flch.Width),
                "Frame %i from %i.", i, _INT(flch.CadrCnt));
+      ++g_presentationTelemetry.decodedFrames;
 
       #ifdef __DOS__    // Wait for retrace
       while((inp(0x3DA) & 8) != 0);
@@ -630,13 +680,16 @@ int TFlicPlayer::Play(CConfigFile &cfg, const char *flicSectName,
       #endif // __DOS__
 
       if(paletteChange){
-         GRClearScreen(TRUE,GRFillColor(0,0,0));
-         GRDumpScreen();
+         // LoadFrame has already installed an authored palette. Resolution
+         // changes may also request a refresh. Never present a black buffer
+         // between the previous complete frame and the newly decoded one.
          SetPal64(pal64);
          paletteChange = 0;
+         ++g_presentationTelemetry.paletteRefreshes;
       }
       OutScreen(scrBuf, flch.Width ,flch.Height);
       g_GameConsole.Draw();
+      ++g_presentationTelemetry.framePresents;
 
       while(Session::m_realTimer->GetTime() - time < delayC);
    }
@@ -647,7 +700,7 @@ int TFlicPlayer::Play(CConfigFile &cfg, const char *flicSectName,
    delete frame;
    m_isPlay = FALSE;
 
-   return(key);
+   return(IsBriefingSkipKey(m_key) ? m_key : 0);
 }
 //-------------------------------------------------------
 void TFlicPlayer::OutScreen(const byte *scrBuf, int flicLen, int flicH) {
@@ -834,6 +887,7 @@ void CBriefing::PlayBriefing(const char *fName){
    int key;
 
    ASSERT(fName != NULL);
+   TBriefingPresentationScope presentationScope;
    m_effClass = FLT_NONE;
 
    for(i = 0; i < 256; ++i){
@@ -894,7 +948,10 @@ void CBriefing::PlayBriefing(const char *fName){
 
       m_isPlaying = FALSE;
 
-      if(key == g_hardware.SearchCode("Esc")) break;
+      if(IsBriefingSkipKey(key)){
+         g_presentationTelemetry.lastSkipKey = key;
+         break;
+      }
    }
    g_hardware.ReleaseExclusiveMode();
    GRClearScreen(TRUE,GRFillColor(0,0,0));
@@ -1200,16 +1257,13 @@ int CBriefing::PerformFly(int pNum){
    bool isDelayed;
    enum { FLY, STOP } state;
    int bkColor = GRTransparentColor(0, 0, 0);
-   int esc   = g_hardware.SearchCode("Esc"),
-	   space = g_hardware.SearchCode("Space");
-
    m_time = 0;
    for(i = 0; i < pNum; ++i){
        if(m_point[i].text != NULL && strlen(m_point[i].text) > 0)
             g_GameConsole.PrintUrgent(m_point[i].text, m_point[i].textDelay, GameConsole::TOP, bkColor);
 
       if(i == pNum-1) break;   // last point
-      if(m_key == esc || m_key == space) break;
+      if(IsBriefingSkipKey(m_key)) break;
 
       isDelayed     = m_point[i].delay != 0;
       frRendTime    = 0;
@@ -1245,11 +1299,13 @@ int CBriefing::PerformFly(int pNum){
  	     SUA_EndRender(ZAV_Scene());
 	     ZAV_EndRenderFrame();
 
-	     g_hardware.MessageLoop();
-         SUA_ProcessEvents();
+         {
+            const int key = PumpBriefingPresentation();
+            if(key != 0) m_key = key;
+         }
          g_GameConsole.Draw();
 
-		 if(m_key == esc || m_key == space) break;
+		 if(IsBriefingSkipKey(m_key)) break;
 
          frEndRendTime = Session::m_realTimer->GetTime();
          frRendTime    = frEndRendTime-frBegRendTime;
@@ -1257,7 +1313,7 @@ int CBriefing::PerformFly(int pNum){
          //echo("Remain time %f of %f", GetRemainTime(), GetTotalBrfTime());
       }
    }
-   return((m_key == esc || m_key == space) ? m_key : 0);  // no keys pressed
+   return(IsBriefingSkipKey(m_key) ? m_key : 0);  // no keys pressed
 }
 //---------------------------------------------------
 void CBriefing::CinemaBugs(double) const {

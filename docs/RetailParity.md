@@ -3021,6 +3021,30 @@ playable Level begins.
   continuation passes 3/3 and Debug/Release/RelWithDebInfo each pass 67/67
   CTest. Visual return of control after the one briefing remains a manual check.
 
+### RP-PRESENTATION-003: Level-intro playback has a maintained window boundary
+
+- Classification: `SOURCE_DEFECT_CONTAINED`, `WINDOW_QUEUE_OWNED`,
+  `PORT_STABILITY_GUARANTEE`, `VISUAL_FLASH_REMOVED`.
+- The source proves Escape/Space intent, synchronous 15 fps FLIC playback and
+  authored palette refresh. It does not prove that nested gameplay polling was
+  intentional: the surviving hardware message loop is empty, while the later
+  `SUA_ProcessEvents()` crosses the recovered Session/Vehicle frame contract.
+- The maintained Windows boundary adds Enter as a player convenience, pumps
+  only platform messages and retains Space compatibility. Natural completion
+  and either modern skip key rejoin the same neutral fixed-cadence boundary;
+  the committed `SSimulationClockState` also rebases the legacy timer sample
+  and accumulator. No gameplay state is serialized or advanced by the
+  presenter.
+- Source also proves an explicit black clear/dump before every changed palette.
+  The maintained path installs the palette and presents the newly decoded full
+  frame directly. This is a modern flicker correction, not a claim that retail
+  never flashed on period hardware.
+- Verification: the real-window Level.03N gate covers its mixed 9-action,
+  5-flight, 4-FLIC sequence. Escape, Enter and natural completion retain a live
+  process, zero service/Vehicle fallback issues, zero recursive Session polls,
+  zero black intermediate presents and a clean handoff. Full packaged visual
+  timing on Windows 10/11 remains a human RC row.
+
 ### RP-AUDIO-001: cached one-shot effects have a maintained output owner
 
 - Classification: `SOURCE_COMMAND_PATH_PRESERVED`,

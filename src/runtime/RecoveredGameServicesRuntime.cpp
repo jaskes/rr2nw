@@ -87,6 +87,23 @@
 extern int g_godMode;
 extern unsigned char _currPalette[256u * 3u];
 
+namespace {
+
+bool PumpMessages();
+int PumpLevelBriefingPresentation();
+void HandleLevelBriefingPresentationBoundary(int entering);
+
+bool g_levelBriefingPresentationActive = false;
+bool g_levelBriefingPresentationBoundaryFailed = false;
+bool g_levelBriefingSkipRequested = false;
+bool g_levelBriefingOverlayOwned = false;
+int g_levelBriefingSkipKey = 0;
+int g_levelBriefingConsumedKey = 0;
+SRecoveredLevelBriefingPresentationTelemetry
+    g_levelBriefingPresentationTelemetry = {};
+
+}  // namespace
+
 void RecoveredGameServices_RefreshBriefingViewport() {
   if (g_super.m_context != nullptr &&
       g_briefing.getContext() == g_super.m_context) {
@@ -101,6 +118,27 @@ bool RecoveredGameServices_PlayLevelBriefing(const char* resolvedPath) {
       !g_super.m_context->isExist("Briefing") || g_vehicle == nullptr)
     return false;
   g_briefing.PlayBriefing(resolvedPath);
+  return !g_levelBriefingPresentationBoundaryFailed &&
+      !g_levelBriefingPresentationActive;
+}
+
+bool RecoveredGameServices_LevelBriefingPresentationTelemetry(
+    SRecoveredLevelBriefingPresentationTelemetry* telemetry) {
+  if (telemetry == nullptr) return false;
+  *telemetry = g_levelBriefingPresentationTelemetry;
+  const SBriefingPresentationTelemetry archived =
+      Briefing_PresentationTelemetry();
+  telemetry->active = g_levelBriefingPresentationActive;
+  telemetry->pumpCalls = archived.pumpCalls;
+  telemetry->decodedFrames = archived.decodedFrames;
+  telemetry->framePresents = archived.framePresents;
+  telemetry->paletteRefreshes = archived.paletteRefreshes;
+  telemetry->blackIntermediatePresents =
+      archived.blackIntermediatePresents;
+  telemetry->legacySessionPolls = archived.legacySessionPolls;
+  telemetry->normalCompletions = archived.normalCompletions;
+  telemetry->skippedCompletions = archived.skippedCompletions;
+  telemetry->lastSkipKey = archived.lastSkipKey;
   return true;
 }
 
@@ -2523,12 +2561,23 @@ bool InstallNativeSaveMenu() {
   return true;
 }
 
-void RebasePausedRuntimeClock() {
+bool RebasePausedRuntimeClock() {
   // Synchronous native dialogs and the in-frame pause shell both stop the
   // authoritative simulation loop. Their wall-clock dwell must not become a
   // later physics delta or make the next LCN1 capture perpetually unstable.
-  g_timer.m_prevTime = static_cast<long>(GetTickCount());
-  Session::m_frameSec = 0.0;
+  // Presentation code is allowed to sample g_timer directly, so rebasing only
+  // m_prevTime is insufficient: its accumulated m_curTime would still make the
+  // first resumed Session frame inherit the complete presentation dwell.
+  // Round-trip the already committed authoritative clock through its existing
+  // owner to align both legacy timer state and Session without advancing time.
+  SSimulationClockState clock;
+  if (!SUA_CaptureSimulationClock(&clock) ||
+      !SUA_ApplySimulationClock(clock)) {
+    g_timer.m_prevTime = static_cast<long>(GetTickCount());
+    Session::m_frameSec = 0.0;
+    return false;
+  }
+  return true;
 }
 
 void ResetSaveMenuSession() {
@@ -4215,6 +4264,42 @@ LRESULT ForwardWindowMessageToHardware(HWND window, UINT message,
                                        WPARAM wParam, LPARAM lParam) {
   if (message == WM_ACTIVATEAPP)
     SoundState_SetApplicationActive(wParam != FALSE);
+  const bool keyMessage = message == WM_KEYDOWN || message == WM_KEYUP ||
+      message == WM_SYSKEYDOWN || message == WM_SYSKEYUP;
+  const bool characterMessage = message == WM_CHAR ||
+      message == WM_DEADCHAR || message == WM_SYSCHAR ||
+      message == WM_SYSDEADCHAR;
+  const bool mouseButtonMessage = message == WM_LBUTTONDOWN ||
+      message == WM_LBUTTONUP || message == WM_RBUTTONDOWN ||
+      message == WM_RBUTTONUP;
+  if (g_levelBriefingPresentationActive &&
+      (keyMessage || characterMessage || mouseButtonMessage)) {
+    ++g_levelBriefingPresentationTelemetry.suppressedInputMessages;
+    if ((message == WM_KEYDOWN || message == WM_SYSKEYDOWN) &&
+        (lParam & 0x40000000) == 0 &&
+        (wParam == VK_ESCAPE || wParam == VK_RETURN)) {
+      g_levelBriefingSkipRequested = true;
+      g_levelBriefingSkipKey = static_cast<int>(wParam);
+      g_levelBriefingConsumedKey = static_cast<int>(wParam);
+      if (wParam == VK_ESCAPE)
+        ++g_levelBriefingPresentationTelemetry.escapeSkips;
+      else
+        ++g_levelBriefingPresentationTelemetry.enterSkips;
+    }
+    if ((message == WM_KEYUP || message == WM_SYSKEYUP) &&
+        g_levelBriefingConsumedKey == static_cast<int>(wParam))
+      g_levelBriefingConsumedKey = 0;
+    return 0;
+  }
+  // A skip make may return from the synchronous presenter before Windows
+  // delivers its repeat or break. Keep that physical key out of the pause
+  // shell and gameplay adapter until the matching release is observed.
+  if (keyMessage && g_levelBriefingConsumedKey != 0 &&
+      g_levelBriefingConsumedKey == static_cast<int>(wParam)) {
+    if (message == WM_KEYUP || message == WM_SYSKEYUP)
+      g_levelBriefingConsumedKey = 0;
+    return 0;
+  }
   LRESULT shellResult = 0;
   if (HandleInGameShellMessage(message, wParam, lParam, &shellResult))
     return shellResult;
@@ -4624,6 +4709,13 @@ bool ActivateVehicleFallback(unsigned int reason) {
 
 void EndBoundedSession() {
   ResetSaveMenuSession();
+  Briefing_ConfigurePresentationRuntime(nullptr, nullptr);
+  g_levelBriefingPresentationActive = false;
+  g_levelBriefingPresentationBoundaryFailed = false;
+  g_levelBriefingSkipRequested = false;
+  g_levelBriefingOverlayOwned = false;
+  g_levelBriefingSkipKey = 0;
+  g_levelBriefingConsumedKey = 0;
   RecoveredSoftwareGraph_ConfigureWindowMessageHook(nullptr);
   SUA_BindSession(nullptr);
 
@@ -4952,6 +5044,9 @@ void InitializeSession() {
     Frame_BindRecoveredSoftware();
     RecoveredSoftwareGraph_ConfigureWindowMessageHook(
         ForwardWindowMessageToHardware);
+    Briefing_ConfigurePresentationRuntime(
+        PumpLevelBriefingPresentation,
+        HandleLevelBriefingPresentationBoundary);
     const SSuaShutdownHooks shutdownHooks = {nullptr,
                                               EndBoundedSession};
     SUA_ConfigureShutdown(shutdownHooks);
@@ -5040,6 +5135,57 @@ bool PumpMessages() {
     DispatchMessageA(&message);
   }
   return true;
+}
+
+int PumpLevelBriefingPresentation() {
+  if (!g_levelBriefingPresentationActive) return 0;
+  if (!PumpMessages()) return VK_ESCAPE;
+  if (g_levelBriefingPresentationBoundaryFailed) return VK_ESCAPE;
+  return g_levelBriefingSkipRequested ? g_levelBriefingSkipKey : 0;
+}
+
+void HandleLevelBriefingPresentationBoundary(int entering) {
+  if (entering != FALSE) {
+    g_levelBriefingPresentationTelemetry = {};
+    g_levelBriefingPresentationTelemetry.active = true;
+    g_levelBriefingPresentationTelemetry.presentationBegins = 1u;
+    g_levelBriefingPresentationActive = true;
+    g_levelBriefingPresentationBoundaryFailed = false;
+    g_levelBriefingSkipRequested = false;
+    g_levelBriefingSkipKey = 0;
+    g_levelBriefingOverlayOwned = false;
+
+    if (!g_windowsInputAdapter.OverlayActive()) {
+      SRecoveredWindowsInputBatch releases = {};
+      if (!g_windowsInputAdapter.EnterOverlay(
+              g_levelAttr.get_double("keySens"), &releases) ||
+          !DispatchWindowsInputBatch(releases)) {
+        g_levelBriefingPresentationBoundaryFailed = true;
+        Report(RECOVERED_GAME_SERVICES_VEHICLE_CONTROL_FAILURE);
+        return;
+      }
+      g_levelBriefingOverlayOwned = true;
+    }
+    return;
+  }
+
+  if (g_levelBriefingOverlayOwned)
+    g_windowsInputAdapter.LeaveOverlay();
+  g_levelBriefingOverlayOwned = false;
+  g_levelBriefingPresentationActive = false;
+  g_levelBriefingPresentationTelemetry.active = false;
+  ++g_levelBriefingPresentationTelemetry.presentationEnds;
+  g_levelBriefingPresentationTelemetry.inputNeutralAtExit =
+      g_windowsInputAdapter.IsNeutral();
+
+  // The synchronous presenter owns wall time but never authoritative Session
+  // time. Discard its host-timer dwell and start the next fixed-cadence sample
+  // from the already committed simulation boundary.
+  if (!RebasePausedRuntimeClock()) {
+    g_levelBriefingPresentationBoundaryFailed = true;
+    Report(RECOVERED_GAME_SERVICES_FRAME_FAILURE);
+  }
+  g_productionCadenceReady = false;
 }
 
 }  // namespace
@@ -5885,6 +6031,7 @@ bool RecoveredGameServices_ProbeMissionTaxiForwardTravel(
   if (!g_vehicleControlReady || context == nullptr ||
       taxiObjectName == nullptr || taxiObjectName[0] == '\0' ||
       g_vehicleControlInput.ActiveActionCount() != 0u) {
+    summary->failure = "mission Taxi probe prerequisites are not neutral";
     return false;
   }
 
@@ -5912,7 +6059,10 @@ bool RecoveredGameServices_ProbeMissionTaxiForwardTravel(
   };
   const std::vector<KR_ObjectID> initialMissionTaxis =
       collectMissionTaxis();
-  if (vehicle == nullptr || initialMissionTaxis.empty()) return false;
+  if (vehicle == nullptr || initialMissionTaxis.empty()) {
+    summary->failure = "mission Taxi or default Vehicle is unavailable";
+    return false;
+  }
   const int taxiCount = static_cast<int>(initialMissionTaxis.size());
   summary->availableTaxis = static_cast<unsigned int>(taxiCount);
 
@@ -5920,6 +6070,8 @@ bool RecoveredGameServices_ProbeMissionTaxiForwardTravel(
   SLevelContinuationSummary captured;
   if (!RecoveredGameServices_CaptureLevelContinuation(
           &checkpoint, &captured) || !captured.ready) {
+    summary->failure = "mission Taxi checkpoint capture failed: " +
+        g_levelContinuationFailure;
     return false;
   }
 
@@ -5951,6 +6103,11 @@ bool RecoveredGameServices_ProbeMissionTaxiForwardTravel(
         entered.attribute != before.attribute && !entered.dead &&
         !entered.takingTaxi && !vehicle->taxiChangeEnabled() &&
         !context->isExist(taxiID);
+    if (!movementReady && summary->failure.empty()) {
+      summary->failure = transitionFailure.empty()
+          ? "mission Taxi transition state rejected"
+          : transitionFailure;
+    }
     if (movementReady) {
       ++summary->transitionedTaxis;
       if (entered.panelReady) ++summary->panelReadyTaxis;
@@ -6020,6 +6177,7 @@ bool RecoveredGameServices_ProbeMissionTaxiForwardTravel(
             checkpoint, &restored)) {
       ++summary->rollbackRestores;
     } else {
+      summary->failure = "mission Taxi checkpoint restore failed";
       return false;
     }
     std::vector<std::uint8_t> verifiedBytes;
@@ -6031,17 +6189,22 @@ bool RecoveredGameServices_ProbeMissionTaxiForwardTravel(
         verified.containerFingerprint == captured.containerFingerprint) {
       ++summary->exactRollbacks;
     } else {
+      summary->failure = "mission Taxi checkpoint recapture differs";
       return false;
     }
   }
 
-  return summary->transitionedTaxis == summary->availableTaxis &&
+  const bool exact =
+      summary->transitionedTaxis == summary->availableTaxis &&
          summary->panelReadyTaxis == summary->panelOpenTaxis &&
          summary->alignedTaxis == summary->availableTaxis &&
          summary->rollbackRestores == summary->availableTaxis &&
          summary->exactRollbacks == summary->availableTaxis &&
          summary->movementFrames ==
              summary->availableTaxis * kMovementFrames;
+  if (!exact && summary->failure.empty())
+    summary->failure = "mission Taxi movement contract differs";
+  return exact;
 }
 
 void RecoveredGameServices_FailNextRestoredGameplayAuthorityForTesting() {

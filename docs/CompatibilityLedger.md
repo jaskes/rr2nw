@@ -6133,6 +6133,41 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Boundary: automated verification cannot mark a Windows 10/11 row, authorize
   `develop -> master`, choose a release version or create a tag.
 
+### CQ-288: the synchronous intro presenter crossed the gameplay frame owner
+
+- Status: `WINDOW_PUMP_OWNED`, `SKIP_OWNED`, `NO_BLACK_INTERMEDIATE`,
+  `POST_PRESENTATION_HANDOFF_STABLE`.
+- Evidence: the archived `KR_Hardware::MessageLoop()` is an empty FIXME in the
+  maintained build, while FLIC and camera-flight loops called it and then
+  recursively called `SUA_ProcessEvents()`. The FLIC player also returned a
+  never-updated local `key`, so its internal Escape/Space break could not stop
+  the remaining briefing actions. Each palette change explicitly cleared and
+  dumped black before drawing the next complete frame.
+- Observed failure: after the installed Level.03N intro returned, startup
+  recorded service issues `1056` (`FRAME_FAILURE | VEHICLE_CONTROL_FAILURE`)
+  and `loop-not-ready`. Gameplay had been advanced from inside presentation,
+  outside the one-Session/Vehicle-tick closed-frame lifecycle.
+- Predicate-local follow-up also proved that resetting only the legacy host
+  sample was insufficient: the presenter had sampled and accumulated its wall
+  time in `g_timer.m_curTime`, so the first ordinary frame produced an invalid
+  `42.78 s` `Session::m_frameSec` and rejected the mission Taxi checkpoint.
+- Handling: the modern briefing boundary pumps only the real Win32 message
+  queue, consumes Escape/Enter as one-shot skip requests, preserves archival
+  Space compatibility, owns input neutralization and rebases host cadence on
+  exit. The rebase round-trips the already committed `SSimulationClockState`,
+  aligning the sampled legacy timer without advancing Session. Palette refresh
+  remains authored, but no black buffer is presented. Presentation state
+  remains nonserialized and cannot decide simulation.
+- Verification: `Invoke-LevelBriefingPresentation.ps1` proves Escape and Enter
+  skips plus an unassisted natural completion in a real Level.03N window. Each
+  route returns to a live process with neutral input, zero recursive Session
+  polls, zero black intermediate presents, equal decoded/presented frame
+  counts, zero service/Vehicle fallback issues and clean shutdown. The bounded
+  Marauders normal-loop gate additionally proves one center FLC, one briefing,
+  no stale repeats and a successful post-presentation Taxi checkpoint/drive.
+- Boundary: visual timing remains bounded by the recovered 15 fps FLIC policy;
+  this does not claim byte-exact retail retrace timing or non-WAV FLIC audio.
+
 ## Maintenance rule
 
 When a new quirk is found:

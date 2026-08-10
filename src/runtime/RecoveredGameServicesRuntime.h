@@ -124,10 +124,32 @@ bool RecoveredObserverAxes_IsNeutral(
 // Rebuild the viewport owned by the legacy synchronous briefing renderer.
 // The retail main loop invoked this after each ZAV_BeginLoop boundary.
 void RecoveredGameServices_RefreshBriefingViewport();
+
+struct SRecoveredLevelBriefingPresentationTelemetry {
+  bool active = false;
+  bool inputNeutralAtExit = false;
+  std::uint64_t presentationBegins = 0;
+  std::uint64_t presentationEnds = 0;
+  std::uint64_t pumpCalls = 0;
+  std::uint64_t suppressedInputMessages = 0;
+  std::uint64_t escapeSkips = 0;
+  std::uint64_t enterSkips = 0;
+  std::uint64_t decodedFrames = 0;
+  std::uint64_t framePresents = 0;
+  std::uint64_t paletteRefreshes = 0;
+  std::uint64_t blackIntermediatePresents = 0;
+  std::uint64_t legacySessionPolls = 0;
+  std::uint64_t normalCompletions = 0;
+  std::uint64_t skippedCompletions = 0;
+  int lastSkipKey = 0;
+};
+
 // Runs the synchronous retail Level briefing only while its presenter is
 // attached to the active session. The caller owns asset preflight and decides
 // whether the current Level boundary is a new arrival or a restore/rollback.
 bool RecoveredGameServices_PlayLevelBriefing(const char* resolvedPath);
+bool RecoveredGameServices_LevelBriefingPresentationTelemetry(
+    SRecoveredLevelBriefingPresentationTelemetry* telemetry);
 
 struct SRecoveredVehicleDriveTelemetry {
   double positionX;
@@ -234,6 +256,7 @@ struct SRecoveredMissionVehicleDriveProbe {
   double minimumForwardTravel;
   double maximumLateralTravel;
   double maximumLateralRatio;
+  std::string failure;
 };
 
 struct SRecoveredVehiclePrimaryFireTelemetry {

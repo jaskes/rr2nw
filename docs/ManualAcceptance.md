@@ -1581,10 +1581,24 @@ Then launch Level.03N normally to exercise the real synchronous presenter:
 
 The intro must enter its authored camera/FLC sequence instead of failing at
 the initial one-point static cut. Confirm picture, sound and text, then press
-Esc or Space and verify normal control returns. A subsequent cross-Level save
-load or current-Level restart must not replay the intro. `--skip-level-briefing`
-is available for interactive automation and repeated gameplay diagnostics; it
-is not the default player behavior.
+Esc or Enter and verify normal control returns without a pause menu, held
+movement or a dark intermediate flash. Space remains an archival-compatible
+skip. A subsequent cross-Level save load or current-Level restart must not
+replay the intro. `--skip-level-briefing` is available for repeated gameplay
+diagnostics; it is not the default player behavior.
+
+The bounded physical regression drives the real Level.03N window and proves
+both player-facing skip keys in all maintained configurations:
+
+```powershell
+& ".\tools\acceptance\Invoke-LevelBriefingPresentation.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo
+```
+
+It must pass 6/6 with `presentation_handoff=1/0/0/1`, zero black intermediate
+presents, zero `game_services_issues`, no Vehicle fallback and a live process
+after the handoff. The longer unassisted end-of-film route can be repeated with
+`-Configuration Debug -SkipKey None`; it must report
+`presentation_handoff=1/0/1/0` and the same stable first gameplay frame.
 
 ## Interactive crowded Taxi stability pass
 

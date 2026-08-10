@@ -96,6 +96,16 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Made authored Level-intro FLIC/flight briefings skippable with Escape or
+  Enter while retaining the archival Space binding. The maintained presenter
+  now pumps the real Win32 queue without recursively advancing Session,
+  neutralizes held input at entry/exit and rebases fixed cadence before the
+  first gameplay frame. The rebase now realigns the sampled legacy timer too,
+  preventing the cinematic wall time from invalidating the next save or
+  mission checkpoint. Palette changes no longer present an intermediate black
+  framebuffer, eliminating the repeated dark flashes. A real Level.03N window
+  gate proves both skip keys and natural completion return to live play with
+  zero service/Vehicle fallback issues.
 - Bound the synthetic Explosion trace draw proof to the authoritative Session
   frontier. The probe could create short-lived Smoke at a stale last-event
   `m_moment` and then let a loaded Debug host advance `m_viewTime` past its

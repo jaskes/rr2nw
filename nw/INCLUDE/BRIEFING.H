@@ -19,6 +19,30 @@
 #define MIN_SCALE 0
 #define MAX_SCALE 100
 
+// The archived briefing player owns a synchronous render loop. A maintained
+// platform may provide a bounded message pump so that this loop remains
+// responsive without recursively advancing Session gameplay time.
+typedef int  (*TBriefingPresentationPump)();
+typedef void (*TBriefingPresentationBoundary)(int entering);
+
+struct SBriefingPresentationTelemetry {
+   unsigned long long pumpCalls;
+   unsigned long long legacySessionPolls;
+   unsigned long long decodedFrames;
+   unsigned long long framePresents;
+   unsigned long long paletteRefreshes;
+   unsigned long long blackIntermediatePresents;
+   unsigned long long normalCompletions;
+   unsigned long long skippedCompletions;
+   int lastSkipKey;
+};
+
+void Briefing_ConfigurePresentationRuntime(
+   TBriefingPresentationPump pump,
+   TBriefingPresentationBoundary boundary);
+void Briefing_ResetPresentationTelemetry();
+SBriefingPresentationTelemetry Briefing_PresentationTelemetry();
+
 #define BRF_DEFAULT_FLIGHT_NAME "Flight1"
 #define BRF_DEFAULT_BUG_CLASS   "CINEMA"
 

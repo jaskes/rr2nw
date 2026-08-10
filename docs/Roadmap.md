@@ -2199,8 +2199,11 @@ ordinary startup or a committed new-Level arrival presents them. The
 Level.03N one-point static cut no longer trips the old two-node spline assert.
 Save restore, restart and rollback suppress presentation explicitly. Installed
 Vehicle profiles contain no active exit FLC, so that former roadmap item is a
-documented false gap rather than guessed content. Visible timing, sound and
-physical skip behavior still require the Windows presentation pass.
+documented false gap rather than guessed content. Visible timing and sound
+retain the packaged Windows presentation pass. The physical presenter boundary
+is now closed: Escape/Enter skip, natural completion, neutral input/cadence
+handoff and zero intermediate-black palette presents are exercised in a real
+Level.03N window; Space remains compatible.
 
 The connected wrapper passes 3/3 across Debug, Release and RelWithDebInfo.
 Regression gates retain mission result 3/3 and Portal transition 9/9; source
@@ -2318,7 +2321,7 @@ packaged Windows 10/11 manual gates have not yet passed.
 |---|---:|---|---|
 | M0 evidence/reference | 80% | retail manifests, May binary evidence, compatibility ledger, bounded launch tools | reproducible archival compiler/reference artifact is still optional/incomplete |
 | M1 modern Windows x86 | 95% | CMake/MSVC, real executable, all nine Levels, recovered software renderer and game loop | finish remaining campaign-owned callbacks and remove narrow archive initialization debt |
-| M2 Windows platform/stability | 86% | native window/input, focus neutralization, frame profiling, DPI-aware exclusive display ownership/recovery, exact SEH plus primary RTCHECK/assert minidump/manifest diagnostics and maintained XAudio2 2.9 cached one-shot/loops, bounded flags-1 briefing streams, symmetric listener/moving-Tank compatibility and direct occupied-Player-Vehicle pitch/lifecycle | broader moving-class/asymmetric/UI/non-WAV cinematic audio, prolonged multi-monitor/Win10/Win11 presentation soak, direct CRT abort/tool-exit inventory and sanitizer coverage |
+| M2 Windows platform/stability | 87% | native window/input, focus neutralization, frame profiling, DPI-aware exclusive display ownership/recovery, stable skippable synchronous Level-intro presentation without recursive gameplay polling or palette-black flashes, exact SEH plus primary RTCHECK/assert minidump/manifest diagnostics and maintained XAudio2 2.9 cached one-shot/loops, bounded flags-1 briefing streams, symmetric listener/moving-Tank compatibility and direct occupied-Player-Vehicle pitch/lifecycle | broader moving-class/asymmetric/UI/non-WAV cinematic audio, prolonged multi-monitor/Win10/Win11 presentation soak, direct CRT abort/tool-exit inventory and sanitizer coverage |
 | M2.5 in-game shell/settings | 99% | sole ordinary in-frame shell, typed eight-slot Save/Load/restart with asynchronous thumbnails and explicit compatibility states, 26 contextual bindings, retail-bounded mouse X/Y/invert, windowed/borderless/exclusive 4:3 presentation with timed rollback, atomic schema-6 settings/schema-1/2/3/4/5 migration/safe mode, owned Effects, Player Vehicle and Cinematic volumes, full fail-closed typed Developer catalog and explicitly isolated native diagnostic fallback | packaged multi-monitor Win10/Win11 acceptance |
 | M3 retail parity | 99% | People/Tank combat, two weapons, missions, center FLC plus briefing, all Level-entry intro scripts, simultaneous navigable objective graphs, independent success/failure/surrender result persistence, reward/Artefact, complete ordinary no-reward progression across Level.01D/02D and both Level.04D centers, terminal Level.01N Outsider, the complete persisted Level.04D Actek branch `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08 -> AER10 -> AER00 -> AER16 -> AER21 -> S03 -> A27`, complete persisted Colony branch `G3 -> G5 -> G4 -> G8 -> A25 -> G10 -> G11 -> G12 -> G14 -> A28 -> G1 -> A29 -> S08 -> G7 -> AER03 -> AER13 -> AER15 -> AER17 -> AER20 -> AER24 -> G2`, terminal Level.05D Civilians branch `A30 -> S18 -> S11 -> S12 -> S19 -> S16 -> S20 -> A31` with HWZ1 v4 future-holder persistence, complete Level.05D Robbers branch `A32 -> A34 -> S21 -> S15 -> A35 -> A36 -> S17 -> S13 -> A33` with same-slot-8 terminal restore, two independent mission-reward/Portal/fresh-load chains, full guide-route rollback, complete Level.06N command-34 `part6 -> part7 -> s_RestartLevel(7) -> Level.01N` lifecycle with MSH1 v5 and exact process rollback, and exact Level.01D command-33 3D polling/script/save lifecycle with CPK1 v2 symbolic watchers | visible AI/guide/cinematic parity and complete campaign proof; unrecovered Destroyable callbacks remain evidence-bounded; Level.07N is an authored empty ProjectTable with no RecruitCenter, not a missing candidate |
 | M4 save/timing/VFS | 95% | versioned 17-owner LCN1, atomic same/cross-Level load, CTJ1, RNG split, deterministic VFS/content identity, backward-compatible RPH1 algorithm 2 with 12-component active gameplay-core hashes and bounded mismatch localization, live bounded Windows fixed-step cadence with zero-to-four Session/Vehicle ticks per presentation, focus/shell reset, post-present transactions, LCN1 epoch rebase, a 27/27 installed-Level production gate, explicit DWORD wrap/one-year-long-origin timing, a read-only installed `PIN_SaveFile` detector and atomic legacy `CONFIG.CFG` subset import | deterministic projections for deferred Route/Lamp/Smoker/Fountain owners and reviewed content-identity binding before full legacy world conversion; renderer interpolation remains optional |
@@ -2329,8 +2332,8 @@ The shortest critical path is:
 
 1. complete packaged multi-monitor Win10/Win11 soak for the closed M2.5 shell,
    Controls, Video rollback and explicit Developer capability;
-2. repeat visible People/Tank/guide motion, manually validate cinematic
-   timing/skip and close only the remaining evidence-backed campaign gaps;
+2. repeat visible People/Tank/guide motion, manually validate packaged
+   cinematic timing and close only the remaining evidence-backed campaign gaps;
 3. widen the closed listener/moving-Tank/Player-Vehicle/briefing-stream audio
    model to broader moving classes and UI/non-WAV cinematic owners;
    consolidate the remaining direct CRT/tool fatal paths and finish

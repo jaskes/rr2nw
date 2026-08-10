@@ -1483,11 +1483,41 @@ bool HandleLevelBriefing(ELevelBriefingPolicy policy, const char* boundary,
       RecoveredPresentationTrace_Record("level-entry", reason, "failed",
                                         summary.resolvedPath.c_str());
       if (failure != nullptr)
-        *failure = "Level briefing presenter is not attached to the active "
-                   "session";
+        *failure = "Level briefing presentation boundary failed";
       if (log != nullptr && failure != nullptr)
         log->Line(prefix + "failure=" + *failure);
       return false;
+    }
+    SRecoveredLevelBriefingPresentationTelemetry presentation = {};
+    if (!RecoveredGameServices_LevelBriefingPresentationTelemetry(
+            &presentation)) {
+      if (failure != nullptr)
+        *failure = "Level briefing presentation telemetry is unavailable";
+      return false;
+    }
+    const char* skip = presentation.lastSkipKey == VK_ESCAPE
+        ? "escape"
+        : presentation.lastSkipKey == VK_RETURN
+              ? "enter"
+              : presentation.lastSkipKey == VK_SPACE ? "space" : "none";
+    if (log != nullptr) {
+      log->Line(prefix + "presentation=" +
+                std::to_string(presentation.presentationBegins) + "/" +
+                std::to_string(presentation.presentationEnds) + "/" +
+                std::to_string(presentation.pumpCalls) + "/" +
+                std::to_string(presentation.decodedFrames) + "/" +
+                std::to_string(presentation.framePresents));
+      log->Line(prefix + "presentation_palette=" +
+                std::to_string(presentation.paletteRefreshes) + "/" +
+                std::to_string(presentation.blackIntermediatePresents));
+      log->Line(prefix + "presentation_skip=" + skip + "/" +
+                std::to_string(presentation.escapeSkips) + "/" +
+                std::to_string(presentation.enterSkips));
+      log->Line(prefix + "presentation_handoff=" +
+                std::to_string(presentation.inputNeutralAtExit ? 1 : 0) +
+                "/" + std::to_string(presentation.legacySessionPolls) +
+                "/" + std::to_string(presentation.normalCompletions) +
+                "/" + std::to_string(presentation.skippedCompletions));
     }
     RecoveredPresentationTrace_Record("level-entry", reason, "completed",
                                       summary.resolvedPath.c_str());
@@ -4377,6 +4407,26 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              (missionFrameReady ? "1" : "0"));
     log.Line("mission_smoke_frame_issues=" +
              std::to_string(RecoveredGameServices_Issues()));
+    // A synchronous briefing is presentation-only. Mission owners whose
+    // authored START lies after the admission timestamp must now reach that
+    // time through ordinary complete frames, never through a nested
+    // SUA_ProcessEvents call inside the cinematic. Keep this acceptance seam
+    // bounded to the existing Taxi runtime-readiness predicate before probing
+    // the mission-created vehicle.
+    unsigned int postPresentationFrames = 0u;
+    bool postPresentationReady = missionFrameReady;
+    constexpr unsigned int kMaximumPostPresentationFrames = 32u;
+    while (postPresentationReady &&
+           !TaxiSubjectState_AllReady(g_super.m_context) &&
+           postPresentationFrames < kMaximumPostPresentationFrames) {
+      postPresentationReady = runCompleteFrame();
+      ++postPresentationFrames;
+    }
+    postPresentationReady = postPresentationReady &&
+        TaxiSubjectState_AllReady(g_super.m_context);
+    log.Line("mission_smoke_post_presentation_frames=" +
+             std::to_string(postPresentationFrames) + "/" +
+             std::to_string(postPresentationReady ? 1 : 0));
     loopFailed = !missionExecuted || !missionStaged ||
                  mission.executedScripts < 1 ||
                  mission.createdMissionObjects < 1 ||
@@ -4391,7 +4441,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                   (mission.postBriefingCollisionEvents != 2 ||
                    mission.postBriefingCollisionSuppressions != 2 ||
                    mission.postBriefingPresentationRepeats != 0)) ||
-                 mission.scriptRollbacks != 0 || !missionFrameReady;
+                 mission.scriptRollbacks != 0 || !missionFrameReady ||
+                 !postPresentationReady;
     if (!loopFailed && options.missionNaturalCombatSmoke) {
       const bool missionEjectionReady =
           RecruitCenterSubjectState_EjectPlayerForCenter(
@@ -5475,6 +5526,9 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                std::to_string(missionVehicle.maximumLateralRatio) + "/" +
                std::to_string(missionVehicle.rollbackRestores) + "/" +
                std::to_string(missionVehicle.exactRollbacks));
+      if (!missionVehicleReady)
+        log.Line("mission_smoke_vehicle_drive_error=" +
+                 missionVehicle.failure);
       loopFailed = !missionVehicleReady;
     }
     if (!loopFailed && options.missionObjectiveChainSmoke) {
