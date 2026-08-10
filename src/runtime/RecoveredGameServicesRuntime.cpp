@@ -20,6 +20,7 @@
 #include <sstream>
 #include <string>
 #include <thread>
+#include <utility>
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -53,6 +54,7 @@
 #include "RecoveredGameLevelRuntime.h"
 #include "RecoveredLevelRuntime.h"
 #include "RecoveredModRuntime.h"
+#include "RecoveredModProfile.h"
 #include "RecoveredRetailScriptManifest.h"
 #include "RecoveredSaveSlotCatalog.h"
 #include "RecoveredSaveSlotDialog.h"
@@ -3008,8 +3010,8 @@ std::size_t ShellPageItemCount() {
     case RECOVERED_SHELL_PAGE_ROOT:
       return g_inGameShellState.developerMode &&
                      g_debugMenuState.configured
-                 ? 9u
-                 : 8u;
+                 ? 10u
+                 : 9u;
     case RECOVERED_SHELL_PAGE_SAVE:
     case RECOVERED_SHELL_PAGE_LOAD:
       return LevelSaveSlot_Count() + 1u;
@@ -3019,6 +3021,11 @@ std::size_t ShellPageItemCount() {
       return 4u;
     case RECOVERED_SHELL_PAGE_AUDIO:
       return 4u;
+    case RECOVERED_SHELL_PAGE_MODS: {
+      const SRecoveredModSelectorSnapshot* selector =
+          RecoveredModProfile_Snapshot();
+      return (selector == nullptr ? 0u : selector->candidates.size()) + 4u;
+    }
     case RECOVERED_SHELL_PAGE_DEVELOPER:
       return 11u;
     case RECOVERED_SHELL_PAGE_VIDEO_CONFIRM:
@@ -3047,6 +3054,8 @@ void ShellSelectPage(ERecoveredInGameShellPage page) {
       page == RECOVERED_SHELL_PAGE_DEVELOPER_ENTER ||
       page == RECOVERED_SHELL_PAGE_DEVELOPER_LEVEL)
     RefreshInGameDeveloperCatalog();
+  if (page == RECOVERED_SHELL_PAGE_MODS)
+    ++g_inGameShellState.modSelectorOpens;
 }
 
 bool OpenInGameShell() {
@@ -3348,7 +3357,9 @@ bool ActivateShellSelection() {
         ShellSelectPage(RECOVERED_SHELL_PAGE_VIDEO);
       } else if (selected == 6u) {
         ShellSelectPage(RECOVERED_SHELL_PAGE_AUDIO);
-      } else if (selected == 7u && g_inGameShellState.developerMode &&
+      } else if (selected == 7u) {
+        ShellSelectPage(RECOVERED_SHELL_PAGE_MODS);
+      } else if (selected == 8u && g_inGameShellState.developerMode &&
                  g_debugMenuState.configured) {
         ShellSelectPage(RECOVERED_SHELL_PAGE_DEVELOPER);
       } else {
@@ -3417,6 +3428,37 @@ bool ActivateShellSelection() {
         return AdjustShellCinematicVolume(1);
       ShellSelectPage(RECOVERED_SHELL_PAGE_ROOT);
       return true;
+    case RECOVERED_SHELL_PAGE_MODS: {
+      const SRecoveredModSelectorSnapshot* selector =
+          RecoveredModProfile_Snapshot();
+      const std::size_t candidateCount =
+          selector == nullptr ? 0u : selector->candidates.size();
+      bool handled = false;
+      if (selected == 0u) {
+        handled = RecoveredModProfile_SelectRelative(1);
+        if (handled) ++g_inGameShellState.modSelectorProfileChanges;
+      } else if (selected <= candidateCount) {
+        handled = RecoveredModProfile_ToggleCandidate(selected - 1u);
+        if (handled) ++g_inGameShellState.modSelectorToggles;
+      } else if (selected == candidateCount + 1u) {
+        handled = RecoveredModProfile_CommitStaged();
+        if (handled)
+          ++g_inGameShellState.modSelectorCommits;
+      } else if (selected == candidateCount + 2u) {
+        handled = RecoveredModProfile_ResetStaged();
+      } else {
+        ShellSelectPage(RECOVERED_SHELL_PAGE_ROOT);
+        return true;
+      }
+      selector = RecoveredModProfile_Snapshot();
+      if (!handled) ++g_inGameShellState.modSelectorBlockedSelections;
+      if (selector != nullptr) {
+        g_inGameShellState.modSelectorRestartRequired =
+            selector->restartRequired;
+        g_inGameShellState.status = selector->status;
+      }
+      return true;
+    }
     case RECOVERED_SHELL_PAGE_DEVELOPER:
       return ActivateDeveloperShellItem(selected);
     case RECOVERED_SHELL_PAGE_DEVELOPER_SPAWN:
@@ -3532,6 +3574,19 @@ bool HandleInGameShellKey(std::uint32_t key) {
       return AdjustShellVehicleVolume(key == VK_LEFT ? -1 : 1);
     if (g_inGameShellState.selected == 2u)
       return AdjustShellCinematicVolume(key == VK_LEFT ? -1 : 1);
+  }
+  if (g_inGameShellState.page == RECOVERED_SHELL_PAGE_MODS &&
+      g_inGameShellState.selected == 0u &&
+      (key == VK_LEFT || key == VK_RIGHT)) {
+    if (RecoveredModProfile_SelectRelative(key == VK_LEFT ? -1 : 1)) {
+      ++g_inGameShellState.modSelectorProfileChanges;
+      const SRecoveredModSelectorSnapshot* selector =
+          RecoveredModProfile_Snapshot();
+      if (selector != nullptr) g_inGameShellState.status = selector->status;
+    } else {
+      ++g_inGameShellState.modSelectorBlockedSelections;
+    }
+    return true;
   }
   return key == VK_RETURN ? ActivateShellSelection() : true;
 }
@@ -3718,7 +3773,8 @@ void DrawInGameShell() {
   switch (g_inGameShellState.page) {
     case RECOVERED_SHELL_PAGE_ROOT:
       lines = {"Continue", "Save game", "Load game",
-               "Restart current Level", "Controls", "Video", "Audio"};
+               "Restart current Level", "Controls", "Video", "Audio",
+               "Mods"};
       if (g_inGameShellState.developerMode && g_debugMenuState.configured)
         lines.push_back("Developer");
       lines.push_back("Exit game");
@@ -3812,6 +3868,56 @@ void DrawInGameShell() {
       lines.push_back("Back");
       ShellPrint(72, 78,
                  "Effects, player engine and admitted briefing streams");
+      break;
+    }
+    case RECOVERED_SHELL_PAGE_MODS: {
+      const SRecoveredModSelectorSnapshot* selector =
+          RecoveredModProfile_Snapshot();
+      if (selector == nullptr) {
+        lines = {"Profile : unavailable", "Apply on next launch [blocked]",
+                 "Reset staged profile [blocked]", "Back"};
+        ShellPrint(72, 78, "Mod profile owner is unavailable");
+        break;
+      }
+      std::string profile = "Profile : " + selector->stagedProfile;
+      if (selector->cliOverride) profile += " [CLI override]";
+      if (selector->safeMode) profile += " [safe mode]";
+      lines.push_back(profile);
+      for (const SRecoveredModSelectorCandidate& candidate :
+           selector->candidates) {
+        std::string line = candidate.id + "@" + candidate.version + " ";
+        switch (candidate.state) {
+          case RECOVERED_MOD_SELECTOR_SELECTED:
+            line += "[selected #" +
+                std::to_string(candidate.mountIndex + 1u) + "]";
+            break;
+          case RECOVERED_MOD_SELECTOR_DEPENDENCY:
+            line += "[dependency #" +
+                std::to_string(candidate.mountIndex + 1u) + "]";
+            break;
+          case RECOVERED_MOD_SELECTOR_BLOCKED:
+            line += "[blocked: " + candidate.reason + "]";
+            break;
+          case RECOVERED_MOD_SELECTOR_INVALID:
+            line += "[invalid: " + candidate.reason + "]";
+            break;
+          default: line += "[off]"; break;
+        }
+        lines.push_back(std::move(line));
+      }
+      lines.push_back(std::string("Apply on next launch") +
+                      (!selector->dirty
+                           ? " [no changes]"
+                           : selector->planReady ? " [ready]"
+                                                 : " [blocked]"));
+      lines.push_back("Reset staged profile to vanilla");
+      lines.push_back("Back");
+      std::string summary =
+          "Mount: " + std::to_string(selector->activePackageCount) +
+          " package(s), fingerprint " +
+          std::to_string(selector->stagedFingerprint);
+      if (selector->restartRequired) summary += " - RESTART REQUIRED";
+      ShellPrint(72, 78, summary);
       break;
     }
     case RECOVERED_SHELL_PAGE_DEVELOPER:
@@ -6284,6 +6390,11 @@ bool RecoveredGameServices_ConfigureInGameShell(
     Report(RECOVERED_GAME_SERVICES_IN_GAME_SHELL_FAILURE);
     return false;
   }
+  if (const SRecoveredModSelectorSnapshot* selector =
+          RecoveredModProfile_Snapshot()) {
+    g_inGameShellState.modSelectorRestartRequired =
+        selector->restartRequired;
+  }
   RefreshInGameDeveloperCatalog();
   return true;
 }
@@ -6394,6 +6505,11 @@ const SRecoveredDeveloperCatalogSnapshot*
 RecoveredGameServices_InGameShellDeveloperCatalog() {
   RefreshInGameDeveloperCatalog();
   return &g_inGameShellDeveloperCatalog;
+}
+
+const SRecoveredModSelectorSnapshot*
+RecoveredGameServices_InGameShellModSelector() {
+  return RecoveredModProfile_Snapshot();
 }
 
 const SRecoveredInputBindings* RecoveredGameServices_InputBindings() {

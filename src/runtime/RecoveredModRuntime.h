@@ -31,6 +31,30 @@ struct SRecoveredModPackage {
   std::uint64_t fingerprint = 0;
 };
 
+struct SRecoveredModCandidateInfo {
+  bool valid = false;
+  char id[65] = {};
+  char version[33] = {};
+  unsigned int issue = 0;
+  unsigned int fileCount = 0;
+  unsigned int levelCount = 0;
+  unsigned int dependencyCount = 0;
+  unsigned int conflictCount = 0;
+  std::uint64_t totalBytes = 0;
+  std::uint64_t fingerprint = 0;
+  char reason[96] = {};
+};
+
+struct SRecoveredModStackPlan {
+  bool ready = false;
+  unsigned int issues = 0;
+  unsigned int candidateCount = 0;
+  std::uint64_t totalBytes = 0;
+  std::uint64_t modFingerprint = 0;
+  char reason[96] = {};
+  std::vector<SRecoveredModPackage> packages;
+};
+
 struct SRecoveredModLevel {
   char id[65] = {};
   char base[65] = {};
@@ -85,6 +109,18 @@ bool RecoveredModRuntime_ConfigureStack(
     std::size_t candidateCount, std::size_t explicitDirectoryCount,
     const char* const* requestedIds, std::size_t requestedIdCount,
     bool activateAllCandidates);
+// Uses the production manifest parser and stack resolver without publishing
+// paths, installing read hooks or replacing the currently mounted runtime.
+// Failure reasons are privacy-safe categories rather than physical paths.
+bool RecoveredModRuntime_InspectCandidate(
+    const char* baseRoot, const char* candidateDirectory,
+    SRecoveredModCandidateInfo* candidate);
+bool RecoveredModRuntime_PlanStack(
+    const char* baseRoot, const char* const* candidateDirectories,
+    std::size_t candidateCount, std::size_t explicitDirectoryCount,
+    const char* const* requestedIds, std::size_t requestedIdCount,
+    bool activateAllCandidates, SRecoveredModStackPlan* plan);
+const char* RecoveredModRuntime_IssueReason(unsigned int issues);
 void RecoveredModRuntime_Release();
 bool RecoveredModRuntime_IsConfigured();
 bool RecoveredModRuntime_IsActive();

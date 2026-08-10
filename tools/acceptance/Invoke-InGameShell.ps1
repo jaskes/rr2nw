@@ -225,7 +225,7 @@ foreach ($configurationName in $Configuration) {
         # explicit reason; all three dynamic subcatalogs must be navigable;
         # Stabilize must then use the existing typed closed-frame transaction.
         Press-Key $window 0x1B
-        Press-Down $window 7
+        Press-Down $window 8
         Press-Key $window 0x0D
         Press-Down $window 2
         Press-Key $window 0x0D
@@ -259,7 +259,8 @@ foreach ($configurationName in $Configuration) {
     }
 
     # A second ordinary launch proves the capability is process-owned and
-    # fail-closed: row eight is Exit game, not a persisted Developer entry.
+    # fail-closed: the final ordinary row is Exit game, not a persisted
+    # Developer entry. Mods remains a separate safe-mode read-only row.
     $ordinaryDiagnostics = Join-Path $caseRoot "ordinary-diagnostics"
     $ordinarySettings = Join-Path $caseRoot "ordinary-settings.cfg"
     New-Item -ItemType Directory -Force -Path $ordinaryDiagnostics | Out-Null
@@ -290,7 +291,7 @@ foreach ($configurationName in $Configuration) {
         }
         Start-Sleep -Milliseconds 700
         Press-Key $ordinaryWindow 0x1B
-        Press-Down $ordinaryWindow 7
+        Press-Down $ordinaryWindow 8
         Press-Key $ordinaryWindow 0x0D
         if (-not $ordinaryGame.WaitForExit($TimeoutSeconds * 1000)) {
             throw "[$configurationName] ordinary Exit row did not close the game"
@@ -346,6 +347,11 @@ foreach ($configurationName in $Configuration) {
         in_game_shell_developer_catalog_ready = "1"
         in_game_shell_developer_blocked_selections = "1"
         in_game_shell_developer_commands_queued = "1"
+        in_game_shell_mod_selector_opens = "0"
+        in_game_shell_mod_selector_toggles = "0"
+        in_game_shell_mod_selector_commits = "0"
+        in_game_shell_mod_selector_blocked_selections = "0"
+        in_game_shell_mod_selector_restart_required = "0"
         in_game_shell_command_failure_presentations = "0"
         native_diagnostic_menu_enabled = "0"
         save_menu_native_installed = "0"
@@ -420,6 +426,11 @@ foreach ($configurationName in $Configuration) {
             in_game_shell_developer_catalog_ready = "0"
             in_game_shell_developer_catalog_commands = "0"
             in_game_shell_developer_catalog_reason = "developer capability is disabled"
+            in_game_shell_mod_selector_opens = "0"
+            in_game_shell_mod_selector_toggles = "0"
+            in_game_shell_mod_selector_commits = "0"
+            mod_profile_source = "safe-mode"
+            mod_profile_active_packages = "0"
             in_game_shell_opens = "1"
             in_game_shell_closes = "1"
             game_services_issues = "0"

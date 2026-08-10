@@ -15,6 +15,7 @@
 #include "RecoveredSoftwareGraph.h"
 #include "RecoveredLevelAssets.h"
 #include "RecoveredLevelRuntime.h"
+#include "RecoveredModProfile.h"
 #include "RecoveredModRuntime.h"
 #include "RecoveredPresentationTrace.h"
 #include "RecoveredRetailScriptManifest.h"
@@ -75,6 +76,7 @@ struct StartupOptions {
   std::wstring saveDirectory;
   std::wstring settingsFile;
   std::wstring legacyConfigImport;
+  std::wstring modProfilesFile;
   std::vector<std::wstring> modDirectories;
   std::wstring modsDirectory;
   std::vector<std::wstring> selectedMods;
@@ -112,6 +114,8 @@ struct StartupOptions {
   bool developerMode = false;
   bool nativeDiagnosticMenu = false;
   bool safeMode = false;
+  bool modsDirectoryExplicit = false;
+  bool modProfilesFileExplicit = false;
   bool showHelp = false;
   bool showVersion = false;
 };
@@ -456,6 +460,7 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
                             &options->modsDirectory, failure)) {
         return false;
       }
+      options->modsDirectoryExplicit = true;
     } else if (argument.compare(0, 11, L"--mods-dir=") == 0) {
       if (!options->modsDirectory.empty()) {
         *failure = L"--mods-dir may be specified only once";
@@ -466,6 +471,7 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
         *failure = L"empty value for --mods-dir";
         return false;
       }
+      options->modsDirectoryExplicit = true;
     } else if (argument == L"--mod") {
       std::wstring value;
       if (!ParseOptionValue(argc, argv, &index, L"--mod", &value,
@@ -473,6 +479,29 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
         return false;
       }
       options->selectedMods.push_back(value);
+    } else if (argument == L"--mod-profiles-file") {
+      if (options->modProfilesFileExplicit) {
+        *failure = L"--mod-profiles-file may be specified only once";
+        return false;
+      }
+      if (!ParseOptionValue(argc, argv, &index,
+                            L"--mod-profiles-file",
+                            &options->modProfilesFile, failure)) {
+        return false;
+      }
+      options->modProfilesFileExplicit = true;
+    } else if (argument.compare(0, 20,
+                                L"--mod-profiles-file=") == 0) {
+      if (options->modProfilesFileExplicit) {
+        *failure = L"--mod-profiles-file may be specified only once";
+        return false;
+      }
+      options->modProfilesFile = argument.substr(20);
+      if (options->modProfilesFile.empty()) {
+        *failure = L"empty value for --mod-profiles-file";
+        return false;
+      }
+      options->modProfilesFileExplicit = true;
     } else if (argument.compare(0, 6, L"--mod=") == 0) {
       const std::wstring value = argument.substr(6);
       if (value.empty()) {
@@ -855,6 +884,11 @@ class StartupLog {
 class ModRuntimeScope {
  public:
   ~ModRuntimeScope() { RecoveredModRuntime_Release(); }
+};
+
+class ModProfileScope {
+ public:
+  ~ModProfileScope() { RecoveredModProfile_Release(); }
 };
 
 class AudioRuntimeScope {
@@ -1905,6 +1939,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 L"rr2nw.exe [--data-dir <path>] [--start-level <index|name>]\n"
                 L"          [--mod-dir <path>]... [--mods-dir <path>]\n"
                 L"          [--mod <id>]...\n"
+                L"          [--mod-profiles-file <path>]\n"
                 L"          [--diagnostics-dir <path>] [--save-dir <path>]\n"
                 L"          [--save-slot <1..8>] [--load-slot <1..8>]\n"
                 L"          [--settings-file <path>]\n"
@@ -1952,6 +1987,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     directory = AbsolutePath(directory);
   if (!options.modsDirectory.empty())
     options.modsDirectory = AbsolutePath(options.modsDirectory);
+  if (!options.modProfilesFile.empty())
+    options.modProfilesFile = AbsolutePath(options.modProfilesFile);
   if (!options.legacyConfigImport.empty())
     options.legacyConfigImport = AbsolutePath(options.legacyConfigImport);
   const bool defaultSaveDirectory = options.saveDirectory.empty();
@@ -2012,15 +2049,47 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 failure + L"\n\nDiagnostic log:\n" + log.path());
     return kDataNotReady;
   }
+  ModProfileScope modProfileScope;
   ModRuntimeScope modRuntimeScope;
   AudioRuntimeScope audioRuntimeScope;
   std::string baseDataPath;
   std::string modFailure;
   bool modReady = false;
-  const std::size_t explicitModCount = options.modDirectories.size();
+  const bool explicitModSelection =
+      !options.modDirectories.empty() || !options.selectedMods.empty();
+  const bool profileMode = !explicitModSelection &&
+      (!options.modsDirectoryExplicit || options.modProfilesFileExplicit);
+  std::wstring profileBase = DefaultSettingsDirectory();
+  if (!options.settingsFile.empty()) {
+    const std::wstring isolatedSettings = AbsolutePath(options.settingsFile);
+    const std::size_t separator = isolatedSettings.find_last_of(L"\\/");
+    profileBase = separator == std::wstring::npos
+        ? CurrentDirectory()
+        : isolatedSettings.substr(0, separator);
+  }
+  if (profileMode && options.modsDirectory.empty())
+    options.modsDirectory = JoinPath(profileBase, L"mods");
+  if (options.modProfilesFile.empty())
+    options.modProfilesFile = JoinPath(profileBase, L"mod-profiles.cfg");
+  const std::size_t profileSeparator =
+      options.modProfilesFile.find_last_of(L"\\/");
+  const std::wstring profileDirectory =
+      profileSeparator == std::wstring::npos
+          ? CurrentDirectory()
+          : options.modProfilesFile.substr(0, profileSeparator);
+  if (profileMode && !options.safeMode &&
+      !EnsureDirectory(profileDirectory))
+    modFailure = "mod profile directory could not be created";
+  if (modFailure.empty() && profileMode && !options.safeMode &&
+      !IsDirectory(options.modsDirectory) &&
+      !EnsureDirectory(options.modsDirectory))
+    modFailure = "default mod discovery directory could not be created";
+  const std::size_t explicitModCount =
+      options.safeMode ? 0u : options.modDirectories.size();
   std::vector<std::wstring> candidateModDirectories =
-      options.modDirectories;
-  if (!options.modsDirectory.empty() &&
+      options.safeMode ? std::vector<std::wstring>() : options.modDirectories;
+  if (modFailure.empty() && !options.safeMode &&
+      !options.modsDirectory.empty() &&
       !DiscoverModDirectories(options.modsDirectory,
                               &candidateModDirectories, &failure)) {
     modFailure = WideToUtf8(failure);
@@ -2033,7 +2102,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     modFailure = "base data path is not representable by the Windows ANSI "
                  "code page";
   }
-  if (modFailure.empty()) {
+  if (modFailure.empty() && !options.safeMode) {
     candidateModPaths.reserve(candidateModDirectories.size());
     for (const std::wstring& directory : candidateModDirectories) {
       std::string path;
@@ -2045,7 +2114,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       candidateModPaths.push_back(std::move(path));
     }
   }
-  if (modFailure.empty()) {
+  if (modFailure.empty() && !options.safeMode) {
     requestedModIds.reserve(options.selectedMods.size());
     for (const std::wstring& selected : options.selectedMods) {
       std::string id;
@@ -2064,16 +2133,52 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     requestedModIdPointers.reserve(requestedModIds.size());
     for (const std::string& id : requestedModIds)
       requestedModIdPointers.push_back(id.c_str());
-    const bool activateAllDiscovered =
+    const bool cliActivateAllDiscovered =
+        !profileMode && !options.safeMode &&
         !options.modsDirectory.empty() && options.selectedMods.empty();
+    if (!RecoveredModProfile_Configure(
+            options.modProfilesFile, baseDataPath.c_str(),
+            candidateModPathPointers.empty() ? nullptr
+                                             : candidateModPathPointers.data(),
+            candidateModPathPointers.size(), explicitModCount,
+            requestedModIdPointers.empty() ? nullptr
+                                           : requestedModIdPointers.data(),
+            requestedModIdPointers.size(), cliActivateAllDiscovered,
+            profileMode, options.safeMode)) {
+      modFailure = "mod profile owner could not be configured";
+    }
+    std::vector<std::string> startupRequestedIds;
+    bool startupActivateAll = false;
+    if (modFailure.empty() &&
+        !RecoveredModProfile_StartupSelection(
+            &startupRequestedIds, &startupActivateAll)) {
+      modFailure = "mod profile startup selection is unavailable";
+    }
+    const std::vector<const char*> startupRequestedPointers =
+        [&startupRequestedIds]() {
+          std::vector<const char*> pointers;
+          pointers.reserve(startupRequestedIds.size());
+          for (const std::string& id : startupRequestedIds)
+            pointers.push_back(id.c_str());
+          return pointers;
+        }();
+    const SRecoveredModSelectorSnapshot* profileSnapshot =
+        RecoveredModProfile_Snapshot();
+    const bool profileFallback = profileMode && !options.safeMode &&
+        profileSnapshot != nullptr && !profileSnapshot->planReady;
+    const bool disableCandidates = options.safeMode || profileFallback;
+    const std::size_t runtimeExplicitCount =
+        disableCandidates || profileMode ? 0u : explicitModCount;
     modReady = RecoveredModRuntime_ConfigureStack(
         baseDataPath.c_str(),
-        candidateModPathPointers.empty() ? nullptr
-                                         : candidateModPathPointers.data(),
-        candidateModPathPointers.size(), explicitModCount,
-        requestedModIdPointers.empty() ? nullptr
-                                       : requestedModIdPointers.data(),
-        requestedModIdPointers.size(), activateAllDiscovered);
+        disableCandidates || candidateModPathPointers.empty()
+            ? nullptr
+            : candidateModPathPointers.data(),
+        disableCandidates ? 0u : candidateModPathPointers.size(),
+        runtimeExplicitCount,
+        startupRequestedPointers.empty() ? nullptr
+                                         : startupRequestedPointers.data(),
+        startupRequestedPointers.size(), startupActivateAll);
     if (!modReady) modFailure = RecoveredModRuntime_LastError();
   }
   if (!modReady) {
@@ -2122,6 +2227,21 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
       RecoveredModRuntime_Summary();
   log.Line(std::string("mod_active=") +
            (RecoveredModRuntime_IsActive() ? "1" : "0"));
+  const SRecoveredModSelectorSnapshot* modProfileSnapshot =
+      RecoveredModProfile_Snapshot();
+  log.Line(std::string("mod_selection_source=") +
+           (modProfileSnapshot == nullptr
+                ? "unavailable"
+                : modProfileSnapshot->source));
+  if (modProfileSnapshot != nullptr) {
+    log.Line("mod_profile_active=" + modProfileSnapshot->activeProfile);
+    log.Line(std::string("mod_profile_plan_ready=") +
+             (modProfileSnapshot->planReady ? "1" : "0"));
+    log.Line(std::string("mod_profile_recovered=") +
+             (modProfileSnapshot->corruptProfileRecovered ? "1" : "0"));
+    log.Line("mod_profile_catalog_fingerprint=" +
+             std::to_string(modProfileSnapshot->catalogFingerprint));
+  }
   if (options.modDirectories.size() == 1)
     log.WideLine("mod_dir", options.modDirectories[0]);
   for (std::size_t index = 0; index < options.modDirectories.size(); ++index) {
@@ -7656,6 +7776,19 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                  shellState->developerCatalogBlockedSelections));
     log.Line("in_game_shell_developer_commands_queued=" +
              std::to_string(shellState->developerCommandsQueued));
+    log.Line("in_game_shell_mod_selector_opens=" +
+             std::to_string(shellState->modSelectorOpens));
+    log.Line("in_game_shell_mod_selector_toggles=" +
+             std::to_string(shellState->modSelectorToggles));
+    log.Line("in_game_shell_mod_selector_profile_changes=" +
+             std::to_string(shellState->modSelectorProfileChanges));
+    log.Line("in_game_shell_mod_selector_commits=" +
+             std::to_string(shellState->modSelectorCommits));
+    log.Line("in_game_shell_mod_selector_blocked_selections=" +
+             std::to_string(shellState->modSelectorBlockedSelections));
+    log.Line("in_game_shell_mod_selector_restart_required=" +
+             std::to_string(
+                 shellState->modSelectorRestartRequired ? 1 : 0));
     log.Line("in_game_shell_command_failure_presentations=" +
              std::to_string(shellState->commandFailurePresentations));
     log.Line("in_game_shell_window=" +
@@ -7673,6 +7806,30 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(shellState->cinematicVolume));
     log.Line("in_game_shell_status=" + shellState->status);
     log.Line("in_game_shell_last_error=" + shellState->lastError);
+  }
+  const SRecoveredModSelectorSnapshot* modSelector =
+      RecoveredGameServices_InGameShellModSelector();
+  if (modSelector != nullptr) {
+    log.Line("mod_profile_source=" + modSelector->source);
+    log.Line("mod_profile_active=" + modSelector->activeProfile);
+    log.Line("mod_profile_staged=" + modSelector->stagedProfile);
+    log.Line("mod_profile_candidates=" +
+             std::to_string(modSelector->candidateCount));
+    log.Line("mod_profile_active_packages=" +
+             std::to_string(modSelector->activePackageCount));
+    log.Line("mod_profile_plan_ready=" +
+             std::to_string(modSelector->planReady ? 1 : 0));
+    log.Line("mod_profile_dirty=" +
+             std::to_string(modSelector->dirty ? 1 : 0));
+    log.Line("mod_profile_restart_required=" +
+             std::to_string(modSelector->restartRequired ? 1 : 0));
+    log.Line("mod_profile_startup_fingerprint=" +
+             std::to_string(modSelector->startupFingerprint));
+    log.Line("mod_profile_staged_fingerprint=" +
+             std::to_string(modSelector->stagedFingerprint));
+    log.Line("mod_profile_catalog_fingerprint=" +
+             std::to_string(modSelector->catalogFingerprint));
+    log.Line("mod_profile_status=" + modSelector->status);
   }
   const SRecoveredWindowsPresentationState windowsPresentation =
       RecoveredSoftwareGraph_WindowsPresentationState();

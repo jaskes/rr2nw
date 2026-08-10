@@ -55,6 +55,18 @@ if(MSVC)
   target_compile_options(rr2nw_mod_runtime PRIVATE /W4 /permissive-)
 endif()
 
+add_library(rr2nw_mod_profile STATIC
+  src/runtime/RecoveredModProfile.cpp
+  src/runtime/RecoveredModProfile.h
+)
+target_link_libraries(rr2nw_mod_profile PUBLIC rr2nw_mod_runtime)
+target_include_directories(rr2nw_mod_profile PUBLIC src/runtime)
+target_compile_features(rr2nw_mod_profile PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_mod_profile PRIVATE UNICODE _UNICODE)
+if(MSVC)
+  target_compile_options(rr2nw_mod_profile PRIVATE /W4 /permissive-)
+endif()
+
 add_library(rr2nw_presentation_trace STATIC
   src/runtime/RecoveredPresentationTrace.cpp
   src/runtime/RecoveredPresentationTrace.h
@@ -3756,6 +3768,7 @@ add_library(rr2nw_recovered_game_services_runtime STATIC
 target_link_libraries(rr2nw_recovered_game_services_runtime PUBLIC
   rr2nw_active_world_save
   rr2nw_legacy_import
+  rr2nw_mod_profile
   rr2nw_windows_input_adapter
   rr2nw_mod_runtime
   rr2nw_presentation_trace
@@ -4363,6 +4376,23 @@ if(MSVC)
   target_compile_options(rr2nw_mod_stack_runtime_smoke PRIVATE
     /W4 /permissive-
   )
+endif()
+add_executable(rr2nw_mod_profile_smoke
+  src/portability/RecoveredModProfileSmoke.cpp
+)
+target_link_libraries(rr2nw_mod_profile_smoke PRIVATE
+  rr2nw_mod_profile
+  rr2nw_mod_runtime
+)
+target_compile_features(rr2nw_mod_profile_smoke PRIVATE cxx_std_14)
+target_compile_definitions(rr2nw_mod_profile_smoke PRIVATE
+  UNICODE
+  _UNICODE
+  _CRT_NONSTDC_NO_WARNINGS
+  _CRT_SECURE_NO_WARNINGS
+)
+if(MSVC)
+  target_compile_options(rr2nw_mod_profile_smoke PRIVATE /W4 /permissive-)
 endif()
 add_executable(rr2nw_mod_validator
   src/tools/RecoveredModValidator.cpp
@@ -5149,6 +5179,11 @@ if(BUILD_TESTING)
     NAME mod-stack-runtime-smoke
     COMMAND rr2nw_mod_stack_runtime_smoke
             "${CMAKE_CURRENT_BINARY_DIR}/mod-stack-runtime-smoke-$<CONFIG>"
+  )
+  add_test(
+    NAME mod-profile-smoke
+    COMMAND rr2nw_mod_profile_smoke
+            "${CMAKE_CURRENT_BINARY_DIR}/mod-profile-smoke-$<CONFIG>"
   )
   add_test(
     NAME legacy-tagged-file-smoke

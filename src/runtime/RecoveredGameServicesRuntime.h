@@ -8,6 +8,7 @@
 #include "LevelContinuation.h"
 #include "LevelSaveSlot.h"
 #include "LegacyImport.h"
+#include "RecoveredModProfile.h"
 #include "RecoveredFramePreview.h"
 #include "RecoveredSaveSlotCatalog.h"
 #include "RecoveredWindowsInputAdapter.h"
@@ -572,7 +573,8 @@ enum ERecoveredInGameShellPage {
   RECOVERED_SHELL_PAGE_DEVELOPER_SPAWN = 7,
   RECOVERED_SHELL_PAGE_DEVELOPER_ENTER = 8,
   RECOVERED_SHELL_PAGE_DEVELOPER_LEVEL = 9,
-  RECOVERED_SHELL_PAGE_AUDIO = 10
+  RECOVERED_SHELL_PAGE_AUDIO = 10,
+  RECOVERED_SHELL_PAGE_MODS = 11
 };
 
 struct SRecoveredDeveloperCatalogEntry {
@@ -661,6 +663,12 @@ struct SRecoveredInGameShellState {
   unsigned int legacyConfigBindingProjections = 0;
   unsigned int legacyConfigIgnoredSettings = 0;
   unsigned int legacyConfigSourceBindings = 0;
+  unsigned int modSelectorOpens = 0;
+  unsigned int modSelectorToggles = 0;
+  unsigned int modSelectorProfileChanges = 0;
+  unsigned int modSelectorCommits = 0;
+  unsigned int modSelectorBlockedSelections = 0;
+  bool modSelectorRestartRequired = false;
   std::uint64_t legacyConfigSourceFingerprint = 0;
   std::string legacyConfigBindingBoundary;
   std::wstring settingsPath;
@@ -825,6 +833,8 @@ const SRecoveredSaveSlotCatalogSnapshot*
 RecoveredGameServices_InGameShellSaveCatalog();
 const SRecoveredDeveloperCatalogSnapshot*
 RecoveredGameServices_InGameShellDeveloperCatalog();
+const SRecoveredModSelectorSnapshot*
+RecoveredGameServices_InGameShellModSelector();
 const SRecoveredInputBindings* RecoveredGameServices_InputBindings();
 bool RecoveredGameServices_InGameShellKeyForTesting(std::uint32_t key);
 const SRecoveredDebugMenuState* RecoveredGameServices_DebugMenuState();

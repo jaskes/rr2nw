@@ -5,8 +5,9 @@ In addition to exact resource/script replacement, bounded gameplay tuning and
 two named startup-effect events, schema 1 can declare derived Levels that
 inherit one verified retail Level without editing `game.cfg`. Package
 discovery, exact-version dependencies, conflicts and explicit overrides are
-supported. An in-game selector, Lua, native plugins and a public C++ ABI are
-not part of this contract.
+supported. The in-game selector and persisted restart-only profiles are
+documented in [ModProfiles.md](ModProfiles.md). Lua, native plugins and a
+public C++ ABI are not part of this contract.
 
 ## Starting a mod
 
@@ -487,8 +488,8 @@ same-target override.
 
 ## Deliberately deferred
 
-- an in-game mod selector, persistent selection profiles, optional dependencies
-  and semantic version ranges;
+- profile creation/rename polish, localized compatibility reports, optional
+  dependencies and semantic version ranges;
 - standalone Levels that do not derive from a verified retail catalog,
   campaign/progression registration and authoring tools;
 - People/Tank armour and remaining model/sound/effect/cannon graphs, Vehicle

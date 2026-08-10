@@ -1695,6 +1695,25 @@ playable Level begins.
   Level.03N and example-data-pack smokes on Windows 10 LTSC 19044 with clean
   shutdown. This is automated package parity, not a completed manual campaign.
 
+### RP-MOD-008: player profiles reuse resolver identity at process startup
+
+- Retail has no evidenced mod-profile format or live package selector. This is
+  a maintained port feature whose compatibility rule is that base-only startup
+  and existing explicit CLI selection retain their prior content identities.
+- `RR2MODPROFILE1` stores only bounded profile names and explicit package IDs.
+  The production resolver still owns dependency closure, conflicts, cycles,
+  mount order and fingerprints; the selector does not implement a second
+  manifest or VFS parser.
+- Applying a profile is restart-only. The real-window product gate starts
+  vanilla, stages `rr2nw.example.stack-addon`, restarts with exact
+  `stack-core,stack-addon` order and the same resolver fingerprint, then proves
+  `--safe-mode` disables the catalog and `--mod` is a read-only CLI override.
+  Invalid CLI conflict/missing-ID stacks retain their historical fail-closed
+  diagnostics; only invalid persisted player profiles recover to vanilla.
+- No retail data, profile paths, developer capability or presentation state is
+  persisted or reported. Profile creation/rename polish, localization and
+  packaged compatibility UX remain separate M5 work.
+
 ### RP-INPUT-001: Win32 input has one semantic state owner
 
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_ACTIONS_PRESERVED`.

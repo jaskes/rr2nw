@@ -90,6 +90,12 @@ Continue they resume only after a new physical press.
    otherwise valid saved settings. The bounded gate also creates a valid
    schema-1 through schema-5 fixtures and proves atomic migration with old
    bindings preserved and new map/mouse/display/audio defaults added.
+6. Put the shipped example directories under the configured mods root, open
+   **Mods**, select `rr2nw.example.stack-addon` and apply. The current world
+   must remain unchanged and the footer must say that restart is required.
+   Restart and confirm the order is `stack-core` then `stack-addon`. A safe-mode
+   restart must disable both; an explicit CLI `--mod` must override the profile
+   without rewriting it.
 
 The bounded real-window proof exercises Save/Load, explicit overwrite
 confirmation, asynchronous thumbnails for old/current/corrupt/incompatible
@@ -101,9 +107,10 @@ input proof drives all semantic map actions through the real window:
 ```powershell
 & ".\tools\acceptance\Invoke-InGameShell.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo
 & ".\tools\acceptance\Invoke-WindowsInputAdapter.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release
+& ".\tools\acceptance\Invoke-ModProfileSelector.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo
 ```
 
-Both scripts accept `-BuildRoot` for an isolated verification tree when an
+All scripts accept `-BuildRoot` for an isolated verification tree when an
 interactive playtest keeps the normal executable open; they never terminate
 that unrelated process.
 

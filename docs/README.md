@@ -27,6 +27,9 @@
   exact-target VFS, deterministic stacks, derived Levels,
   Vehicle/projectile/People/Tank tuning, bounded semantic startup events,
   save/content identity and deliberately deferred Lua/native APIs.
+- [ModProfiles.md](ModProfiles.md) documents the bounded per-user profile
+  catalog, in-frame selector, restart-only apply boundary, safe mode and CLI
+  precedence.
 - [WindowsPackage.md](WindowsPackage.md) documents the standalone production-
   parser mod validator, deterministic Windows ZIP/SHA-256 gate and package-
   bound Win10/Win11 manual campaign ledger.

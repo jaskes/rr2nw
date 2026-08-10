@@ -6154,7 +6154,7 @@ int main(int argc, char** argv) {
       enterCommands == RecoveredGameServices_DebugVehicleTypeCount() &&
       levelCommands == 2u && fixedAvailabilityReady &&
       RecoveredGameServices_InGameShellKeyForTesting(VK_ESCAPE);
-  for (int step = 0; developerShellReady && step < 7; ++step)
+  for (int step = 0; developerShellReady && step < 8; ++step)
     developerShellReady =
         RecoveredGameServices_InGameShellKeyForTesting(VK_DOWN);
   developerShellReady = developerShellReady &&

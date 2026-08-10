@@ -7,6 +7,15 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added bounded player-facing mod profiles and an in-frame Mods selector.
+  `RR2MODPROFILE1` stores only explicit package IDs, reuses the production
+  dependency/conflict/mount resolver and applies changes only after a process
+  restart, never by mutating the live VFS. Missing or corrupt profiles recover
+  to vanilla, safe mode disables all user mods and explicit CLI selection is a
+  read-only override whose invalid stacks retain fail-closed startup. Atomic
+  write-failure, fresh-restart and real-window `stack-core -> stack-addon`
+  gates cover all maintained build configurations. Existing Developer-menu
+  and CLI mod-stack acceptance now follow the inserted Mods row explicitly.
 - Routed the primary archival `RTCHECK`/assert fatal owner into the maintained
   Windows diagnostic bundle. Fatal Debug assertions retain bounded assertion,
   source-basename, line and formatted message context; Release retains the

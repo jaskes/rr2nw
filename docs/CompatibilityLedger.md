@@ -5967,6 +5967,47 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   numeric Level to the active retail/mod catalog. Do not call raw context load
   as a shortcut.
 
+### CQ-281: selecting packages cannot replace a mounted world in place
+
+- Status: `RR2MODPROFILE1`, `RESOLVER_SHARED`, `RESTART_REQUIRED`,
+  `SAFE_MODE_FAIL_CLOSED`, `CLI_READ_ONLY_OVERRIDE`.
+- Evidence: the production mod owner publishes its VFS hook and combined
+  content/save identity before Level construction. There is no reversible
+  owner for changing attribute/script/resource graphs after admission.
+- Handling: the in-frame selector calls only the read-only candidate/stack
+  planner, stages explicit IDs and atomically replaces a bounded per-user
+  catalog. The running stack is unchanged. A fresh process repeats production
+  resolution and admission; corrupt/missing/invalid persisted profiles start
+  vanilla, while invalid explicit CLI stacks retain the earlier diagnostic
+  rejection rather than being silently converted to vanilla.
+- Verification: `mod-profile-smoke` proves codec bounds, truncation,
+  dependency closure, deterministic order, injected write failure, fresh
+  reload, safe mode and CLI precedence. `Invoke-ModProfileSelector.ps1`
+  selects the shipped addon, proves exact `core -> addon` restore, then proves
+  safe-mode disable and an independent CLI override in a real window.
+- Revisit when: any hot-reload proposal owns complete Level/world teardown,
+  content identity transition, save/replay invalidation and rollback. A UI
+  convenience request alone is not evidence for live mutation.
+
+### CQ-282: one fresh reconstruction cell remains intermittently unowned
+
+- Status: `OPEN_RELWITHDEBINFO_LEVEL04D_RECONSTRUCTION_FLAKE`.
+- Evidence: after the Mods root-row navigation contract was corrected, the
+  complete fresh matrix reached its deep reconstruction path. One of 27 cells
+  (`RelWithDebInfo`, `Level.04D`) rejected the final explicit frame with
+  `service reconstruction failed`; the emitted parity counts/fingerprints and
+  both issue counters still matched. The other 26 cells passed, and an exact
+  isolated retry of the failed cell passed 1/1.
+- Handling: this is not attributed to the mod-profile owner and is not hidden
+  by an automatic retry. The failed and successful evidence directories are
+  retained under the ignored build verification root. The release claim uses
+  the independently green profile, CLI, save/load, campaign, Portal and
+  presentation gates, while this observation remains open.
+- Revisit when: the fresh reconstruction contract is next changed. Add
+  predicate-local telemetry around its final explicit frame before changing
+  timing tolerance or lifecycle behavior; a passing retry alone is not proof
+  of a fix.
+
 ## Maintenance rule
 
 When a new quirk is found:

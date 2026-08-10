@@ -6920,3 +6920,29 @@ restores the prior shell state and modern settings bytes.
 This decision does not waive the M4 legacy-save gate. Full world conversion
 still requires deterministic projections for every admitted owner and an
 explicit reviewed content-identity binding.
+
+### BD-217: a mod profile is a restart request, not a live VFS mutation
+
+Status: accepted on 2026-08-10 for the first player-facing M5 selector.
+
+The existing mod runtime admits packages, installs read hooks and binds content
+identity before any Level is constructed. Replacing that stack from a pause
+menu would invalidate object attributes, scripts, save identity and replay
+authority underneath the live world. The Mods page therefore uses a read-only
+planning facade over the same production parser/resolver. It may stage and
+atomically persist package IDs, but it never installs hooks or changes the
+mounted process.
+
+Applying a valid dirty profile sets an explicit restart-required state. A
+fresh process resolves dependencies and mount order again, then admits that
+exact stack through the existing startup owner. Safe mode wins over every
+profile; explicit CLI selection wins without rewriting it. Missing, corrupt or
+unresolvable persisted profiles fail closed to base content. An invalid
+explicit CLI selection is deliberately not neutralized: it is forwarded to
+the production resolver so the historical fail-closed startup error remains
+visible. Developer capability, filesystem paths, display state and retail
+payload cannot be encoded in the profile catalog.
+
+This boundary deliberately postpones hot reload, remote acquisition and
+script/native plugin APIs. They cannot reuse the profile file as authority
+without separate lifetime, security and rollback contracts.

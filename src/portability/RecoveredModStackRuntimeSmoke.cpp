@@ -155,6 +155,24 @@ int main(int argc, char** argv) {
       !ReadThroughResource(baseOther, &text) || text != "cosmetic")
     return Fail("deterministic stack summary or overlay result is wrong");
 
+  SRecoveredModCandidateInfo inspected;
+  SRecoveredModStackPlan planned;
+  const char* addonOnly[1] = {"rr2nw.stack.addon"};
+  if (!RecoveredModRuntime_InspectCandidate(base.c_str(), addon.c_str(),
+                                            &inspected) ||
+      !inspected.valid || std::strcmp(inspected.id, "rr2nw.stack.addon") != 0 ||
+      inspected.dependencyCount != 1u ||
+      !RecoveredModRuntime_PlanStack(base.c_str(), shuffled, 3u, 0u,
+                                     addonOnly, 1u, false, &planned) ||
+      !planned.ready || planned.packages.size() != 2u ||
+      std::strcmp(planned.packages[0].id, "rr2nw.stack.core") != 0 ||
+      std::strcmp(planned.packages[1].id, "rr2nw.stack.addon") != 0 ||
+      RecoveredModRuntime_Issues() != 0u ||
+      RecoveredModRuntime_Summary()->modFingerprint != stackFingerprint ||
+      RecoveredModRuntime_ModCount() != 3u ||
+      !ReadThroughResource(baseOther, &text) || text != "cosmetic")
+    return Fail("read-only stack planning changed the mounted runtime");
+
   const char* reversed[3] = {addon.c_str(), cosmetic.c_str(), core.c_str()};
   if (!RecoveredModRuntime_ConfigureStack(base.c_str(), reversed, 3, 0,
                                           nullptr, 0, true) ||

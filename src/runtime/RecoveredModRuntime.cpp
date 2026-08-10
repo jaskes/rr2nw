@@ -1478,6 +1478,147 @@ bool RecoveredModRuntime_ConfigureStack(
   return false;
 }
 
+const char* RecoveredModRuntime_IssueReason(unsigned int issues) {
+  struct Reason { unsigned int issue; const char* text; };
+  static const Reason reasons[] = {
+      {RECOVERED_MOD_INVALID_ARGUMENT, "invalid mod request"},
+      {RECOVERED_MOD_INVALID_BASE_ROOT, "base data root is invalid"},
+      {RECOVERED_MOD_INVALID_DIRECTORY, "package directory is invalid"},
+      {RECOVERED_MOD_MISSING_MANIFEST, "mod.json is missing"},
+      {RECOVERED_MOD_MANIFEST_TOO_LARGE, "mod.json exceeds its bounded limit"},
+      {RECOVERED_MOD_MANIFEST_MALFORMED, "mod.json is malformed"},
+      {RECOVERED_MOD_UNSUPPORTED_SCHEMA, "manifest schema is unsupported"},
+      {RECOVERED_MOD_UNSUPPORTED_ENGINE, "engine API is unsupported"},
+      {RECOVERED_MOD_INVALID_ID, "package id is invalid"},
+      {RECOVERED_MOD_INVALID_VERSION, "package version is invalid"},
+      {RECOVERED_MOD_INVALID_FILE_ENTRY, "package file entry is invalid"},
+      {RECOVERED_MOD_PATH_OUTSIDE_ROOT, "package path escapes its root"},
+      {RECOVERED_MOD_MISSING_SOURCE, "package source file is missing"},
+      {RECOVERED_MOD_DUPLICATE_TARGET, "package target is duplicated"},
+      {RECOVERED_MOD_FILE_TOO_LARGE, "package file exceeds its limit"},
+      {RECOVERED_MOD_TOTAL_SIZE_LIMIT, "package exceeds its size limit"},
+      {RECOVERED_MOD_ALLOCATION_FAILURE, "package planning allocation failed"},
+      {RECOVERED_MOD_PATH_FAILURE, "package path inspection failed"},
+      {RECOVERED_MOD_INVALID_LEVEL_ENTRY, "derived Level entry is invalid"},
+      {RECOVERED_MOD_DUPLICATE_LEVEL, "derived Level id is duplicated"},
+      {RECOVERED_MOD_MISSING_LEVEL_BASE, "derived Level base is missing"},
+      {RECOVERED_MOD_LEVEL_COLLISION, "derived Level id collides"},
+      {RECOVERED_MOD_CANDIDATE_LIMIT, "candidate limit was exceeded"},
+      {RECOVERED_MOD_DUPLICATE_ID, "package id or path is duplicated"},
+      {RECOVERED_MOD_INVALID_RELATION, "package relation is invalid"},
+      {RECOVERED_MOD_MISSING_DEPENDENCY, "selected dependency is missing"},
+      {RECOVERED_MOD_DEPENDENCY_VERSION, "dependency version does not match"},
+      {RECOVERED_MOD_CONFLICT, "selected packages conflict"},
+      {RECOVERED_MOD_ORDER_CYCLE, "mount order contains a cycle"},
+      {RECOVERED_MOD_TARGET_CONFLICT, "package targets conflict"},
+      {RECOVERED_MOD_STACK_LIMIT, "active stack exceeds its limit"}};
+  for (const Reason& reason : reasons)
+    if ((issues & reason.issue) != 0u) return reason.text;
+  return issues == 0u ? "ready" : "mod planning failed";
+}
+
+namespace {
+
+class PlanningDiagnosticScope {
+ public:
+  PlanningDiagnosticScope()
+      : issues_(g_issues), error_(g_lastError) {}
+  ~PlanningDiagnosticScope() {
+    g_issues = issues_;
+    std::snprintf(g_lastError, sizeof(g_lastError), "%s", error_.c_str());
+  }
+
+ private:
+  unsigned int issues_ = 0;
+  std::string error_;
+};
+
+void CopyPlanningReason(unsigned int issues, char* destination,
+                        std::size_t size) {
+  if (destination == nullptr || size == 0u) return;
+  std::snprintf(destination, size, "%s",
+                RecoveredModRuntime_IssueReason(issues));
+}
+
+}  // namespace
+
+bool RecoveredModRuntime_InspectCandidate(
+    const char* baseRoot, const char* candidateDirectory,
+    SRecoveredModCandidateInfo* candidate) {
+  if (candidate == nullptr) return false;
+  PlanningDiagnosticScope diagnostics;
+  g_issues = 0;
+  g_lastError[0] = '\0';
+  Candidate inspected;
+  if (!BuildCandidate(baseRoot, candidateDirectory, &inspected)) {
+    SRecoveredModCandidateInfo rejected;
+    rejected.issue = g_issues;
+    CopyPlanningReason(g_issues, rejected.reason, sizeof(rejected.reason));
+    *candidate = rejected;
+    return false;
+  }
+  SRecoveredModCandidateInfo accepted;
+  accepted.valid = true;
+  std::snprintf(accepted.id, sizeof(accepted.id), "%s", inspected.id.c_str());
+  std::snprintf(accepted.version, sizeof(accepted.version), "%s",
+                inspected.version.c_str());
+  accepted.fileCount = static_cast<unsigned int>(inspected.entries.size());
+  accepted.levelCount = static_cast<unsigned int>(inspected.levels.size());
+  accepted.dependencyCount =
+      static_cast<unsigned int>(inspected.dependencies.size());
+  accepted.conflictCount =
+      static_cast<unsigned int>(inspected.conflicts.size());
+  accepted.totalBytes = inspected.totalBytes;
+  accepted.fingerprint = inspected.fingerprint;
+  CopyPlanningReason(0u, accepted.reason, sizeof(accepted.reason));
+  *candidate = accepted;
+  return true;
+}
+
+bool RecoveredModRuntime_PlanStack(
+    const char* baseRoot, const char* const* candidateDirectories,
+    std::size_t candidateCount, std::size_t explicitDirectoryCount,
+    const char* const* requestedIds, std::size_t requestedIdCount,
+    bool activateAllCandidates, SRecoveredModStackPlan* plan) {
+  if (plan == nullptr) return false;
+  PlanningDiagnosticScope diagnostics;
+  g_issues = 0;
+  g_lastError[0] = '\0';
+  StackCandidate stack;
+  if (!BuildStack(baseRoot, candidateDirectories, candidateCount,
+                  explicitDirectoryCount, requestedIds, requestedIdCount,
+                  activateAllCandidates, &stack)) {
+    SRecoveredModStackPlan rejected;
+    rejected.issues = g_issues;
+    rejected.candidateCount = static_cast<unsigned int>(candidateCount);
+    CopyPlanningReason(g_issues, rejected.reason, sizeof(rejected.reason));
+    *plan = std::move(rejected);
+    return false;
+  }
+  SRecoveredModStackPlan accepted;
+  accepted.ready = true;
+  accepted.candidateCount = stack.candidateCount;
+  accepted.totalBytes = stack.totalBytes;
+  accepted.modFingerprint = stack.packages.empty() ? 0u : stack.fingerprint;
+  CopyPlanningReason(0u, accepted.reason, sizeof(accepted.reason));
+  accepted.packages.reserve(stack.packages.size());
+  for (std::size_t index = 0; index < stack.packages.size(); ++index) {
+    const MountedPackage& mounted = stack.packages[index];
+    SRecoveredModPackage package;
+    std::snprintf(package.id, sizeof(package.id), "%s", mounted.id.c_str());
+    std::snprintf(package.version, sizeof(package.version), "%s",
+                  mounted.version.c_str());
+    package.mountIndex = static_cast<unsigned int>(index);
+    package.fileCount = mounted.fileCount;
+    package.levelCount = mounted.levelCount;
+    package.totalBytes = mounted.totalBytes;
+    package.fingerprint = mounted.fingerprint;
+    accepted.packages.push_back(package);
+  }
+  *plan = std::move(accepted);
+  return true;
+}
+
 void RecoveredModRuntime_Release() {
   CFileResource::SetReadOpenHook(nullptr);
   g_baseLexical.clear();
