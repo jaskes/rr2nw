@@ -6107,6 +6107,32 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   normalized CD importer or an installer. The package-bound Windows 10/11
   campaign remains human `PENDING` and cannot be inferred from this gate.
 
+### CQ-287: manual acceptance must consume one immutable eligible archive
+
+- Status: `FROZEN_ARCHIVE_VERIFIED`, `SOURCE_HEAD_BOUND`,
+  `ARCHIVE_AND_MANIFEST_LEDGER`, `MANUAL_18_PENDING`.
+- Evidence: schema 2 originally derived eligibility from the embedded build
+  revision. With `-SkipBuild`, later tracked documentation or packaging edits
+  could therefore enter a new ZIP while an older clean header still named the
+  executable. The manual ledger also bound only the manifest hash, not the ZIP
+  whose extraction was being tested.
+- Handling: package creation now records and requires a clean tracked worktree
+  plus exact HEAD/embedded-revision equality for eligibility. The independent
+  frozen-package verifier consumes an existing ZIP and sidecar without
+  rebuilding, validates bounded safe extraction and exact file closure,
+  re-hashes manifest/binary/symbol identities, reproduces the compatibility
+  report and runtime identity, then initializes a ledger bound to both archive
+  and manifest SHA-256. Debug/playtest/dirty/stale-revision input is rejected by
+  default. A named ineligible-evidence switch exists only for hermetic tooling.
+- Verification: the clean `b25298851608` pre-slice archive reproduced at
+  SHA-256 `66ab05f076c82c1cab858ee6556160b49dfa8f4f64c71522cb966b87dc803807`
+  and the first verifier prototype admitted its exact Release identity while
+  retaining 0/18 PASS. The committed gate additionally covers wrong expected
+  hash and ineligible-package rejection. This archive is evidence, not the
+  post-slice candidate for human acceptance.
+- Boundary: automated verification cannot mark a Windows 10/11 row, authorize
+  `develop -> master`, choose a release version or create a tag.
+
 ## Maintenance rule
 
 When a new quirk is found:

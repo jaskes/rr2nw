@@ -7,6 +7,14 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added the frozen M6 candidate verifier and exact archive-bound manual ledger.
+  It consumes an existing ZIP without rebuilding, rejects dirty/debug/playtest,
+  stale-revision, symbol/manifest, sidecar and expected-hash mismatches, reruns
+  validator/runtime identity from the extracted tree and leaves all eighteen
+  Windows 10/11 rows pending. The portable 1.0 distribution, recovery, privacy
+  and known-limit boundary is now documented without claiming an installer or
+  legacy-world converter.
+
 - Added the first M6 portable RC boundary. Optimized Release now emits
   basename-only CodeView identity plus matching PDB/MAP files for both the game
   and standalone validator. Schema-2 package manifests bind every executable,

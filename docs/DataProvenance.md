@@ -205,7 +205,7 @@ Registry exports, WER reports и dumps также являются приват�
 | Original source under project license | Yes, with attribution | Yes |
 | Modern source/tests/docs | Yes | Source as selected |
 | Hash manifests without media | Yes | Optional |
-| Retail scripts/data | After scope review | Prefer importer first |
+| Retail scripts/data | After scope review | Never bundled; select legal local tree read-only |
 | Models/textures/audio/video from CD | No by default | Import locally |
 | DirectX/RSX installers | No | No |
 | Retail EXE | No | No |

@@ -67,18 +67,87 @@ try {
         throw 'Independent hermetic package archives are not deterministic'
     }
 
+    $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
+    $frozenVerifier = Join-Path $repositoryRoot 'tools\release\Test-WindowsFrozenPackage.ps1'
+    $frozenArchive = Join-Path (Join-Path $caseRoot 'package-a') `
+        ([string]$outputs[0].archive)
+    $frozenEvidence = Join-Path $caseRoot 'frozen-verification'
+    & $frozenVerifier -ArchivePath $frozenArchive `
+        -DataRoot $dataRoot -EvidenceRoot $frozenEvidence `
+        -SkipRuntimeSmoke -AllowIneligibleEvidence | Out-Null
+    $frozenSummary = Get-Content -LiteralPath `
+        (Join-Path $frozenEvidence 'frozen-package-verification.json') -Raw |
+        ConvertFrom-Json
+    if ($frozenSummary.schema -ne 'RR2RCVERIFY1' -or
+        $frozenSummary.archive_sha256 -ne $outputs[0].archive_sha256 -or
+        $frozenSummary.manual_rows -ne 18 -or $frozenSummary.manual_pending -ne 18) {
+        throw 'Frozen-package verifier summary is invalid'
+    }
+
+    $strictEvidence = Join-Path $caseRoot 'strict-verification'
+    if ($outputs[0].release_eligible) {
+        & $frozenVerifier -ArchivePath $frozenArchive `
+            -DataRoot $dataRoot -EvidenceRoot $strictEvidence `
+            -SkipRuntimeSmoke | Out-Null
+    } else {
+        $strictRejected = $false
+        try {
+            & $frozenVerifier -ArchivePath $frozenArchive `
+                -DataRoot $dataRoot -EvidenceRoot $strictEvidence `
+                -SkipRuntimeSmoke | Out-Null
+        }
+        catch {
+            $strictRejected = $_.Exception.Message -eq 'Frozen package is not release eligible'
+        }
+        if (-not $strictRejected) {
+            throw 'Ineligible package was not rejected by the frozen verifier'
+        }
+    }
+
+    $wrongHashRejected = $false
+    try {
+        & $frozenVerifier -ArchivePath $frozenArchive `
+            -DataRoot $dataRoot -EvidenceRoot (Join-Path $caseRoot 'wrong-hash') `
+            -ExpectedArchiveSha256 ('0' * 64) -SkipRuntimeSmoke `
+            -AllowIneligibleEvidence | Out-Null
+    }
+    catch {
+        $wrongHashRejected = $_.Exception.Message -eq `
+            'Frozen package archive SHA-256 does not match the expected candidate'
+    }
+    if (-not $wrongHashRejected) {
+        throw 'Wrong frozen-package hash was not rejected'
+    }
+
+    $wrongVersionRejected = $false
+    try {
+        & $frozenVerifier -ArchivePath $frozenArchive `
+            -DataRoot $dataRoot -EvidenceRoot (Join-Path $caseRoot 'wrong-version') `
+            -ExpectedVersion '9.9.9' -SkipRuntimeSmoke `
+            -AllowIneligibleEvidence | Out-Null
+    }
+    catch {
+        $wrongVersionRejected = $_.Exception.Message -eq `
+            'Frozen package version does not match the expected candidate'
+    }
+    if (-not $wrongVersionRejected) {
+        throw 'Wrong frozen-package version was not rejected'
+    }
+
     $unpacked = [string]$outputs[0].unpacked_root
     $campaignRoot = Join-Path $caseRoot 'campaign'
     $packagedCampaign = Join-Path $unpacked 'tools\Invoke-WindowsManualCampaign.ps1'
     if (-not [IO.File]::Exists($packagedCampaign)) {
         throw "Packaged campaign tool missing: $packagedCampaign"
     }
-    & $packagedCampaign -PackageRoot $unpacked -EvidenceRoot $campaignRoot | Out-Null
+    & $packagedCampaign -PackageRoot $unpacked -EvidenceRoot $campaignRoot `
+        -PackageArchiveSha256 ([string]$outputs[0].archive_sha256) `
+        -AllowIneligibleEvidence | Out-Null
     $campaign = @(Import-Csv -LiteralPath (Join-Path $campaignRoot 'manual-campaign.csv'))
     if ($campaign.Count -ne 18 -or @($campaign | Where-Object Result -ne 'PENDING').Count -ne 0) {
         throw 'Package-bound campaign did not initialize 18 pending rows'
     }
-    Write-Output "windows package hermetic: configuration=$Configuration files=$($outputs[0].package_files) deterministic=1 validator_identity=1 symbols=4 campaign=18"
+    Write-Output "windows package hermetic: configuration=$Configuration files=$($outputs[0].package_files) deterministic=1 validator_identity=1 symbols=4 frozen=1 campaign=18"
 }
 finally {
     if ([IO.Directory]::Exists($resolvedCase)) {

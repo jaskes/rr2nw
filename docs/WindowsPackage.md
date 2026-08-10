@@ -90,44 +90,71 @@ supported tuning/script status. It contains no retail or physical package path.
 
 CTest also runs a media-free Debug/Release/Playtest package proof with a synthetic
 nine-Level catalog. It creates two independent archives, requires identical
-ZIP SHA-256, verifies extraction and initializes the packaged 18-row ledger.
+ZIP SHA-256, verifies extraction, exercises the frozen-package verifier and
+initializes the packaged 18-row ledger. Ineligible Debug/playtest/dirty input
+must be rejected by the verifier's default candidate mode.
 `-SkipRuntimeSmoke` exists only for this hermetic tooling test; it is not an RC
 substitute for the real-data command above.
 
 The default output lives under ignored `manual-logs/`. Manifest field
-`release_eligible` is true only for a clean, known-revision Release build. A
+`release_eligible` is true only for a clean, known-revision Release build whose
+current tracked source is clean, whose HEAD matches the embedded revision and
+whose explicit documentation/tool/example inputs are all Git-tracked. A
 dirty/debug/playtest archive remains reproducible evidence but cannot become
 an RC. A release candidate must be created from the exact clean commit, and
 its archive SHA-256 must be preserved with the manual evidence.
 
 ## Package-bound manual campaign
 
-Initialize or display the 18-row Windows 10/11 matrix from an unpacked package:
+Freeze and verify an already-created archive without rebuilding it:
 
 ```powershell
-& ".\tools\Invoke-WindowsManualCampaign.ps1" `
-  -PackageRoot $PWD
+$archive = ".\rr2nw-0.1.0-windows-x86-0123456789ab.zip"
+$hash = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+& ".\tools\release\Test-WindowsFrozenPackage.ps1" `
+  -ArchivePath $archive `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -EvidenceRoot ".\candidate-evidence" `
+  -ExpectedArchiveSha256 $hash `
+  -ExpectedRevision "0123456789ab" `
+  -ExpectedVersion "0.1.0"
 ```
+
+The verifier admits only schema-2 Release/x86 packages with clean tracked
+source/revision proof. It validates the sidecar and ZIP closure before
+extraction, re-hashes every manifest row, re-reads PE/CodeView identity,
+reproduces the packaged compatibility report, runs base/example runtime smoke
+and initializes `candidate-evidence\manual\manual-campaign.csv`. It never
+rebuilds the archive and never marks a human row as passed.
 
 Record one result on the matching host:
 
 ```powershell
-& ".\tools\Invoke-WindowsManualCampaign.ps1" `
-  -PackageRoot $PWD `
+& ".\candidate-evidence\u\rr2nw-0.1.0-windows-x86-0123456789ab\tools\Invoke-WindowsManualCampaign.ps1" `
+  -PackageRoot ".\candidate-evidence\u\rr2nw-0.1.0-windows-x86-0123456789ab" `
+  -EvidenceRoot ".\candidate-evidence\manual" `
+  -PackageArchiveSha256 $hash `
   -CaseId "windows10-input" `
   -Result PASS `
   -Notes "WASD/arrows and alt-tab released cleanly"
 ```
 
-The matrix binds every row to SHA-256 of `package-manifest.json`, records the
+The matrix binds every row to both archive and manifest SHA-256, records the
 actual OS/build/architecture and refuses a Windows 11 row on Windows 10 or the
 reverse. `-RequireComplete` fails unless all 18 cases are `PASS`. Automated
-runtime smokes do not mark manual rows automatically.
+runtime smokes do not mark manual rows automatically. `-AllowIneligibleEvidence`
+exists only for hermetic package tests and cannot create RC evidence.
 
 The current acceptance areas on each OS are base boot, example mod, window /
 focus / DPI, input, presentation, representative vehicles, campaign mission /
 portal / death, multi-world save/load and diagnostic evidence. Completion is a
 human RC gate against the unpacked artifact; it is not inferred from CTest.
+
+RR2NW 1.0 deliberately ships this portable ZIP rather than an installer. The
+first-run selector points at an existing installation or mounted complete data
+root read-only. It is not a CD copier or normalized data importer; full legacy
+world conversion remains fail-closed. See [Support.md](Support.md),
+[KnownLimits.md](KnownLimits.md) and [LegacyImport.md](LegacyImport.md).
 
 ## Development debug menu
 

@@ -317,9 +317,15 @@ separate debt until their real production reachability is proven.
 Консервативный shipping model 1.0:
 
 - публичный engine/tools package;
-- data importer, принимающий оригинальный CD или существующую установку;
-- generated normalized data pack остается локальным;
+- read-only selector, принимающий полный data root оригинального CD или
+  существующей установки после строгой проверки каталога;
+- retail data остается на месте и не копируется в package или normalized pack;
 - third-party DirectX/RSX installers не импортируются.
+
+Нормализующий CD importer отложен: для 1.0 он не нужен и потребовал бы новый
+provenance, storage, interruption/rollback и update contract. Legacy save
+detector и доказанный subset `CONFIG.CFG` import остаются отдельными владельцами
+и не превращают выбранное retail-дерево в writable installation.
 
 Standalone data package возможен после отдельного подтверждения лицензии и
 provenance каждого включенного семейства файлов.

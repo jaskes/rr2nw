@@ -2,10 +2,12 @@
 param(
     [Parameter(Mandatory = $true)][string]$PackageRoot,
     [string]$EvidenceRoot,
+    [ValidatePattern('^[0-9a-fA-F]{64}$')][string]$PackageArchiveSha256,
     [string]$CaseId,
     [ValidateSet('PASS', 'FAIL', 'BLOCKED', 'PENDING')][string]$Result,
     [string]$Notes,
-    [switch]$RequireComplete
+    [switch]$RequireComplete,
+    [switch]$AllowIneligibleEvidence
 )
 
 Set-StrictMode -Version Latest
@@ -40,6 +42,21 @@ $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 if ($manifest.schema -ne 2 -or $manifest.product -ne 'RR2NW' -or
     $null -eq $manifest.files -or @($manifest.binaries).Count -ne 2) {
     throw 'Package manifest schema/product is invalid'
+}
+$candidateEligible = $manifest.release_eligible -eq $true -and
+    $manifest.source_tracked_clean -eq $true -and
+    $manifest.source_revision_matches -eq $true -and
+    $manifest.source_package_inputs_tracked -eq $true -and
+    $manifest.configuration -ceq 'Release' -and
+    $manifest.architecture -ceq 'x86' -and
+    [string]$manifest.revision -match '^[0-9a-f]{12}$'
+if (-not $candidateEligible -and -not $AllowIneligibleEvidence) {
+    throw 'Manual campaign requires an exact release-eligible frozen package'
+}
+$archiveHash = if ([string]::IsNullOrWhiteSpace($PackageArchiveSha256)) {
+    ''
+} else {
+    $PackageArchiveSha256.ToLowerInvariant()
 }
 foreach ($record in $manifest.files) {
     $relative = [string]$record.path
@@ -87,11 +104,15 @@ $definitions = @(
 )
 
 if (-not [IO.File]::Exists($campaignPath)) {
+    if ($candidateEligible -and [string]::IsNullOrWhiteSpace($archiveHash)) {
+        throw 'PackageArchiveSha256 is required to initialize an RC manual campaign'
+    }
     $rows = [Collections.Generic.List[object]]::new()
     foreach ($platform in @('Windows10', 'Windows11')) {
         foreach ($definition in $definitions) {
             $rows.Add([pscustomobject][ordered]@{
                 PackageManifestSha256 = $manifestHash
+                PackageArchiveSha256 = $archiveHash
                 Platform = $platform
                 CaseId = ($platform.ToLowerInvariant() + '-' + $definition.Suffix)
                 Area = $definition.Area
@@ -114,6 +135,25 @@ foreach ($row in $campaign) {
     if ($row.PackageManifestSha256 -ne $manifestHash) {
         throw 'Campaign evidence belongs to a different package manifest'
     }
+    $rowArchiveProperty = $row.PSObject.Properties['PackageArchiveSha256']
+    $rowArchiveHash = if ($null -eq $rowArchiveProperty) { '' } else { [string]$rowArchiveProperty.Value }
+    if (($candidateEligible -and [string]::IsNullOrWhiteSpace($rowArchiveHash)) -or
+        (-not [string]::IsNullOrWhiteSpace($archiveHash) -and
+         $rowArchiveHash -cne $archiveHash)) {
+        throw 'Campaign evidence belongs to a different or unbound package archive'
+    }
+}
+$ledgerArchiveHashes = @($campaign | ForEach-Object {
+    $property = $_.PSObject.Properties['PackageArchiveSha256']
+    if ($null -ne $property -and -not [string]::IsNullOrWhiteSpace([string]$property.Value)) {
+        ([string]$property.Value).ToLowerInvariant()
+    }
+} | Sort-Object -Unique)
+if ($ledgerArchiveHashes.Count -gt 1) {
+    throw 'Campaign evidence contains multiple package archive identities'
+}
+if ([string]::IsNullOrWhiteSpace($archiveHash) -and $ledgerArchiveHashes.Count -eq 1) {
+    $archiveHash = $ledgerArchiveHashes[0]
 }
 
 if (-not [string]::IsNullOrWhiteSpace($CaseId)) {
@@ -143,6 +183,7 @@ $passed = @($campaign | Where-Object { $_.Result -eq 'PASS' }).Count
 $failed = @($campaign | Where-Object { $_.Result -eq 'FAIL' }).Count
 $blocked = @($campaign | Where-Object { $_.Result -eq 'BLOCKED' }).Count
 Write-Output "package_manifest_sha256=$manifestHash"
+Write-Output "package_archive_sha256=$archiveHash"
 Write-Output "host_platform=$hostPlatform"
 Write-Output "campaign_passed=$passed"
 Write-Output "campaign_pending=$pending"

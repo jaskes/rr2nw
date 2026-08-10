@@ -120,14 +120,16 @@ cannot be tagged or published.
 
 Schema-2 package identity also binds adjacent PDB/MAP files and the embedded
 basename-only CodeView GUID/age for the game and validator. `release_eligible`
-is true only for a known clean Release revision. The unpacked gate additionally
+is true only when the current tracked source is clean, HEAD matches the known
+embedded Release revision and every explicit package source is Git-tracked.
+The unpacked gate additionally
 proves explicit `--data-dir` precedence, persisted first-run `RR2DATA1` reuse
 and noninteractive fail-closed handling of a corrupt selection.
 
 Windows package содержит:
 
 - RR2NW EXE и runtime dependencies;
-- data importer и content validator;
+- read-only existing-install selector and content validator;
 - example mod;
 - license/credits/changelog;
 - symbols отдельно, если размер или приватность требуют отдельного artifact.
@@ -135,15 +137,13 @@ Windows package содержит:
 По умолчанию package не содержит retail EXE, DirectX/RSX installers, полный CD
 data set, user saves или machine-local config.
 
-Importer:
-
-- принимает mounted original CD или существующую установку;
-- проверяет известный manifest или формирует диагностический unknown-build
-  report;
-- исключает third-party installers и лишний nested duplicate;
-- создает normalized local data pack;
-- не изменяет источник;
-- пишет отчет с baseline/content identity.
+For 1.0 the portable ZIP is the distribution boundary. The selector accepts a
+complete mounted-disc root or existing installation only after strict catalog
+validation and never copies it. A normalized CD importer/installer is not
+claimed; full legacy-world conversion remains blocked by deferred LCN1 owners.
+After packaging, `Test-WindowsFrozenPackage.ps1` consumes the unchanged ZIP and
+sidecar, proves exact manifest/PE/symbol/runtime identity and creates an archive-
+and-manifest-bound 18-row manual ledger with every result still `PENDING`.
 
 ## Tag and publish
 

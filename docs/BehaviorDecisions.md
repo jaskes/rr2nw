@@ -6995,3 +6995,25 @@ than ambient build-tree state. Both shipped executables embed only their PDB
 basename and package schema 2 binds executable, PDB and MAP hashes plus
 CodeView GUID/age. Dirty, unknown, Debug and playtest manifests explicitly set
 `release_eligible=false`; automation still never changes human campaign rows.
+
+### BD-220: Windows 1.0 ships portable; acceptance authority is the frozen ZIP
+
+Status: accepted on 2026-08-11 for the M6 candidate-freeze boundary.
+
+An installer would add filesystem, registry, elevation, upgrade/uninstall and
+retail-copy ownership that the recovered runtime does not need. The Windows
+1.0 distribution is therefore the deterministic portable ZIP. First-run
+`RR2DATA1` selects an existing complete installation or mounted data root
+read-only; it is not renamed into a CD importer. Historical DirectX/RSX/Buka
+installers and retail media remain excluded. Full legacy-world conversion also
+remains unsupported until every required owner has a deterministic LCN1
+projection and reviewed content identity.
+
+The release unit is the unchanged ZIP plus sidecar, not a mutable unpacked
+directory or build-tree EXE. Candidate eligibility requires Release/x86, a
+known clean revision, clean tracked source and equality between current HEAD
+and embedded revision. A separate verifier must consume the frozen archive,
+prove exact manifest closure and CodeView identity, reproduce supported
+validator/runtime behavior and create a ledger bound to archive and manifest
+hashes. Human rows alone can advance that ledger. Automation, Developer mode
+and hermetic evidence cannot promote, tag or publish it.

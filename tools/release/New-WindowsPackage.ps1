@@ -62,6 +62,14 @@ if (-not $revisionMatch.Success) {
     throw 'Could not read the revision embedded into the package build'
 }
 $revision = $revisionMatch.Groups[1].Value
+$gitHeadOutput = @(& git -C $repositoryRoot rev-parse --short=12 HEAD 2>$null)
+$gitHeadExitCode = $LASTEXITCODE
+$gitHead = if ($gitHeadOutput.Count -eq 1) { [string]$gitHeadOutput[0] } else { '' }
+$gitHead = $gitHead.Trim()
+$gitHeadReady = $gitHeadExitCode -eq 0 -and $gitHead -match '^[0-9a-f]{12}$'
+$trackedStatus = @(& git -C $repositoryRoot status --porcelain --untracked-files=no 2>$null)
+$trackedSourceClean = $LASTEXITCODE -eq 0 -and $trackedStatus.Count -eq 0
+$sourceRevisionMatches = $gitHeadReady -and $revision -ceq $gitHead
 $safeRevision = $revision -replace '[^0-9A-Za-z._-]', '_'
 $configurationSuffix = switch ($Configuration) {
     'Release' { '' }
@@ -90,16 +98,43 @@ Copy-PackageFile $validatorMapSource 'rr2nw-mod-validator.map'
 Copy-PackageFile (Join-Path $repositoryRoot 'packaging\windows\README.txt') 'README.txt'
 Copy-PackageFile (Join-Path $repositoryRoot 'License.txt') 'License.txt'
 Copy-PackageFile (Join-Path $repositoryRoot 'CHANGELOG.md') 'CHANGELOG.md'
-foreach ($document in @('Modding.md', 'ModProfiles.md', 'ManualAcceptance.md', 'DataProvenance.md', 'ReleaseProcess.md', 'WindowsPackage.md', 'DebugMenu.md')) {
+$packageDocuments = @('Modding.md', 'ModProfiles.md', 'ManualAcceptance.md',
+    'DataProvenance.md', 'ReleaseProcess.md', 'WindowsPackage.md',
+    'DebugMenu.md', 'Support.md', 'KnownLimits.md')
+foreach ($document in $packageDocuments) {
     Copy-PackageFile (Join-Path $repositoryRoot "docs\$document") "docs\$document"
 }
 Copy-PackageFile (Join-Path $repositoryRoot 'tools\release\Invoke-WindowsManualCampaign.ps1') 'tools\Invoke-WindowsManualCampaign.ps1'
+Copy-PackageFile (Join-Path $repositoryRoot 'tools\release\Test-WindowsFrozenPackage.ps1') 'tools\Test-WindowsFrozenPackage.ps1'
 $exampleDestination = Join-Path $stageRoot 'examples\mods'
 [IO.Directory]::CreateDirectory($exampleDestination) | Out-Null
 Get-ChildItem -LiteralPath (Join-Path $repositoryRoot 'examples\mods') -Directory |
     Sort-Object Name | ForEach-Object {
         Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $exampleDestination $_.Name) -Recurse
     }
+
+$packageSourceFiles = @(
+    (Join-Path $repositoryRoot 'packaging\windows\README.txt'),
+    (Join-Path $repositoryRoot 'License.txt'),
+    (Join-Path $repositoryRoot 'CHANGELOG.md'),
+    (Join-Path $repositoryRoot 'tools\release\Invoke-WindowsManualCampaign.ps1'),
+    (Join-Path $repositoryRoot 'tools\release\Test-WindowsFrozenPackage.ps1')
+)
+$packageSourceFiles += @($packageDocuments | ForEach-Object {
+    Join-Path $repositoryRoot "docs\$_"
+})
+$packageSourceFiles += @(Get-ChildItem -LiteralPath (Join-Path $repositoryRoot 'examples\mods') `
+    -Recurse -File | Select-Object -ExpandProperty FullName)
+$packageInputsTracked = $gitHeadReady
+foreach ($source in $packageSourceFiles) {
+    $relativeSource = $source.Substring($repositoryRoot.TrimEnd('\').Length + 1).Replace('\', '/')
+    $trackedMatches = @(& git -C $repositoryRoot ls-files --cached -- $relativeSource 2>$null)
+    if ($LASTEXITCODE -ne 0 -or
+        -not ($trackedMatches -ccontains $relativeSource)) {
+        $packageInputsTracked = $false
+        break
+    }
+}
 
 $forbidden = @(Get-ChildItem -LiteralPath $stageRoot -Recurse -File | Where-Object {
     $_.Name -iin @('game.cfg', 'LEVEL0.SC', 'nw.exe', 'setup.exe') -or
@@ -338,7 +373,8 @@ $binaryRecords = @(
     }
 )
 $releaseEligible = $Configuration -eq 'Release' -and
-    $revision -ne 'unknown' -and $revision -notmatch '(?i)-dirty$'
+    $revision -ne 'unknown' -and $revision -notmatch '(?i)-dirty$' -and
+    $trackedSourceClean -and $sourceRevisionMatches -and $packageInputsTracked
 $manifest = [pscustomobject][ordered]@{
     schema = 2
     product = 'RR2NW'
@@ -347,6 +383,9 @@ $manifest = [pscustomobject][ordered]@{
     configuration = $Configuration
     architecture = 'x86'
     release_eligible = $releaseEligible
+    source_tracked_clean = $trackedSourceClean
+    source_revision_matches = $sourceRevisionMatches
+    source_package_inputs_tracked = $packageInputsTracked
     retail_data_included = $false
     binaries = $binaryRecords
     files = $fileRecords
@@ -541,6 +580,9 @@ $summary = [pscustomobject][ordered]@{
     validator_mount_order = [string]$unpackedValidatorReport['mount_order']
     validator_identities_equal = $true
     release_eligible = $releaseEligible
+    source_tracked_clean = $trackedSourceClean
+    source_revision_matches = $sourceRevisionMatches
+    source_package_inputs_tracked = $packageInputsTracked
     game_codeview_signature = $gameSymbols.pdb_signature
     game_codeview_age = $gameSymbols.pdb_age
     validator_codeview_signature = $validatorSymbols.pdb_signature

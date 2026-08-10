@@ -31,8 +31,11 @@ ordering and package fingerprints as the game. It also validates the bounded
 gameplay-tuning and script-event JSON contracts. Runtime-dependent symbolic
 attributes are checked again when a Level starts.
 
-See docs\Modding.md for the schema and tools\Invoke-WindowsManualCampaign.ps1
-for the package-bound Windows 10/11 acceptance checklist.
+See docs\Modding.md for the schema. Before package-bound Windows 10/11
+acceptance, run tools\Test-WindowsFrozenPackage.ps1 against the unchanged ZIP
+and its .sha256 sidecar; it creates the exact archive-bound 18-row ledger but
+does not mark any human row as passed. Support and current release boundaries
+are in docs\Support.md and docs\KnownLimits.md.
 
 Matching PDB and MAP files are included beside both executables. Keep them
 with the exact package: package-manifest.json binds every executable/symbol

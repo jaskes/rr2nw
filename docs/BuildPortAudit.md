@@ -4423,3 +4423,28 @@ dirty evidence archive contains 30 manifested files and passes base, example
 mod, persisted-data and corrupt-data gates; `release_eligible=false` is the
 expected state before this commit. A clean RC archive and all eighteen manual
 Windows rows remain deliberately open.
+
+### 2026-08-11: frozen candidate and portable distribution boundary
+
+The first clean post-`b2529885` evidence package was produced twice from
+separate staging/extraction roots. Both archives were byte-identical at
+SHA-256 `66ab05f076c82c1cab858ee6556160b49dfa8f4f64c71522cb966b87dc803807`,
+reported Release/x86 revision `b25298851608`, reproduced validator/base/example
+runtime identity and initialized eighteen untouched manual rows. It predates
+the verifier changes below and is retained only as ignored evidence.
+
+Review then found a release-process gap: `-SkipBuild` could reuse a clean
+embedded revision while tracked package inputs had changed. Eligibility now
+also requires an empty tracked Git status and exact HEAD/header revision
+equality. `Test-WindowsFrozenPackage.ps1` accepts an already-created ZIP,
+validates its sidecar before bounded safe extraction, requires exact manifest
+closure, re-reads PE/CodeView identity, reproduces the compatibility report and
+optional real-data runtime, and creates `RR2RCVERIFY1` plus an 18-row ledger
+bound to both archive and manifest hashes. Its summary contains no filesystem
+paths or retail payload; local runtime logs remain private evidence.
+
+The 1.0 distribution decision is now explicit: portable ZIP plus read-only
+selection of an existing legal data tree. No installer, CD normalizer or full
+legacy-world converter is claimed. Support, privacy and current limitations
+are shipped as package documentation. A new clean package from the eventual
+post-slice commit and real Windows 10/11 human campaign are still required.

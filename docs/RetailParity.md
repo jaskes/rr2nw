@@ -3277,6 +3277,19 @@ playable Level begins.
 - The remaining normalized CD/importer decision and package-bound campaign on
   Windows 10 and 11 stay outside this row.
 
+### RP-PACKAGE-002: package freezing is a modern release guarantee
+
+- Retail and May behavior do not define ZIP layout, symbols, source cleanliness
+  or release promotion. `RR2RCVERIFY1`, the deterministic sidecar and the
+  archive/manifest-bound ledger are modern integrity and support contracts.
+- The verifier does not reinterpret gameplay data. It reuses the shipped
+  validator and bounded runtime smoke against a user-supplied read-only retail
+  root, and stores only hashes, version/revision, PE/CodeView identities and
+  pending acceptance metadata.
+- Portable distribution is not evidence that the retail product was portable,
+  that March/May saves can be converted, or that an original installer may be
+  redistributed. Those claims remain explicitly excluded.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

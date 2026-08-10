@@ -862,6 +862,29 @@ both EXEs, all four adjacent PDB/MAP files and
 The stage and extracted copy must contain no `game.cfg`, `LEVEL0.SC`, retail
 EXE/installer, CD image, save or dump.
 
+After committing the final candidate changes, rebuild from that tracked-clean
+commit and reproduce the ZIP in a second output root. Both SHA-256 values must
+match and schema 2 must report `release_eligible=true`,
+`source_tracked_clean=true` and `source_revision_matches=true`. Freeze that
+unchanged archive before any human row; `source_package_inputs_tracked` must
+also be true:
+
+```powershell
+$archive = ".\rr2nw-0.1.0-windows-x86-0123456789ab.zip"
+$hash = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+& ".\tools\release\Test-WindowsFrozenPackage.ps1" `
+  -ArchivePath $archive `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -EvidenceRoot ".\candidate-evidence" `
+  -ExpectedArchiveSha256 $hash `
+  -ExpectedRevision "0123456789ab" `
+  -ExpectedVersion "0.1.0"
+```
+
+The verifier must report candidate eligibility, exact archive and manifest
+hashes, matching PE/CodeView identities, validator/base/example runtime proof
+and `0 PASS / 18 PENDING`. It does not build or rewrite the candidate.
+
 Before freezing the package, run the complete in-frame selector gate:
 
 ```powershell
@@ -877,16 +900,12 @@ read-only CLI override. The generated 128-package case must reach global row
 record one confirmation, one staged delete, one atomic commit and one-profile
 fresh reload with protected `default`.
 
-From the exact unpacked package, initialize the manual matrix:
-
-```powershell
-& ".\tools\Invoke-WindowsManualCampaign.ps1" -PackageRoot $PWD
-```
-
-Record cases on their actual Windows 10 or Windows 11 host. The tool binds the
-ledger to the package-manifest SHA-256 and `-RequireComplete` must remain red
-until all 18 rows pass. Package runtime smokes are automated evidence only and
-must not pre-fill human campaign results.
+Record cases on their actual Windows 10 or Windows 11 host using the unpacked
+root and `manual` ledger created by the frozen verifier. Pass the same archive
+SHA-256 to `Invoke-WindowsManualCampaign.ps1`; the tool binds every row to both
+archive and manifest. `-RequireComplete` must remain red until all 18 rows
+pass. Package runtime smokes are automated evidence only and must not pre-fill
+human campaign results.
 
 For each platform's `base-boot` row use a clean isolated Windows profile (or
 temporarily move that profile's `retail-data.cfg`), select the installed game
