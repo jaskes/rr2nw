@@ -616,6 +616,7 @@ struct SRecoveredInGameShellState {
   int captureBinding = -1;
   int conflictBinding = -1;
   bool overwriteConfirmation = false;
+  bool modSelectorDeleteConfirmation = false;
   std::uint32_t overwriteSlot = 0;
   int windowMode = 0;
   int windowScale = 1;
@@ -668,6 +669,12 @@ struct SRecoveredInGameShellState {
   unsigned int modSelectorProfileChanges = 0;
   unsigned int modSelectorCommits = 0;
   unsigned int modSelectorBlockedSelections = 0;
+  unsigned int modSelectorPageMoves = 0;
+  unsigned int modSelectorDeleteConfirmations = 0;
+  unsigned int modSelectorDeletes = 0;
+  std::size_t modSelectorVisibleFirst = 0;
+  std::size_t modSelectorVisibleLast = 0;
+  std::size_t modSelectorMaximumSelection = 0;
   bool modSelectorRestartRequired = false;
   std::uint64_t legacyConfigSourceFingerprint = 0;
   std::string legacyConfigBindingBoundary;

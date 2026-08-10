@@ -16,6 +16,17 @@ claim authorship of inherited Logos code or retail data.
   write-failure, fresh-restart and real-window `stack-core -> stack-addon`
   gates cover all maintained build configurations. Existing Developer-menu
   and CLI mod-stack acceptance now follow the inserted Mods row explicitly.
+- Completed the bounded selector UX for the full 128-package contract. The
+  640x480 shell exposes deterministic 17-row scrolling plus PageUp/PageDown,
+  Home and End; existing profiles can be activated, while non-default deletion
+  requires confirmation and remains staged until atomic Apply. Stable
+  compatibility category keys cover manifest, dependency, conflict, cycle,
+  unavailable-content and capacity failures without exposing paths. A real
+  three-configuration gate reaches all 133 rows, proves fresh deletion, and
+  the extracted Windows package now carries profile documentation and reports
+  the same package identities, mount order and fingerprint as staging. Safe
+  create/rename remains explicitly deferred because the shell has no bounded
+  text/IME/caret owner.
 - Routed the primary archival `RTCHECK`/assert fatal owner into the maintained
   Windows diagnostic bundle. Fatal Debug assertions retain bounded assertion,
   source-basename, line and formatted message context; Release retains the
@@ -68,6 +79,22 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Bound the synthetic Explosion trace draw proof to the authoritative Session
+  frontier. The probe could create short-lived Smoke at a stale last-event
+  `m_moment` and then let a loaded Debug host advance `m_viewTime` past its
+  lifetime before the first captured draw. It now admits the object at
+  `max(m_moment, m_viewTime)` before the existing three-frame draw proof;
+  12/12 independent installed `Level.07N` processes pass without retry or any
+  production Explosion/Smoke lifetime change.
+- Aligned the physical-input acceptance helper with the authoritative Session
+  clock already used by production Windows input. Wall-clock skew could leave
+  synthetic F1 behind later physics and intermittently move a newly dropped
+  Taxi beyond its authored 20-unit re-entry radius on Debug `Level.06N`.
+  Predicate-local exit/handoff diagnostics, an explicit one-shot queue boundary
+  and a 12/12 repeated installed-Level gate now cover the seam without retrying
+  input or changing Vehicle/Taxi gameplay. The adjacent X check also accepts a
+  Vehicle already stopped by authored geometry while retaining speed and
+  stability bounds.
 - Completed the persisted Level.04D Actek branch at terminal `ProjectA27`.
   Its real push-machine target now satisfies the guarded reached objective;
   destroying that same target remains the authored failure condition. The

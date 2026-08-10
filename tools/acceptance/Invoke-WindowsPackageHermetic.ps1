@@ -43,6 +43,8 @@ try {
         $summary = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json
         if ($summary.result -ne 'PASS' -or $summary.base_runtime -ne 'SKIPPED' -or
             $summary.example_mod_runtime -ne 'SKIPPED' -or $summary.validator_mods -ne 6 -or
+            -not $summary.validator_identities_equal -or
+            [string]::IsNullOrWhiteSpace([string]$summary.validator_fingerprint) -or
             $summary.game_subsystem -ne 2 -or $summary.validator_subsystem -ne 3) {
             throw "Hermetic package summary is invalid: $summaryPath"
         }
@@ -63,7 +65,7 @@ try {
     if ($campaign.Count -ne 18 -or @($campaign | Where-Object Result -ne 'PENDING').Count -ne 0) {
         throw 'Package-bound campaign did not initialize 18 pending rows'
     }
-    Write-Output "windows package hermetic: configuration=$Configuration files=$($outputs[0].package_files) deterministic=1 campaign=18"
+    Write-Output "windows package hermetic: configuration=$Configuration files=$($outputs[0].package_files) deterministic=1 validator_identity=1 campaign=18"
 }
 finally {
     if ([IO.Directory]::Exists($resolvedCase)) {

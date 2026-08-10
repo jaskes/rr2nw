@@ -1714,6 +1714,24 @@ playable Level begins.
   persisted or reported. Profile creation/rename polish, localization and
   packaged compatibility UX remain separate M5 work.
 
+### RP-MOD-009: large selectors and package reports preserve resolver identity
+
+- Classification: `PORT_FEATURE`, with no claim that retail RR2 shipped mod
+  profiles or this UI.
+- The 128-candidate ceiling is navigable as 133 exact rows in the 640x480
+  shell. Pagination changes only presentation selection; discovery ordering,
+  dependency closure, mount order and content fingerprints remain owned by the
+  production resolver.
+- Existing profiles can be selected and a non-default profile can be deleted
+  after confirmation. Both operations are staged, restart-only and atomic;
+  `default`, safe mode and CLI override remain fail-closed.
+- Compatibility categories are bounded stable keys over the existing resolver
+  bitset. The extracted Windows package contains the same validator, examples
+  and profile documentation, and its report must match the staging report for
+  every package identity, mount order and fingerprint.
+- Raw text create/rename is excluded until a validated shell text-input owner
+  exists. This is an explicit safety boundary, not missing resolver behavior.
+
 ### RP-INPUT-001: Win32 input has one semantic state owner
 
 - Classification: `PORTABILITY_FIX_ACCEPTED`, `RETAIL_ACTIONS_PRESERVED`.

@@ -87,7 +87,7 @@ function Require-Value([hashtable]$Values, [string]$Key, [string]$Expected,
 
 function Invoke-GameCase(
     [string]$Executable, [string]$CaseRoot, [string]$Settings,
-    [string]$Profiles, [string[]]$ExtraArguments,
+    [string]$Profiles, [string]$ModsRoot, [string[]]$ExtraArguments,
     [scriptblock]$Interaction) {
     $diagnostics = Join-Path $CaseRoot "diagnostics"
     New-Item -ItemType Directory -Force -Path $diagnostics | Out-Null
@@ -96,7 +96,7 @@ function Invoke-GameCase(
         "--start-level", $Level,
         "--diagnostics-dir", $diagnostics,
         "--settings-file", $Settings,
-        "--mods-dir", $modsPath,
+        "--mods-dir", $ModsRoot,
         "--mod-profiles-file", $Profiles,
         "--skip-level-briefing"
     ) + $ExtraArguments
@@ -142,6 +142,30 @@ function Invoke-GameCase(
     return Read-KeyValueLog $logPath
 }
 
+$paginationMods = Join-Path $OutputRoot "pagination-mods"
+$utf8 = [Text.UTF8Encoding]::new($false)
+New-Item -ItemType Directory -Force -Path $paginationMods | Out-Null
+for ($index = 0; $index -lt 128; ++$index) {
+    $token = $index.ToString("000")
+    $package = Join-Path $paginationMods "package-$token"
+    $files = Join-Path $package "localization"
+    New-Item -ItemType Directory -Force -Path $files | Out-Null
+    [IO.File]::WriteAllText((Join-Path $files "page-$token.txt"),
+        "selector pagination $token`n", $utf8)
+    $manifest = @{
+        schema = 1
+        engine_api = 1
+        id = "rr2nw.selector.page-$token"
+        version = "1.0.0"
+        files = @(@{
+            source = "localization/page-$token.txt"
+            target = "RR2NW/localization/page-$token.txt"
+        })
+    } | ConvertTo-Json -Depth 4
+    [IO.File]::WriteAllText((Join-Path $package "mod.json"),
+        $manifest + "`n", $utf8)
+}
+
 $records = [Collections.Generic.List[object]]::new()
 foreach ($configurationName in $Configuration) {
     $executable = Join-Path $BuildRoot ("{0}\rr2nw.exe" -f $configurationName)
@@ -156,7 +180,7 @@ foreach ($configurationName in $Configuration) {
 
     Write-Host "[$configurationName] staging stack-addon in the Mods shell"
     $stagedLog = Invoke-GameCase $executable (Join-Path $caseRoot "staged") `
-        $settings $profiles @() {
+        $settings $profiles $modsPath @() {
             param([IntPtr]$window)
             Send-Key $window 0x1B
             Send-Down $window 7
@@ -205,7 +229,7 @@ foreach ($configurationName in $Configuration) {
 
     Write-Host "[$configurationName] proving fresh-process profile restore"
     $freshLog = Invoke-GameCase $executable (Join-Path $caseRoot "fresh") `
-        $settings $profiles @() $null
+        $settings $profiles $modsPath @() $null
     foreach ($entry in @{
             marker = "level-ready"
             runtime_shutdown = "clean"
@@ -227,9 +251,99 @@ foreach ($configurationName in $Configuration) {
         $issues.Add("fresh process changed the resolved profile fingerprint")
     }
 
+    Write-Host "[$configurationName] proving activation and confirmed deletion"
+    $managedProfile = @(
+        'RR2MODPROFILE1'
+        'version=1'
+        'active=default'
+        'profiles=2'
+        'profile_0_name=default'
+        'profile_0_mods=1'
+        'profile_0_mod_0=rr2nw.example.stack-addon'
+        'profile_1_name=testing'
+        'profile_1_mods=0'
+        ''
+    ) -join "`r`n"
+    [IO.File]::WriteAllText($profiles, $managedProfile, $utf8)
+    $deleteLog = Invoke-GameCase $executable (Join-Path $caseRoot "delete") `
+        $settings $profiles $modsPath @() {
+            param([IntPtr]$window)
+            Send-Key $window 0x1B
+            Send-Down $window 7
+            Send-Key $window 0x0D
+            # Activate the second existing profile, then reach Delete after
+            # six candidates plus Apply and Reset.
+            Send-Key $window 0x0D
+            Send-Down $window 9
+            Send-Key $window 0x0D
+            Send-Key $window 0x0D
+            # Deletion is staged. Apply performs the only atomic file write.
+            Send-Key $window 0x26
+            Send-Key $window 0x26
+            Send-Key $window 0x0D
+            Send-Key $window 0x1B
+            Send-Key $window 0x1B
+        }
+    foreach ($entry in @{
+            marker = "level-ready"
+            runtime_shutdown = "clean"
+            mod_profile_count = "1"
+            mod_profile_active = "default"
+            in_game_shell_mod_selector_profile_changes = "1"
+            in_game_shell_mod_selector_delete_confirmations = "1"
+            in_game_shell_mod_selector_deletes = "1"
+            in_game_shell_mod_selector_commits = "1"
+            in_game_shell_mod_selector_blocked_selections = "0"
+            game_services_issues = "0"
+        }.GetEnumerator()) {
+        Require-Value $deleteLog $entry.Key ([string]$entry.Value) $issues "delete"
+    }
+    $deletedFreshLog = Invoke-GameCase $executable `
+        (Join-Path $caseRoot "delete-fresh") $settings $profiles $modsPath @() $null
+    foreach ($entry in @{
+            marker = "level-ready"
+            runtime_shutdown = "clean"
+            mod_profile_count = "1"
+            mod_profile_active = "default"
+            mod_profile_active_packages = "2"
+            mod_mount_order = "rr2nw.example.stack-core,rr2nw.example.stack-addon"
+            game_services_issues = "0"
+        }.GetEnumerator()) {
+        Require-Value $deletedFreshLog $entry.Key ([string]$entry.Value) $issues "delete-fresh"
+    }
+
+    Write-Host "[$configurationName] proving all 128 candidate rows are reachable"
+    $paginationSettings = Join-Path $caseRoot "pagination-settings.cfg"
+    $paginationProfiles = Join-Path $caseRoot "pagination-profiles.cfg"
+    $paginationLog = Invoke-GameCase $executable `
+        (Join-Path $caseRoot "pagination") $paginationSettings `
+        $paginationProfiles $paginationMods @() {
+            param([IntPtr]$window)
+            Send-Key $window 0x1B
+            Send-Down $window 7
+            Send-Key $window 0x0D
+            Send-Key $window 0x23
+            Send-Key $window 0x21
+            Send-Key $window 0x22
+            Send-Key $window 0x24
+            Send-Key $window 0x1B
+            Send-Key $window 0x1B
+        }
+    foreach ($entry in @{
+            marker = "level-ready"
+            runtime_shutdown = "clean"
+            mod_profile_candidates = "128"
+            in_game_shell_mod_selector_page_moves = "4"
+            in_game_shell_mod_selector_maximum_selection = "132"
+            in_game_shell_mod_selector_blocked_selections = "0"
+            game_services_issues = "0"
+        }.GetEnumerator()) {
+        Require-Value $paginationLog $entry.Key ([string]$entry.Value) $issues "pagination"
+    }
+
     Write-Host "[$configurationName] proving safe mode disables the profile"
     $safeLog = Invoke-GameCase $executable (Join-Path $caseRoot "safe") `
-        $settings $profiles @("--safe-mode") $null
+        $settings $profiles $modsPath @("--safe-mode") $null
     foreach ($entry in @{
             marker = "level-ready"
             runtime_shutdown = "clean"
@@ -244,7 +358,7 @@ foreach ($configurationName in $Configuration) {
 
     Write-Host "[$configurationName] proving CLI selection overrides the profile"
     $cliLog = Invoke-GameCase $executable (Join-Path $caseRoot "cli") `
-        $settings $profiles @("--mod", "rr2nw.example.data-pack") $null
+        $settings $profiles $modsPath @("--mod", "rr2nw.example.data-pack") $null
     foreach ($entry in @{
             marker = "level-ready"
             runtime_shutdown = "clean"
@@ -269,10 +383,13 @@ foreach ($configurationName in $Configuration) {
         fingerprint = [string]$freshLog["mod_profile_staged_fingerprint"]
         safe_mode = [string]$safeLog["mod_selection_source"]
         cli_override = [string]$cliLog["mod_selection_source"]
+        pagination_rows = [int]$paginationLog["in_game_shell_mod_selector_maximum_selection"] + 1
+        profile_delete = [int]$deleteLog["in_game_shell_mod_selector_deletes"]
     })
 }
 
 $records | Format-Table -AutoSize
 Write-Output (("mod profile selector: configurations={0} profile_restore=1 " +
-              "restart_boundary=1 safe_mode=1 cli_override=1") -f `
+              "restart_boundary=1 profiles=activate/delete pagination=133 " +
+              "safe_mode=1 cli_override=1") -f `
     $records.Count)

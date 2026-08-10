@@ -160,10 +160,74 @@ bool CodecGate() {
   return true;
 }
 
+bool SelectorUxGate() {
+  constexpr std::size_t kCandidates = 128u;
+  constexpr std::size_t kFixedRows = 5u;
+  constexpr std::size_t kVisibleRows = 17u;
+  constexpr std::size_t kRows = kCandidates + kFixedRows;
+  SRecoveredModSelectorWindow window;
+  for (std::size_t selected = 0u; selected < kRows; ++selected) {
+    if (!RecoveredModProfile_SelectorWindow(
+            kRows, selected, kVisibleRows, &window) ||
+        window.first > selected || window.onePastLast <= selected ||
+        window.onePastLast > kRows ||
+        window.onePastLast - window.first > kVisibleRows ||
+        window.pageCount != 8u)
+      return false;
+  }
+  std::size_t selected = 0u;
+  for (unsigned int page = 0u; page < 8u; ++page)
+    selected = RecoveredModProfile_PageSelection(
+        kRows, selected, kVisibleRows, 1);
+  if (selected != kRows - 1u ||
+      RecoveredModProfile_PageSelection(
+          kRows, selected, kVisibleRows, -1) != kRows - 1u - kVisibleRows ||
+      RecoveredModProfile_SelectorWindow(0u, 0u, kVisibleRows, &window) ||
+      RecoveredModProfile_SelectorWindow(kRows, kRows, kVisibleRows,
+                                         &window))
+    return false;
+
+  struct CategoryCase {
+    unsigned int issue;
+    ERecoveredModCompatibilityCategory category;
+    const char* key;
+  };
+  const CategoryCase cases[] = {
+      {0u, RECOVERED_MOD_COMPATIBILITY_READY, "ready"},
+      {RECOVERED_MOD_MANIFEST_MALFORMED,
+       RECOVERED_MOD_COMPATIBILITY_INVALID_MANIFEST, "invalid-manifest"},
+      {RECOVERED_MOD_MISSING_DEPENDENCY,
+       RECOVERED_MOD_COMPATIBILITY_MISSING_DEPENDENCY,
+       "missing-dependency"},
+      {RECOVERED_MOD_DEPENDENCY_VERSION,
+       RECOVERED_MOD_COMPATIBILITY_DEPENDENCY_VERSION,
+       "dependency-version"},
+      {RECOVERED_MOD_CONFLICT, RECOVERED_MOD_COMPATIBILITY_CONFLICT,
+       "conflict"},
+      {RECOVERED_MOD_ORDER_CYCLE, RECOVERED_MOD_COMPATIBILITY_CYCLE,
+       "cycle"},
+      {RECOVERED_MOD_MISSING_SOURCE,
+       RECOVERED_MOD_COMPATIBILITY_UNAVAILABLE_CONTENT,
+       "unavailable-content"},
+      {RECOVERED_MOD_STACK_LIMIT, RECOVERED_MOD_COMPATIBILITY_LIMIT,
+       "capacity-limit"}};
+  for (const CategoryCase& candidate : cases) {
+    const ERecoveredModCompatibilityCategory category =
+        RecoveredModProfile_CompatibilityCategory(candidate.issue);
+    if (category != candidate.category ||
+        std::string(RecoveredModProfile_CompatibilityKey(category)) !=
+            candidate.key ||
+        std::string(RecoveredModProfile_CompatibilityLabel(category)).empty())
+      return false;
+  }
+  return true;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
-  if (argc != 2 || !CodecGate()) return Fail("codec boundary failed");
+  if (argc != 2 || !CodecGate() || !SelectorUxGate())
+    return Fail("codec or selector UX boundary failed");
   const std::string root =
       Join(argv[1], "case-" + std::to_string(GetCurrentProcessId()));
   const std::string base = Join(root, "base");
@@ -250,6 +314,47 @@ int main(int argc, char** argv) {
       RecoveredModProfile_Snapshot()->stagedFingerprint != fingerprint)
     return Fail("atomic failure did not preserve committed selection");
 
+  SRecoveredModProfileCatalog managed;
+  managed.version = 1u;
+  managed.activeProfile = "default";
+  managed.profiles.push_back(
+      {"default", {"rr2nw.stack.addon"}});
+  managed.profiles.push_back({"testing", {}});
+  SRecoveredModProfileStatus managedStatus;
+  RecoveredModProfile_Release();
+  if (!RecoveredModProfile_WriteAtomic(profileWide, managed,
+                                       &managedStatus) ||
+      !RecoveredModProfile_Configure(profileWide, base.c_str(), candidates,
+                                     2u, 0u, nullptr, 0u, false, true, false))
+    return Fail("managed profile fixture failed");
+  snapshot = RecoveredModProfile_Snapshot();
+  if (snapshot == nullptr || snapshot->profileCount != 2u ||
+      snapshot->canDeleteStagedProfile ||
+      RecoveredModProfile_DeleteStaged() ||
+      !RecoveredModProfile_SelectRelative(1))
+    return Fail("default profile protection or activation failed");
+  snapshot = RecoveredModProfile_Snapshot();
+  if (snapshot == nullptr || snapshot->stagedProfile != "testing" ||
+      !snapshot->canDeleteStagedProfile ||
+      !RecoveredModProfile_DeleteStaged())
+    return Fail("non-default profile deletion could not be staged");
+  snapshot = RecoveredModProfile_Snapshot();
+  if (snapshot == nullptr || snapshot->profileCount != 1u ||
+      snapshot->stagedProfile != "default" || !snapshot->dirty ||
+      snapshot->canDeleteStagedProfile ||
+      !RecoveredModProfile_CommitStaged())
+    return Fail("staged profile deletion did not commit atomically");
+  RecoveredModProfile_Release();
+  if (!RecoveredModProfile_Configure(profileWide, base.c_str(), candidates,
+                                     2u, 0u, nullptr, 0u, false, true, false))
+    return Fail("deleted profile fresh reload failed");
+  snapshot = RecoveredModProfile_Snapshot();
+  if (snapshot == nullptr || snapshot->profileCount != 1u ||
+      snapshot->profileNames != std::vector<std::string>{"default"} ||
+      snapshot->activeProfile != "default" ||
+      RecoveredModProfile_DeleteStaged())
+    return Fail("deleted profile was not absent after fresh reload");
+
   const char* cliRequested[1] = {"rr2nw.stack.addon"};
   RecoveredModProfile_Release();
   if (!RecoveredModProfile_Configure(profileWide, base.c_str(), candidates,
@@ -330,7 +435,8 @@ int main(int argc, char** argv) {
   RecoveredModRuntime_Release();
   std::printf("recovered mod profile smoke: codec=1 truncation=1 bounds=1 "
               "dependency_closure=2 mount_order=core,addon atomic=1 "
-              "fresh_reload=1 cli_override=1 safe_mode=1 corrupt=1 "
+              "fresh_reload=1 selector_rows=133 pagination=8 "
+              "profile_delete=1 cli_override=1 safe_mode=1 corrupt=1 "
               "unknown_id=1 fingerprint=%llu\n",
               static_cast<unsigned long long>(fingerprint));
   return 0;

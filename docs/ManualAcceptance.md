@@ -854,8 +854,25 @@ The gate must report `Windows package: PASS`, a ZIP SHA-256 and an unpacked
 proof directory. `windows-package-summary.json` must show six validated
 examples, passing base/example runtime smokes, GUI subsystem `2` for
 `rr2nw.exe`, Console subsystem `3` for the validator and ASLR/NX bits on both.
+It must also report `validator_identities_equal=true` plus the extracted
+validator fingerprint and mount order; `docs/ModProfiles.md` must be present.
 The stage and extracted copy must contain no `game.cfg`, `LEVEL0.SC`, retail
 EXE/installer, CD image, save or dump.
+
+Before freezing the package, run the complete in-frame selector gate:
+
+```powershell
+& ".\tools\acceptance\Invoke-ModProfileSelector.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release,RelWithDebInfo
+```
+
+It must report three configurations, exact fresh `stack-core -> stack-addon`
+restore, `profiles=activate/delete`, `pagination=133`, safe-mode disable and a
+read-only CLI override. The generated 128-package case must reach global row
+132 through End and return through PageUp/PageDown/Home; the deletion case must
+record one confirmation, one staged delete, one atomic commit and one-profile
+fresh reload with protected `default`.
 
 From the exact unpacked package, initialize the manual matrix:
 

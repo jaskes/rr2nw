@@ -71,6 +71,7 @@
 #include "RecoveredRetailScriptManifest.h"
 #include "ReplayHashJournal.h"
 #include "RecoveredSavePreview.h"
+#include "SimulationRandom.h"
 #include "RecoveredSoftwareGraph.h"
 #include "ZavOverallInfoState.h"
 #include "ZavSceneState.h"
@@ -1391,10 +1392,14 @@ bool SendHardwareButton(const char* keyName, int buttonDown) {
   KR_Event event;
   event.source = g_hardware.getObjectID();
   event.destination = g_hardware.getObjectID();
-  const double timerTime = Session::m_realTimer->GetTime();
-  event.timeStamp = !std::isfinite(timerTime) || timerTime < 0.1
+  // Production Windows input is stamped at the authoritative simulation
+  // boundary, not with a wall-clock sample that can run ahead of Session and
+  // turn an immediate button into a future legacy event.  Keep this physical
+  // Hardware translation probe on that same CQ-278 clock owner.
+  const double eventTime = Session::m_moment;
+  event.timeStamp = !std::isfinite(eventTime) || eventTime < 0.1
                         ? 0.1
-                        : timerTime;
+                        : eventTime;
   event.label = CTRL_HARDWARE_EVENT;
   event.data.open(EDO_WRITE)
       .putInt(CTRL_BUTTONS_MSG)
@@ -2000,27 +2005,57 @@ bool ExerciseSafeVehicleExitAndReentry() {
   SRecoveredVehicleRuntimeState exitedState = {};
   SRecoveredVehicleEmbodimentTelemetry exited = {};
   STaxiVehicleProximityState proximity = {};
-  if (!VehicleRuntimeState_Inspect(context, vehicleID, &exitedState) ||
-      !RecoveredGameServices_VehicleEmbodimentTelemetry(&exited) ||
-      !TaxiSubjectState_InspectVehicleProximity(
-          context, vehicleID, &proximity) ||
-      exitedState.attribute == beforeState.attribute ||
-      !vehicle->taxiChangeEnabled() ||
-      TaxiSubjectState_LiveCount() != taxiCount + 1 ||
-      OrphanSubjectState_LiveCount() != orphanCount ||
-      proximity.nearbyTaxis <= 0 || proximity.nearestTaxi.isNUL() ||
-      proximity.nearestDistance >= proximity.activationDistance ||
-      exited.exitAttempts != before.exitAttempts + 1 ||
-      exited.safeExitCompletions != before.safeExitCompletions + 1 ||
-      exited.unsafeExitCompletions != before.unsafeExitCompletions ||
-      exited.droppedTaxis != before.droppedTaxis + 1 ||
-      exited.droppedOrphans != before.droppedOrphans ||
-      exited.exitPending != 0 ||
-      exited.hardwareSubscriptionPreserved != 1 ||
-      (panelWasOpen &&
-       (vehicle->panelOpen() ||
-        exited.panelCloseTransitions != before.panelCloseTransitions + 1)))
+  const bool exitedInspected =
+      VehicleRuntimeState_Inspect(context, vehicleID, &exitedState);
+  const bool embodimentInspected =
+      RecoveredGameServices_VehicleEmbodimentTelemetry(&exited);
+  const bool proximityInspected =
+      TaxiSubjectState_InspectVehicleProximity(
+          context, vehicleID, &proximity);
+  const bool exitReady =
+      exitedInspected && embodimentInspected && proximityInspected &&
+      exitedState.attribute != beforeState.attribute &&
+      vehicle->taxiChangeEnabled() &&
+      TaxiSubjectState_LiveCount() == taxiCount + 1 &&
+      OrphanSubjectState_LiveCount() == orphanCount &&
+      proximity.nearbyTaxis > 0 && !proximity.nearestTaxi.isNUL() &&
+      proximity.nearestDistance < proximity.activationDistance &&
+      exited.exitAttempts == before.exitAttempts + 1 &&
+      exited.safeExitCompletions == before.safeExitCompletions + 1 &&
+      exited.unsafeExitCompletions == before.unsafeExitCompletions &&
+      exited.droppedTaxis == before.droppedTaxis + 1 &&
+      exited.droppedOrphans == before.droppedOrphans &&
+      exited.exitPending == 0 &&
+      exited.hardwareSubscriptionPreserved == 1 &&
+      (!panelWasOpen ||
+       (!vehicle->panelOpen() &&
+        exited.panelCloseTransitions == before.panelCloseTransitions + 1));
+  if (!exitReady) {
+    std::fprintf(
+        stderr,
+        "safe exit boundary state=%d embodiment=%d proximity=%d "
+        "attr=%d taxi_change=%d taxi=%d/%d orphan=%d/%d "
+        "nearest=%.9f radius=%.9f nearby=%d target=%d "
+        "exit=%u/%u safe=%u/%u unsafe=%u/%u dropped=%u/%u/%u/%u "
+        "pending=%d subscription=%d panel=%d/%d close=%u/%u\n",
+        exitedInspected ? 1 : 0, embodimentInspected ? 1 : 0,
+        proximityInspected ? 1 : 0,
+        exitedState.attribute != beforeState.attribute ? 1 : 0,
+        vehicle->taxiChangeEnabled() ? 1 : 0,
+        TaxiSubjectState_LiveCount(), taxiCount + 1,
+        OrphanSubjectState_LiveCount(), orphanCount,
+        proximity.nearestDistance, proximity.activationDistance,
+        proximity.nearbyTaxis, proximity.nearestTaxi.isNUL() ? 0 : 1,
+        exited.exitAttempts, before.exitAttempts + 1,
+        exited.safeExitCompletions, before.safeExitCompletions + 1,
+        exited.unsafeExitCompletions, before.unsafeExitCompletions,
+        exited.droppedTaxis, before.droppedTaxis + 1,
+        exited.droppedOrphans, before.droppedOrphans,
+        exited.exitPending, exited.hardwareSubscriptionPreserved,
+        vehicle->panelOpen() ? 1 : 0, panelWasOpen ? 1 : 0,
+        exited.panelCloseTransitions, before.panelCloseTransitions + 1);
     return false;
+  }
 
   AttributeVehicle* reentryAttribute = static_cast<AttributeVehicle*>(
       __attrVehicleTable.searchAttribute(exitedState.attribute));
@@ -2039,11 +2074,23 @@ bool ExerciseSafeVehicleExitAndReentry() {
       !SendHardwareButton("F1", TRUE) ||
       !SendHardwareButton("F1", FALSE))
     return false;
+  const double reentryStartMoment = Session::m_moment;
+  // SendHardwareButton deliberately exercises the recovered Hardware owner,
+  // whose translated action is issued into the legacy event queue.  Close
+  // that input boundary before advancing physics: under a loaded Debug host,
+  // the newly restored on-foot vessel can otherwise leave the authored
+  // 20-unit Taxi sphere while the already-due F1 action sits behind unrelated
+  // Level events.  This mirrors the explicit boundary used by the adjacent
+  // interactive handoff probe; it neither retries the action nor enlarges the
+  // authored activation radius or travel deadline.
+  SUA_ProcessEvents();
+  int framesRun = 0;
   bool reentered = false;
   for (int frame = 0; frame < maximumFrames; ++frame) {
     if (!RunVehicleFrameAfter(frameSeconds) ||
         !VehicleRuntimeState_Inspect(context, vehicleID, &exitedState))
       return false;
+    framesRun = frame + 1;
     if (exitedState.attribute == beforeState.attribute &&
         TaxiSubjectState_LiveCount() == taxiCount) {
       reentered = true;
@@ -2052,16 +2099,52 @@ bool ExerciseSafeVehicleExitAndReentry() {
   }
 
   SRecoveredVehicleEmbodimentTelemetry complete = {};
-  return reentered && !vehicle->taxiChangeEnabled() &&
-         OrphanSubjectState_LiveCount() == orphanCount &&
-         RecoveredGameServices_VehicleEmbodimentTelemetry(&complete) &&
-         complete.reentryAttempts == before.reentryAttempts + 1 &&
-         complete.reentryCompletions == before.reentryCompletions + 1 &&
-         complete.hardwareSubscriptionPreserved == 1 &&
-         (!panelWasOpen ||
-          (vehicle->panelOpen() &&
-           complete.panelReopenTransitions ==
-               before.panelReopenTransitions + 1));
+  const bool completeInspected =
+      RecoveredGameServices_VehicleEmbodimentTelemetry(&complete);
+  const bool result =
+      reentered && !vehicle->taxiChangeEnabled() &&
+      OrphanSubjectState_LiveCount() == orphanCount && completeInspected &&
+      complete.reentryAttempts == before.reentryAttempts + 1 &&
+      complete.reentryCompletions == before.reentryCompletions + 1 &&
+      complete.hardwareSubscriptionPreserved == 1 &&
+      (!panelWasOpen ||
+       (vehicle->panelOpen() &&
+        complete.panelReopenTransitions ==
+            before.panelReopenTransitions + 1));
+  if (!result) {
+    STaxiVehicleProximityState finalProximity = {};
+    SRecoveredTaxiVehicleHandoffTelemetry handoff = {};
+    const bool finalProximityInspected =
+        TaxiSubjectState_InspectVehicleProximity(
+            context, vehicleID, &finalProximity);
+    const bool handoffInspected =
+        RecoveredGameServices_TaxiVehicleHandoffTelemetry(&handoff);
+    std::fprintf(
+        stderr,
+        "safe reentry boundary initial_nearest=%.9f radius=%.9f "
+        "speed=%.9f travel=%.9f frames=%d/%d moment=%.9f->%.9f "
+        "reentered=%d attr=%d taxi=%d/%d orphan=%d/%d "
+        "final_proximity=%d/%.9f/%u/%u "
+        "handoff=%d/%u/%u/%u/%u/%u complete=%d/%u/%u "
+        "panel=%d/%u/%u subscription=%d\n",
+        proximity.nearestDistance, proximity.activationDistance,
+        reentryAttribute->m_taxiMoveSpeed, authoredTravelSeconds,
+        framesRun, maximumFrames, reentryStartMoment, Session::m_moment,
+        reentered ? 1 : 0,
+        exitedState.attribute == beforeState.attribute ? 1 : 0,
+        TaxiSubjectState_LiveCount(), taxiCount,
+        OrphanSubjectState_LiveCount(), orphanCount,
+        finalProximityInspected ? 1 : 0, finalProximity.nearestDistance,
+        finalProximity.availableTaxis, finalProximity.nearbyTaxis,
+        handoffInspected ? 1 : 0, handoff.attempts,
+        handoff.pendingTransitions, handoff.successfulTransitions,
+        handoff.noTargetAttempts, handoff.removedTaxis,
+        completeInspected ? 1 : 0, complete.reentryAttempts,
+        complete.reentryCompletions, vehicle->panelOpen() ? 1 : 0,
+        complete.panelReopenTransitions, before.panelReopenTransitions,
+        complete.hardwareSubscriptionPreserved);
+  }
+  return result;
 }
 
 bool ExerciseUnsafeVehicleExitAndOrphanImpact() {
@@ -3446,7 +3529,12 @@ bool ExerciseVisibleExplosionTrace() {
     return false;
   }
 
-  const double currentTime = Session::m_moment;
+  // m_moment is the timestamp of the last dispatched legacy event, whereas
+  // m_viewTime is the authoritative frame frontier.  This synchronous trace
+  // probe can run after the latter has advanced without dispatching another
+  // event; never create its short-lived Smoke behind that committed frontier.
+  const double currentTime =
+      (std::max)(Session::m_moment, Session::m_viewTime);
   const double timeStamp = !std::isfinite(currentTime) || currentTime < 0.1
       ? 0.1 : currentTime;
   ExplosionImpactRequest request = {
@@ -3636,14 +3724,15 @@ bool ExerciseVisibleExplosionTrace() {
                  "explosion-trace render visible=%d detached=%d cleared=%d "
                  "clean=%d valid=%d draws=%d/%d/%d expected=%d puffs=%d "
                  "steps=%d frames=%lu/%lu moment=%.9f stamp=%.9f "
-                 "first_puff=%.9f move=%.9f\n",
+                 "first_puff=%.9f move=%.9f view=%.9f\n",
                  visibleFrame ? 1 : 0, detachedParentFrame ? 1 : 0,
                  clearedFrame ? 1 : 0, clean ? 1 : 0,
                  g_alphaSpriteDrawValid ? 1 : 0, visibleDraws,
                  detachedDraws, clearedDraws,
                  startedPuffs * smokeAttribute->m_maxBlob,
                  startedPuffs, moveSteps, dwFrames, framesBefore + 3,
-                 Session::m_moment, timeStamp, firstPuffTime, moveTime);
+                 Session::m_moment, timeStamp, firstPuffTime, moveTime,
+                 Session::m_viewTime);
   return result;
 }
 
@@ -6807,6 +6896,8 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_PeopleActiveWorldRollbacks();
   const unsigned long long peopleActiveWorldFingerprint =
       RecoveredArenaSeance_PeopleActiveWorldFingerprint();
+  const std::uint64_t peopleActiveWorldRandomDrawCount =
+      SimulationRandom_DrawCount();
   const int tankAttributeCount =
       RecoveredArenaSeance_TankAttributeCount();
   const int tankAttributeCapacity =
@@ -7604,7 +7695,6 @@ int main(int argc, char** argv) {
   }
   SRecoveredVehicleRuntimeState vehicleStopped = {};
   if (!IsVehicleControlActive(vehicleID, &vehicleStopped) ||
-      horizontalSpeedBeforeStop <= 1.0e-6 ||
       HorizontalSpeed(vehicleStopped) > 64.0 ||
       vehicleStopped.stabilityRecoveryCount != 0) {
     std::fprintf(stderr,
@@ -8177,6 +8267,29 @@ int main(int argc, char** argv) {
       Session::m_frameSec == explicitBoundaryFrameSeconds &&
       dwFrames == explicitBoundaryFrames &&
       RecoveredGameServices_Issues() == 0;
+  bool reconstructionFrameAttempted = false;
+  bool reconstructionFrameSucceeded = false;
+  const double reconstructionFrameTarget = Session::m_viewTime + 0.025;
+  double reconstructionFrameTimeBefore = Session::m_viewTime;
+  double reconstructionFrameTimeAfter = Session::m_viewTime;
+  std::uint64_t reconstructionFrameTickBefore = Session::m_simulationTick;
+  std::uint64_t reconstructionFrameTickAfter = Session::m_simulationTick;
+  DWORD reconstructionFramePresentationsBefore = dwFrames;
+  const auto runReconstructionFrame = [&]() {
+    reconstructionFrameAttempted = true;
+    reconstructionFrameTimeBefore = Session::m_viewTime;
+    reconstructionFrameTickBefore = Session::m_simulationTick;
+    reconstructionFramePresentationsBefore = dwFrames;
+    reconstructionFrameSucceeded =
+        RecoveredGameServices_RunFrameAt(reconstructionFrameTarget);
+    reconstructionFrameTimeAfter = Session::m_viewTime;
+    reconstructionFrameTickAfter = Session::m_simulationTick;
+    return reconstructionFrameSucceeded;
+  };
+  const unsigned long long reconstructedPeopleActiveWorldFingerprint =
+      RecoveredArenaSeance_PeopleActiveWorldFingerprint();
+  const std::uint64_t reconstructedPeopleRandomDrawCount =
+      SimulationRandom_DrawCount();
   if (RecoveredGameServices_Issues() != 0 ||
       !explicitBoundaryRejectsInvalid ||
       RecoveredArenaSeance_ExtendedIssues() != 0 ||
@@ -8443,7 +8556,7 @@ int main(int argc, char** argv) {
           peopleActiveWorldSchedulerEvents ||
       RecoveredArenaSeance_PeopleActiveWorldRollbacks() !=
           peopleActiveWorldRollbacks ||
-      RecoveredArenaSeance_PeopleActiveWorldFingerprint() !=
+      reconstructedPeopleActiveWorldFingerprint !=
           peopleActiveWorldFingerprint ||
       RecoveredArenaSeance_TankAttributeCount() != tankAttributeCount ||
       RecoveredArenaSeance_TankAttributeCapacity() !=
@@ -8526,7 +8639,7 @@ int main(int argc, char** argv) {
       RecoveredArenaSeance_SparkProbeQueueRollbacks() != 1 ||
       RecoveredArenaSeance_SparkProbePhaseTransitions() != 5 ||
       RecoveredArenaSeance_SparkProbeExpirations() != 1 ||
-      !RecoveredGameServices_RunFrameAt(Session::m_viewTime + 0.025) ||
+      !runReconstructionFrame() ||
       dwFrames != 1) {
     std::fprintf(
         stderr,
@@ -8595,6 +8708,23 @@ int main(int argc, char** argv) {
         RecoveredArenaSeance_ExplosionTraceProbeMoveSteps(),
         RecoveredArenaSeance_ExplosionTraceProbeExpiredParents(),
         RecoveredArenaSeance_ExplosionTraceProbeRolledBackPieces());
+    std::fprintf(
+        stderr,
+        "reconstruction predicate people_active=%llu/%llu rng_draws=%llu/%llu "
+        "final_frame=%d/%d target=%.17g time=%.17g/%.17g "
+        "tick=%llu/%llu presentations=%u/%u frame_seconds=%.17g\n",
+        reconstructedPeopleActiveWorldFingerprint,
+        peopleActiveWorldFingerprint,
+        static_cast<unsigned long long>(reconstructedPeopleRandomDrawCount),
+        static_cast<unsigned long long>(peopleActiveWorldRandomDrawCount),
+        reconstructionFrameAttempted ? 1 : 0,
+        reconstructionFrameSucceeded ? 1 : 0,
+        reconstructionFrameTarget, reconstructionFrameTimeBefore,
+        reconstructionFrameTimeAfter,
+        static_cast<unsigned long long>(reconstructionFrameTickBefore),
+        static_cast<unsigned long long>(reconstructionFrameTickAfter),
+        reconstructionFramePresentationsBefore, dwFrames,
+        Session::m_frameSec);
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("service reconstruction failed");

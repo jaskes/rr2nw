@@ -7786,6 +7786,17 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(shellState->modSelectorCommits));
     log.Line("in_game_shell_mod_selector_blocked_selections=" +
              std::to_string(shellState->modSelectorBlockedSelections));
+    log.Line("in_game_shell_mod_selector_page_moves=" +
+             std::to_string(shellState->modSelectorPageMoves));
+    log.Line("in_game_shell_mod_selector_delete_confirmations=" +
+             std::to_string(shellState->modSelectorDeleteConfirmations));
+    log.Line("in_game_shell_mod_selector_deletes=" +
+             std::to_string(shellState->modSelectorDeletes));
+    log.Line("in_game_shell_mod_selector_visible_range=" +
+             std::to_string(shellState->modSelectorVisibleFirst) + "/" +
+             std::to_string(shellState->modSelectorVisibleLast));
+    log.Line("in_game_shell_mod_selector_maximum_selection=" +
+             std::to_string(shellState->modSelectorMaximumSelection));
     log.Line("in_game_shell_mod_selector_restart_required=" +
              std::to_string(
                  shellState->modSelectorRestartRequired ? 1 : 0));
@@ -7815,6 +7826,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     log.Line("mod_profile_staged=" + modSelector->stagedProfile);
     log.Line("mod_profile_candidates=" +
              std::to_string(modSelector->candidateCount));
+    log.Line("mod_profile_count=" +
+             std::to_string(modSelector->profileCount));
+    log.Line("mod_profile_plan_issues=" +
+             std::to_string(modSelector->planIssues));
     log.Line("mod_profile_active_packages=" +
              std::to_string(modSelector->activePackageCount));
     log.Line("mod_profile_plan_ready=" +

@@ -52,6 +52,26 @@ shows its strict `id@version` and one state:
 - `blocked` for a selection whose complete stack is invalid;
 - `invalid` when the package manifest or source boundary is invalid.
 
+The selector admits up to 128 candidates plus five fixed rows. Seventeen rows
+fit the preserved 640x480 framebuffer; Up/Down scroll by one, PageUp/PageDown
+move by one bounded viewport and Home/End reach the first/last row. The footer
+always reports the exact visible range and page. The shared headless contract
+proves that every one of the 133 possible rows remains reachable.
+
+Existing profiles can be activated with Left/Right or Enter on the Profile
+row. A non-default profile can be deleted only after a second explicit Enter;
+the deletion remains staged until **Apply on next launch** performs the same
+atomic catalog write as a package change. The canonical `default` profile is
+protected and CLI/safe-mode selectors remain entirely read-only.
+
+Compatibility failures use stable localization-ready category keys:
+`invalid-manifest`, `missing-dependency`, `dependency-version`, `conflict`,
+`cycle`, `unavailable-content`, `capacity-limit` and `invalid-request`. The
+current English shell maps those keys to bounded player-facing labels while
+retaining the production resolver's more precise reason. It never shows a
+physical package path or retail payload. A future translated shell can map the
+same keys without changing resolver or profile identity.
+
 The footer shows the resolved package count and stack fingerprint. Applying a
 dirty, valid profile atomically replaces only the catalog and reports
 `RESTART REQUIRED`; the mounted world, VFS, content identity, saves and replay
@@ -66,15 +86,25 @@ embedded NULs and oversized input are rejected. Writes use a flushed temporary
 file plus replace-existing/write-through commit; a failed replacement leaves
 the prior catalog byte-for-byte intact.
 
+The current Win32 shell has no bounded text-entry owner: `WM_CHAR` is consumed
+while the pause overlay is open, but there is no validated edit buffer, caret,
+IME or commit/cancel lifecycle. The game therefore does not pretend to offer
+safe create/rename editing yet. Additional valid profiles may be provisioned
+by a launcher or by writing `RR2MODPROFILE1`; activation and confirmed deletion
+then work in-frame. Create/rename remains a separate shell-text-owner slice.
+
 ## Verification
 
 The synthetic profile smoke covers canonical round-trip, row truncation,
 invalid/oversized input, duplicates, dependency closure, deterministic mount
 order, injected atomic failure, fresh reload, safe mode, CLI precedence,
-invalid-CLI propagation and corrupt recovery. The real-window gate selects
+invalid-CLI propagation, corrupt recovery, 133-row pagination, category keys,
+default protection and atomic deletion. The real-window gate selects
 the shipped stack addon,
 restarts into exact `core -> addon` order, then proves safe-mode disable and a
-different CLI override:
+different CLI override. It also uses 128 generated copyright-free candidates
+to prove End/PageUp/PageDown/Home and performs a confirmed profile deletion
+followed by a fresh-process reload:
 
 ```powershell
 & ".\tools\acceptance\Invoke-ModProfileSelector.ps1" `
@@ -82,7 +112,12 @@ different CLI override:
   -Configuration Debug,Release,RelWithDebInfo
 ```
 
-This first product slice deliberately does not provide live reload, writable
+The Windows package includes this document, the validator and all six distinct
+copyright-free example contracts. Staged and extracted validators must report
+identical package identities, mount order and stack fingerprint.
+
+This product slice deliberately does not provide live reload, writable
 retail overlays, optional dependency/version-range semantics, remote package
 download, Lua or native plugins. Profile creation/rename polish and localized
-compatibility reporting remain later M5 work.
+translated strings remain later work behind their missing text/localization
+owners; the compatibility message IDs and existing-profile UX are complete.

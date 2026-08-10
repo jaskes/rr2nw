@@ -106,6 +106,8 @@ bool RecoveredGameServices_PlayLevelBriefing(const char* resolvedPath) {
 
 namespace {
 
+constexpr std::size_t kShellVisibleRows = 17u;
+
 bool CanonicalizeDirectionalAction(
     SRecoveredObserverAxes* axes, int action, double value,
     int* canonicalAction, double* canonicalValue) {
@@ -3024,7 +3026,7 @@ std::size_t ShellPageItemCount() {
     case RECOVERED_SHELL_PAGE_MODS: {
       const SRecoveredModSelectorSnapshot* selector =
           RecoveredModProfile_Snapshot();
-      return (selector == nullptr ? 0u : selector->candidates.size()) + 4u;
+      return (selector == nullptr ? 0u : selector->candidates.size()) + 5u;
     }
     case RECOVERED_SHELL_PAGE_DEVELOPER:
       return 11u;
@@ -3046,6 +3048,7 @@ void ShellSelectPage(ERecoveredInGameShellPage page) {
   g_inGameShellState.captureBinding = -1;
   g_inGameShellState.conflictBinding = -1;
   g_inGameShellState.overwriteConfirmation = false;
+  g_inGameShellState.modSelectorDeleteConfirmation = false;
   if (page == RECOVERED_SHELL_PAGE_SAVE ||
       page == RECOVERED_SHELL_PAGE_LOAD)
     RequestShellSaveCatalogRefresh();
@@ -3446,6 +3449,18 @@ bool ActivateShellSelection() {
           ++g_inGameShellState.modSelectorCommits;
       } else if (selected == candidateCount + 2u) {
         handled = RecoveredModProfile_ResetStaged();
+      } else if (selected == candidateCount + 3u) {
+        if (selector != nullptr && selector->canDeleteStagedProfile &&
+            !g_inGameShellState.modSelectorDeleteConfirmation) {
+          g_inGameShellState.modSelectorDeleteConfirmation = true;
+          ++g_inGameShellState.modSelectorDeleteConfirmations;
+          g_inGameShellState.status =
+              "Press Enter again to stage profile deletion";
+          return true;
+        }
+        handled = RecoveredModProfile_DeleteStaged();
+        if (handled) ++g_inGameShellState.modSelectorDeletes;
+        g_inGameShellState.modSelectorDeleteConfirmation = false;
       } else {
         ShellSelectPage(RECOVERED_SHELL_PAGE_ROOT);
         return true;
@@ -3517,18 +3532,48 @@ bool HandleInGameShellKey(std::uint32_t key) {
     return true;
   }
   const std::size_t count = ShellPageItemCount();
+  if (g_inGameShellState.page == RECOVERED_SHELL_PAGE_MODS &&
+      (key == VK_PRIOR || key == VK_NEXT || key == VK_HOME ||
+       key == VK_END)) {
+    const std::size_t previous = g_inGameShellState.selected;
+    if (key == VK_HOME)
+      g_inGameShellState.selected = 0u;
+    else if (key == VK_END)
+      g_inGameShellState.selected = count - 1u;
+    else
+      g_inGameShellState.selected = RecoveredModProfile_PageSelection(
+          count, g_inGameShellState.selected, kShellVisibleRows,
+          key == VK_PRIOR ? -1 : 1);
+    if (g_inGameShellState.selected != previous)
+      ++g_inGameShellState.modSelectorPageMoves;
+    g_inGameShellState.modSelectorMaximumSelection =
+        (std::max)(g_inGameShellState.modSelectorMaximumSelection,
+                   g_inGameShellState.selected);
+    g_inGameShellState.modSelectorDeleteConfirmation = false;
+    return true;
+  }
   if (key == VK_UP) {
     g_inGameShellState.selected =
         g_inGameShellState.selected == 0u
             ? count - 1u
             : g_inGameShellState.selected - 1u;
     g_inGameShellState.overwriteConfirmation = false;
+    g_inGameShellState.modSelectorDeleteConfirmation = false;
+    if (g_inGameShellState.page == RECOVERED_SHELL_PAGE_MODS)
+      g_inGameShellState.modSelectorMaximumSelection =
+          (std::max)(g_inGameShellState.modSelectorMaximumSelection,
+                     g_inGameShellState.selected);
     return true;
   }
   if (key == VK_DOWN) {
     g_inGameShellState.selected =
         (g_inGameShellState.selected + 1u) % count;
     g_inGameShellState.overwriteConfirmation = false;
+    g_inGameShellState.modSelectorDeleteConfirmation = false;
+    if (g_inGameShellState.page == RECOVERED_SHELL_PAGE_MODS)
+      g_inGameShellState.modSelectorMaximumSelection =
+          (std::max)(g_inGameShellState.modSelectorMaximumSelection,
+                     g_inGameShellState.selected);
     return true;
   }
   if (g_inGameShellState.page == RECOVERED_SHELL_PAGE_VIDEO &&
@@ -3875,11 +3920,14 @@ void DrawInGameShell() {
           RecoveredModProfile_Snapshot();
       if (selector == nullptr) {
         lines = {"Profile : unavailable", "Apply on next launch [blocked]",
-                 "Reset staged profile [blocked]", "Back"};
+                 "Reset staged profile [blocked]",
+                 "Delete staged profile [blocked]", "Back"};
         ShellPrint(72, 78, "Mod profile owner is unavailable");
         break;
       }
-      std::string profile = "Profile : " + selector->stagedProfile;
+      std::string profile = "Profile : " + selector->stagedProfile + " (" +
+          std::to_string(selector->stagedProfileIndex + 1u) + "/" +
+          std::to_string(selector->profileCount) + ")";
       if (selector->cliOverride) profile += " [CLI override]";
       if (selector->safeMode) profile += " [safe mode]";
       lines.push_back(profile);
@@ -3896,10 +3944,14 @@ void DrawInGameShell() {
                 std::to_string(candidate.mountIndex + 1u) + "]";
             break;
           case RECOVERED_MOD_SELECTOR_BLOCKED:
-            line += "[blocked: " + candidate.reason + "]";
+            line += "[" + std::string(RecoveredModProfile_CompatibilityLabel(
+                RecoveredModProfile_CompatibilityCategory(candidate.issue))) +
+                ": " + candidate.reason + "]";
             break;
           case RECOVERED_MOD_SELECTOR_INVALID:
-            line += "[invalid: " + candidate.reason + "]";
+            line += "[" + std::string(RecoveredModProfile_CompatibilityLabel(
+                RecoveredModProfile_CompatibilityCategory(candidate.issue))) +
+                ": " + candidate.reason + "]";
             break;
           default: line += "[off]"; break;
         }
@@ -3911,11 +3963,23 @@ void DrawInGameShell() {
                            : selector->planReady ? " [ready]"
                                                  : " [blocked]"));
       lines.push_back("Reset staged profile to vanilla");
+      std::string deletion = "Delete profile " + selector->stagedProfile;
+      if (!selector->canDeleteStagedProfile)
+        deletion += selector->stagedProfile == "default"
+            ? " [protected]" : " [read-only]";
+      else if (g_inGameShellState.modSelectorDeleteConfirmation)
+        deletion += " [CONFIRM]";
+      lines.push_back(std::move(deletion));
       lines.push_back("Back");
       std::string summary =
           "Mount: " + std::to_string(selector->activePackageCount) +
           " package(s), fingerprint " +
           std::to_string(selector->stagedFingerprint);
+      if (!selector->planReady) {
+        summary += " [" + std::string(RecoveredModProfile_CompatibilityKey(
+            RecoveredModProfile_CompatibilityCategory(
+                selector->planIssues))) + "]";
+      }
       if (selector->restartRequired) summary += " - RESTART REQUIRED";
       ShellPrint(72, 78, summary);
       break;
@@ -3995,22 +4059,48 @@ void DrawInGameShell() {
       break;
   }
 
-  std::size_t first = 0;
-  const std::size_t visible = 17u;
-  if (g_inGameShellState.selected >= visible)
-    first = g_inGameShellState.selected - visible + 1u;
+  SRecoveredModSelectorWindow window;
+  if (!RecoveredModProfile_SelectorWindow(
+          lines.size(), g_inGameShellState.selected, kShellVisibleRows,
+          &window))
+    window = {};
+  if (g_inGameShellState.page == RECOVERED_SHELL_PAGE_MODS &&
+      window.onePastLast != 0u) {
+    g_inGameShellState.modSelectorVisibleFirst = window.first;
+    g_inGameShellState.modSelectorVisibleLast = window.onePastLast - 1u;
+  }
   int y = 92;
-  for (std::size_t index = first;
-       index < lines.size() && index < first + visible; ++index, y += 18) {
+  for (std::size_t index = window.first;
+       index < lines.size() && index < window.onePastLast; ++index, y += 18) {
     ShellPrint(78, y, std::string(index == g_inGameShellState.selected
                                       ? "> " : "  ") + lines[index],
                index == g_inGameShellState.selected);
+  }
+  if (g_inGameShellState.page == RECOVERED_SHELL_PAGE_MODS &&
+      !lines.empty()) {
+    std::string detail = "Rows " + std::to_string(window.first + 1u) + "-" +
+        std::to_string(window.onePastLast) + "/" +
+        std::to_string(lines.size()) + "  Page " +
+        std::to_string(window.page + 1u) + "/" +
+        std::to_string(window.pageCount);
+    const SRecoveredModSelectorSnapshot* selector =
+        RecoveredModProfile_Snapshot();
+    if (selector != nullptr && g_inGameShellState.selected > 0u &&
+        g_inGameShellState.selected <= selector->candidates.size()) {
+      const SRecoveredModSelectorCandidate& candidate =
+          selector->candidates[g_inGameShellState.selected - 1u];
+      detail += "  " + candidate.reason;
+    }
+    ShellPrint(72, 394, detail);
   }
   if (!g_inGameShellState.lastError.empty())
     ShellPrint(72, 410, "ERROR: " + g_inGameShellState.lastError);
   else if (!g_inGameShellState.status.empty())
     ShellPrint(72, 410, g_inGameShellState.status);
-  ShellPrint(72, 428, "Arrows: select   Enter: accept   Esc: back");
+  ShellPrint(72, 428,
+             g_inGameShellState.page == RECOVERED_SHELL_PAGE_MODS
+                 ? "Arrows/PgUp/PgDn/Home/End   Enter: accept   Esc: back"
+                 : "Arrows: select   Enter: accept   Esc: back");
 }
 
 bool ProcessPendingInGameShellVideoCommand() {

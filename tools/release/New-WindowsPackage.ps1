@@ -81,7 +81,7 @@ Copy-PackageFile $validatorSource 'rr2nw-mod-validator.exe'
 Copy-PackageFile (Join-Path $repositoryRoot 'packaging\windows\README.txt') 'README.txt'
 Copy-PackageFile (Join-Path $repositoryRoot 'License.txt') 'License.txt'
 Copy-PackageFile (Join-Path $repositoryRoot 'CHANGELOG.md') 'CHANGELOG.md'
-foreach ($document in @('Modding.md', 'ManualAcceptance.md', 'DataProvenance.md', 'ReleaseProcess.md', 'WindowsPackage.md', 'DebugMenu.md')) {
+foreach ($document in @('Modding.md', 'ModProfiles.md', 'ManualAcceptance.md', 'DataProvenance.md', 'ReleaseProcess.md', 'WindowsPackage.md', 'DebugMenu.md')) {
     Copy-PackageFile (Join-Path $repositoryRoot "docs\$document") "docs\$document"
 }
 Copy-PackageFile (Join-Path $repositoryRoot 'tools\release\Invoke-WindowsManualCampaign.ps1') 'tools\Invoke-WindowsManualCampaign.ps1'
@@ -113,6 +113,17 @@ function Invoke-NativeCapture([string]$Executable, [string[]]$Arguments) {
     return [pscustomobject]@{ ExitCode = $exitCode; Text = ($lines -join "`n").Trim() }
 }
 
+function Read-KeyValueReport([string]$Path) {
+    $values = @{}
+    foreach ($line in Get-Content -LiteralPath $Path) {
+        $separator = $line.IndexOf('=')
+        if ($separator -gt 0) {
+            $values[$line.Substring(0, $separator)] = $line.Substring($separator + 1)
+        }
+    }
+    return $values
+}
+
 $validatorEvidence = Join-Path $outputPath 'staged-validator.txt'
 $validated = Invoke-NativeCapture (Join-Path $stageRoot 'rr2nw-mod-validator.exe') @(
     '--data-dir', $dataPath,
@@ -125,6 +136,7 @@ if ($validated.ExitCode -ne 0 -or $validated.Text -notmatch '(?m)^status=valid\r
     $validated.Text -notmatch '(?m)^script_events=valid\r?$') {
     throw "Staged validator rejected bundled examples`n$($validated.Text)"
 }
+$stagedValidatorReport = Read-KeyValueReport $validatorEvidence
 
 function Read-PePolicy([string]$Path) {
     $stream = [IO.File]::OpenRead($Path)
@@ -247,12 +259,28 @@ foreach ($record in $unpackedManifest.files) {
     }
 }
 
+$unpackedValidatorEvidence = Join-Path $outputPath 'unpacked-validator.txt'
 $unpackedValidation = Invoke-NativeCapture (Join-Path $unpackedRoot 'rr2nw-mod-validator.exe') @(
     '--data-dir', $dataPath,
-    '--mods-dir', (Join-Path $unpackedRoot 'examples\mods')
+    '--mods-dir', (Join-Path $unpackedRoot 'examples\mods'),
+    '--report', $unpackedValidatorEvidence
 )
 if ($unpackedValidation.ExitCode -ne 0 -or $unpackedValidation.Text -notmatch '(?m)^status=valid\r?$') {
     throw "Unpacked validator failed`n$($unpackedValidation.Text)"
+}
+$unpackedValidatorReport = Read-KeyValueReport $unpackedValidatorEvidence
+$identityKeys = @('mods', 'fingerprint', 'mount_order') + @(
+    $stagedValidatorReport.Keys | Where-Object { $_ -match '^package_[0-9]+$' } | Sort-Object
+)
+foreach ($key in $identityKeys) {
+    if (-not $stagedValidatorReport.ContainsKey($key) -or
+        -not $unpackedValidatorReport.ContainsKey($key) -or
+        [string]$stagedValidatorReport[$key] -ne [string]$unpackedValidatorReport[$key]) {
+        throw "Packaged validator identity changed for '$key'"
+    }
+}
+if (-not [IO.File]::Exists((Join-Path $unpackedRoot 'docs\ModProfiles.md'))) {
+    throw 'Packaged mod-profile documentation is missing'
 }
 
 function Quote-NativeArgument([string]$Value) {
@@ -316,6 +344,9 @@ $summary = [pscustomobject][ordered]@{
     archive_sha256 = $archiveHash
     package_files = @(Get-ChildItem -LiteralPath $stageRoot -Recurse -File).Count
     validator_mods = 6
+    validator_fingerprint = [string]$unpackedValidatorReport['fingerprint']
+    validator_mount_order = [string]$unpackedValidatorReport['mount_order']
+    validator_identities_equal = $true
     base_runtime = $baseResult
     example_mod_runtime = $modResult
     game_subsystem = $gamePe.Subsystem

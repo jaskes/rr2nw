@@ -237,6 +237,12 @@ void RefreshSnapshot() {
       FindProfile(g_state.committed, g_state.committed.activeProfile);
   snapshot.stagedProfileIndex =
       FindProfile(g_state.staged, g_state.staged.activeProfile);
+  snapshot.profileCount =
+      static_cast<unsigned int>(g_state.staged.profiles.size());
+  snapshot.canDeleteStagedProfile =
+      g_state.profileMode && !g_state.safeMode && !g_state.cliOverride &&
+      g_state.staged.profiles.size() > 1u &&
+      g_state.staged.activeProfile != "default";
 
   std::vector<std::string> requested;
   std::size_t explicitCount = 0u;
@@ -254,6 +260,7 @@ void RefreshSnapshot() {
     BuildPlan(requested, 0u, false, &g_state.stagedPlan);
   }
   snapshot.planReady = g_state.stagedPlan.ready;
+  snapshot.planIssues = g_state.stagedPlan.issues;
   snapshot.stagedFingerprint = g_state.stagedPlan.modFingerprint;
   snapshot.activePackageCount =
       static_cast<unsigned int>(g_state.stagedPlan.packages.size());
@@ -311,6 +318,7 @@ void RefreshSnapshot() {
       }
       if (!g_state.stagedPlan.ready && candidate.explicitlySelected) {
         candidate.state = RECOVERED_MOD_SELECTOR_BLOCKED;
+        candidate.issue = g_state.stagedPlan.issues;
         candidate.reason = g_state.stagedPlan.reason;
       } else if (candidate.explicitlySelected) {
         candidate.state = RECOVERED_MOD_SELECTOR_SELECTED;
@@ -748,6 +756,35 @@ bool RecoveredModProfile_ResetStaged() {
   return true;
 }
 
+bool RecoveredModProfile_DeleteStaged() {
+  if (!g_state.configured || g_state.safeMode || g_state.cliOverride ||
+      g_state.staged.profiles.size() <= 1u) {
+    g_state.snapshot.status =
+        "Cannot delete a profile in this selector mode";
+    return false;
+  }
+  const std::size_t index =
+      FindProfile(g_state.staged, g_state.staged.activeProfile);
+  if (index >= g_state.staged.profiles.size() ||
+      g_state.staged.profiles[index].name == "default") {
+    g_state.snapshot.status =
+        "The canonical default profile cannot be deleted";
+    return false;
+  }
+  const std::size_t defaultIndex = FindProfile(g_state.staged, "default");
+  if (defaultIndex >= g_state.staged.profiles.size()) {
+    g_state.snapshot.status =
+        "Cannot delete: the canonical default profile is missing";
+    return false;
+  }
+  g_state.staged.profiles.erase(g_state.staged.profiles.begin() + index);
+  g_state.staged.activeProfile = "default";
+  g_state.snapshot.status =
+      "Profile deletion staged; apply to commit it";
+  RefreshSnapshot();
+  return true;
+}
+
 bool RecoveredModProfile_CommitStaged() {
   if (!g_state.configured || g_state.safeMode || g_state.cliOverride ||
       !g_state.snapshot.dirty || !g_state.stagedPlan.ready) {
@@ -785,6 +822,121 @@ bool RecoveredModProfile_CommitStaged() {
 
 void RecoveredModProfile_FailNextAtomicCommitForTesting() {
   g_failNextAtomicCommit = true;
+}
+
+bool RecoveredModProfile_SelectorWindow(
+    std::size_t itemCount, std::size_t selected, std::size_t visibleRows,
+    SRecoveredModSelectorWindow* window) {
+  if (window == nullptr || itemCount == 0u || visibleRows == 0u ||
+      selected >= itemCount)
+    return false;
+  SRecoveredModSelectorWindow result;
+  const std::size_t admitted = (std::min)(visibleRows, itemCount);
+  result.first = selected >= admitted ? selected - admitted + 1u : 0u;
+  if (result.first + admitted > itemCount)
+    result.first = itemCount - admitted;
+  result.onePastLast = result.first + admitted;
+  result.pageCount = (itemCount + visibleRows - 1u) / visibleRows;
+  result.page = selected / visibleRows;
+  *window = result;
+  return true;
+}
+
+std::size_t RecoveredModProfile_PageSelection(
+    std::size_t itemCount, std::size_t selected, std::size_t visibleRows,
+    int direction) {
+  if (itemCount == 0u || visibleRows == 0u) return 0u;
+  selected = (std::min)(selected, itemCount - 1u);
+  if (direction < 0)
+    return selected > visibleRows ? selected - visibleRows : 0u;
+  if (direction > 0)
+    return (std::min)(itemCount - 1u, selected + visibleRows);
+  return selected;
+}
+
+ERecoveredModCompatibilityCategory
+RecoveredModProfile_CompatibilityCategory(unsigned int issues) {
+  if (issues == 0u) return RECOVERED_MOD_COMPATIBILITY_READY;
+  if ((issues & RECOVERED_MOD_MISSING_DEPENDENCY) != 0u)
+    return RECOVERED_MOD_COMPATIBILITY_MISSING_DEPENDENCY;
+  if ((issues & RECOVERED_MOD_DEPENDENCY_VERSION) != 0u)
+    return RECOVERED_MOD_COMPATIBILITY_DEPENDENCY_VERSION;
+  if ((issues & (RECOVERED_MOD_CONFLICT |
+                 RECOVERED_MOD_TARGET_CONFLICT |
+                 RECOVERED_MOD_LEVEL_COLLISION)) != 0u)
+    return RECOVERED_MOD_COMPATIBILITY_CONFLICT;
+  if ((issues & RECOVERED_MOD_ORDER_CYCLE) != 0u)
+    return RECOVERED_MOD_COMPATIBILITY_CYCLE;
+  if ((issues & (RECOVERED_MOD_INVALID_DIRECTORY |
+                 RECOVERED_MOD_INVALID_BASE_ROOT |
+                 RECOVERED_MOD_PATH_OUTSIDE_ROOT |
+                 RECOVERED_MOD_MISSING_SOURCE |
+                 RECOVERED_MOD_PATH_FAILURE)) != 0u)
+    return RECOVERED_MOD_COMPATIBILITY_UNAVAILABLE_CONTENT;
+  if ((issues & (RECOVERED_MOD_CANDIDATE_LIMIT |
+                 RECOVERED_MOD_FILE_TOO_LARGE |
+                 RECOVERED_MOD_TOTAL_SIZE_LIMIT |
+                 RECOVERED_MOD_STACK_LIMIT |
+                 RECOVERED_MOD_ALLOCATION_FAILURE)) != 0u)
+    return RECOVERED_MOD_COMPATIBILITY_LIMIT;
+  if ((issues & (RECOVERED_MOD_MISSING_MANIFEST |
+                 RECOVERED_MOD_MANIFEST_TOO_LARGE |
+                 RECOVERED_MOD_MANIFEST_MALFORMED |
+                 RECOVERED_MOD_UNSUPPORTED_SCHEMA |
+                 RECOVERED_MOD_UNSUPPORTED_ENGINE |
+                 RECOVERED_MOD_INVALID_ID |
+                 RECOVERED_MOD_INVALID_VERSION |
+                 RECOVERED_MOD_INVALID_FILE_ENTRY |
+                 RECOVERED_MOD_DUPLICATE_TARGET |
+                 RECOVERED_MOD_INVALID_LEVEL_ENTRY |
+                 RECOVERED_MOD_DUPLICATE_LEVEL |
+                 RECOVERED_MOD_MISSING_LEVEL_BASE |
+                 RECOVERED_MOD_DUPLICATE_ID |
+                 RECOVERED_MOD_INVALID_RELATION)) != 0u)
+    return RECOVERED_MOD_COMPATIBILITY_INVALID_MANIFEST;
+  return RECOVERED_MOD_COMPATIBILITY_INVALID_REQUEST;
+}
+
+const char* RecoveredModProfile_CompatibilityKey(
+    ERecoveredModCompatibilityCategory category) {
+  switch (category) {
+    case RECOVERED_MOD_COMPATIBILITY_READY: return "ready";
+    case RECOVERED_MOD_COMPATIBILITY_INVALID_MANIFEST:
+      return "invalid-manifest";
+    case RECOVERED_MOD_COMPATIBILITY_MISSING_DEPENDENCY:
+      return "missing-dependency";
+    case RECOVERED_MOD_COMPATIBILITY_DEPENDENCY_VERSION:
+      return "dependency-version";
+    case RECOVERED_MOD_COMPATIBILITY_CONFLICT: return "conflict";
+    case RECOVERED_MOD_COMPATIBILITY_CYCLE: return "cycle";
+    case RECOVERED_MOD_COMPATIBILITY_UNAVAILABLE_CONTENT:
+      return "unavailable-content";
+    case RECOVERED_MOD_COMPATIBILITY_LIMIT: return "capacity-limit";
+    case RECOVERED_MOD_COMPATIBILITY_INVALID_REQUEST:
+      return "invalid-request";
+  }
+  return "invalid-request";
+}
+
+const char* RecoveredModProfile_CompatibilityLabel(
+    ERecoveredModCompatibilityCategory category) {
+  switch (category) {
+    case RECOVERED_MOD_COMPATIBILITY_READY: return "Ready";
+    case RECOVERED_MOD_COMPATIBILITY_INVALID_MANIFEST:
+      return "Invalid manifest";
+    case RECOVERED_MOD_COMPATIBILITY_MISSING_DEPENDENCY:
+      return "Missing dependency";
+    case RECOVERED_MOD_COMPATIBILITY_DEPENDENCY_VERSION:
+      return "Dependency version mismatch";
+    case RECOVERED_MOD_COMPATIBILITY_CONFLICT: return "Conflict";
+    case RECOVERED_MOD_COMPATIBILITY_CYCLE: return "Dependency cycle";
+    case RECOVERED_MOD_COMPATIBILITY_UNAVAILABLE_CONTENT:
+      return "Content unavailable";
+    case RECOVERED_MOD_COMPATIBILITY_LIMIT: return "Capacity limit";
+    case RECOVERED_MOD_COMPATIBILITY_INVALID_REQUEST:
+      return "Invalid request";
+  }
+  return "Invalid request";
 }
 
 const char* RecoveredModProfile_ErrorName(ERecoveredModProfileError error) {

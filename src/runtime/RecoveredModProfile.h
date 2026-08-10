@@ -63,6 +63,25 @@ struct SRecoveredModSelectorCandidate {
   std::string reason;
 };
 
+enum ERecoveredModCompatibilityCategory {
+  RECOVERED_MOD_COMPATIBILITY_READY = 0,
+  RECOVERED_MOD_COMPATIBILITY_INVALID_MANIFEST = 1,
+  RECOVERED_MOD_COMPATIBILITY_MISSING_DEPENDENCY = 2,
+  RECOVERED_MOD_COMPATIBILITY_DEPENDENCY_VERSION = 3,
+  RECOVERED_MOD_COMPATIBILITY_CONFLICT = 4,
+  RECOVERED_MOD_COMPATIBILITY_CYCLE = 5,
+  RECOVERED_MOD_COMPATIBILITY_UNAVAILABLE_CONTENT = 6,
+  RECOVERED_MOD_COMPATIBILITY_LIMIT = 7,
+  RECOVERED_MOD_COMPATIBILITY_INVALID_REQUEST = 8
+};
+
+struct SRecoveredModSelectorWindow {
+  std::size_t first = 0;
+  std::size_t onePastLast = 0;
+  std::size_t page = 0;
+  std::size_t pageCount = 0;
+};
+
 struct SRecoveredModSelectorSnapshot {
   bool configured = false;
   bool safeMode = false;
@@ -72,8 +91,11 @@ struct SRecoveredModSelectorSnapshot {
   bool planReady = false;
   bool dirty = false;
   bool restartRequired = false;
+  bool canDeleteStagedProfile = false;
   std::size_t activeProfileIndex = 0;
   std::size_t stagedProfileIndex = 0;
+  unsigned int profileCount = 0;
+  unsigned int planIssues = 0;
   unsigned int candidateCount = 0;
   unsigned int activePackageCount = 0;
   unsigned int invalidCandidateCount = 0;
@@ -127,7 +149,24 @@ bool RecoveredModProfile_StartupSelection(
 bool RecoveredModProfile_SelectRelative(int direction);
 bool RecoveredModProfile_ToggleCandidate(std::size_t index);
 bool RecoveredModProfile_ResetStaged();
+bool RecoveredModProfile_DeleteStaged();
 bool RecoveredModProfile_CommitStaged();
+
+// Pure bounded selector helpers. The in-frame shell uses the same window and
+// page-step contract as the headless smoke, so all 128 candidates plus fixed
+// action rows remain reachable inside the 640x480 presentation.
+bool RecoveredModProfile_SelectorWindow(
+    std::size_t itemCount, std::size_t selected, std::size_t visibleRows,
+    SRecoveredModSelectorWindow* window);
+std::size_t RecoveredModProfile_PageSelection(
+    std::size_t itemCount, std::size_t selected, std::size_t visibleRows,
+    int direction);
+ERecoveredModCompatibilityCategory
+RecoveredModProfile_CompatibilityCategory(unsigned int issues);
+const char* RecoveredModProfile_CompatibilityKey(
+    ERecoveredModCompatibilityCategory category);
+const char* RecoveredModProfile_CompatibilityLabel(
+    ERecoveredModCompatibilityCategory category);
 
 // Deterministic test-only failure after the complete temporary file is
 // flushed but before it can replace the committed profile.

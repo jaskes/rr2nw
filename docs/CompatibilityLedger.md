@@ -6003,10 +6003,83 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   retained under the ignored build verification root. The release claim uses
   the independently green profile, CLI, save/load, campaign, Portal and
   presentation gates, while this observation remains open.
-- Revisit when: the fresh reconstruction contract is next changed. Add
-  predicate-local telemetry around its final explicit frame before changing
-  timing tolerance or lifecycle behavior; a passing retry alone is not proof
-  of a fix.
+- Instrumentation: the reconstruction failure now records the exact initial
+  and reconstructed People fingerprint, gameplay-RNG draw count, whether the
+  final explicit-frame predicate was reached, call success, target/before/after
+  view time, simulation ticks, presentation counts and frame seconds. The
+  adjacent parity record retains both issue owners. Evaluation order remains
+  short-circuited and no retry or tolerance was added.
+- Revisit when: another occurrence supplies this predicate-local record. Do
+  not change timing tolerance or lifecycle ownership without that evidence.
+
+### CQ-283: profile creation and rename need a bounded text-input owner
+
+- Status: `EVIDENCE_BOUNDARY`, not a resolver or codec failure.
+- Evidence: the in-frame shell consumes character messages while open but owns
+  no edit buffer, caret, IME path, validated UTF/ASCII projection or atomic
+  commit/cancel lifecycle. Reusing key-binding capture would conflate virtual
+  keys with text and make focus/dead-key handling unsafe.
+- Handling: existing valid profiles can be selected and confirmed-deleted;
+  `default` is protected. Creation/rename is not exposed until a dedicated
+  bounded owner exists. Compatibility message keys are stable meanwhile.
+- Revisit when: M2.5 adds a reusable text-entry widget with focus loss,
+  truncation, duplicate/invalid-name rejection and rollback tests.
+
+### CQ-284: physical-input smoke used the wrong clock owner
+
+- Status: `SESSION_CLOCK_ALIGNED`, `LEVEL06N_12_OF_12`.
+- Evidence: the complete fresh matrix first exposed an intermittent Debug
+  `Level.06N` failure in the safe Vehicle exit/Taxi re-entry probe. Two of
+  eight repeated processes reported a direct Taxi distance below the authored
+  20-unit radius, but the later translated F1 action reported `no target` after
+  wall-clock/Session skew let extra physics run. A separate process showed
+  that the X predicate also incorrectly required positive pre-stop speed even
+  after authored geometry had already stopped the Vehicle.
+- Cause: the smoke-only `SendHardwareButton` helper still stamped translated
+  events with `m_realTimer`, while production Windows input has used
+  authoritative `Session::m_moment` since CQ-278. Under a loaded Debug host,
+  the synthetic button could therefore become a future legacy event. The
+  stop check also confused a geometry-dependent precondition with the bounded
+  result of STOP.
+- Handling: synthetic Hardware events now use the production Session clock.
+  The explicit post-F1 queue boundary starts the source-authored re-entry once;
+  it does not retry, enlarge the 20-unit radius or extend the travel deadline.
+  The stop predicate still rejects speed above 64 and every stability recovery
+  but accepts an already stopped Vehicle. Exit/re-entry failures now print the
+  exact distance, speed, frame budget, Session times, population and handoff
+  counters.
+- Verification: the exact installed `Level.06N` Debug acceptance passed 12/12
+  independent processes after clock alignment. The earlier failed runs and
+  predicate-local records remain in ignored verification evidence; no retry is
+  part of the gate.
+- Boundary: this changes only the acceptance clock/sequencing owner. Production
+  input, Taxi/Vehicle simulation, authored activation distance and travel law
+  are unchanged.
+
+### CQ-285: Explosion trace draw proof crossed two Session clock frontiers
+
+- Status: `SYNTHETIC_TRACE_CLOCK_ALIGNED`, `LEVEL07N_12_OF_12`.
+- Evidence: the final Debug fresh matrix reached the complete `Level.07N`
+  service smoke but captured zero draws for three valid traced Smoke puffs.
+  Parent detach, rollback, object counts and event cleanup all passed. The
+  failure record showed `m_moment=0.1`, `m_viewTime=1.23` and a first-puff
+  timestamp of `0.18`: the payload had expired before its first captured frame.
+- Cause: `m_moment` records the last dispatched legacy event, while
+  `m_viewTime` records the committed frame frontier. This synchronous probe
+  prepared its authored events between frames and used only the former; a
+  loaded Debug host could therefore expose the stale-event gap when the next
+  natural frame sampled time.
+- Handling: trace admission uses `max(m_moment, m_viewTime)` before its existing
+  three-frame draw proof. There is no retry, lifetime extension, relaxed draw
+  count or production Explosion/Smoke change. Explicit fixed-step replacement
+  was tested and rejected because it disturbed adjacent live Vehicle/Spark
+  ownership; it is not part of the accepted change.
+- Verification: the exact installed Debug `Level.07N` acceptance passed 12/12
+  independent processes. The original failed matrix and predicate-local record
+  remain under the ignored verification root.
+- Boundary: this is a deterministic synthetic-proof owner only. Retail event
+  dispatch, Smoke expiry, Explosion scheduling and renderer behavior are
+  unchanged.
 
 ## Maintenance rule
 

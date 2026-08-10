@@ -6946,3 +6946,26 @@ payload cannot be encoded in the profile catalog.
 This boundary deliberately postpones hot reload, remote acquisition and
 script/native plugin APIs. They cannot reuse the profile file as authority
 without separate lifetime, security and rollback contracts.
+
+### BD-218: selector UX is bounded; profile text editing needs its own owner
+
+Status: accepted on 2026-08-10 for M5 selector completeness.
+
+The preserved 640x480 shell can display seventeen rows while discovery admits
+128 candidates. Selection therefore remains one global deterministic index;
+the presentation derives a bounded sliding window and PageUp/PageDown/Home/End
+without changing package order. A pure smoke proves all 133 candidate/action
+rows, and the real window reaches the exact terminal row with 128 generated
+packages.
+
+Profile activation and deletion operate only on staged `RR2MODPROFILE1`
+state. Deletion requires two Enter presses, cannot remove `default`, and does
+not touch disk until the normal atomic Apply. CLI and safe mode expose the same
+catalog as read-only. Manifest/dependency/conflict failures are reduced to
+stable localization keys before display while the exact production reason is
+retained; neither representation contains physical paths.
+
+The current shell consumes `WM_CHAR` but owns no bounded edit buffer, caret,
+IME or commit/cancel transaction. Create/rename is therefore not approximated
+with raw message bytes. It remains blocked on a genuine text-input owner, as do
+translated labels beyond the now-stable compatibility keys.
