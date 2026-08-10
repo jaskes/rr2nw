@@ -38,7 +38,12 @@ if (-not $SkipBuild) {
 $buildRoot = Join-Path $repositoryRoot "build\windows-msvc-x86\$Configuration"
 $gameSource = Join-Path $buildRoot 'rr2nw.exe'
 $validatorSource = Join-Path $buildRoot 'rr2nw-mod-validator.exe'
-foreach ($required in @($gameSource, $validatorSource)) {
+$gamePdbSource = Join-Path $buildRoot 'rr2nw.pdb'
+$gameMapSource = Join-Path $buildRoot 'rr2nw.map'
+$validatorPdbSource = Join-Path $buildRoot 'rr2nw-mod-validator.pdb'
+$validatorMapSource = Join-Path $buildRoot 'rr2nw-mod-validator.map'
+foreach ($required in @($gameSource, $validatorSource, $gamePdbSource,
+        $gameMapSource, $validatorPdbSource, $validatorMapSource)) {
     if (-not [IO.File]::Exists($required)) {
         throw "Package input missing: $required"
     }
@@ -78,6 +83,10 @@ function Copy-PackageFile([string]$Source, [string]$Relative) {
 
 Copy-PackageFile $gameSource 'rr2nw.exe'
 Copy-PackageFile $validatorSource 'rr2nw-mod-validator.exe'
+Copy-PackageFile $gamePdbSource 'rr2nw.pdb'
+Copy-PackageFile $gameMapSource 'rr2nw.map'
+Copy-PackageFile $validatorPdbSource 'rr2nw-mod-validator.pdb'
+Copy-PackageFile $validatorMapSource 'rr2nw-mod-validator.map'
 Copy-PackageFile (Join-Path $repositoryRoot 'packaging\windows\README.txt') 'README.txt'
 Copy-PackageFile (Join-Path $repositoryRoot 'License.txt') 'License.txt'
 Copy-PackageFile (Join-Path $repositoryRoot 'CHANGELOG.md') 'CHANGELOG.md'
@@ -137,6 +146,7 @@ if ($validated.ExitCode -ne 0 -or $validated.Text -notmatch '(?m)^status=valid\r
     throw "Staged validator rejected bundled examples`n$($validated.Text)"
 }
 $stagedValidatorReport = Read-KeyValueReport $validatorEvidence
+Copy-PackageFile $validatorEvidence 'docs\compatibility-report.txt'
 
 function Read-PePolicy([string]$Path) {
     $stream = [IO.File]::OpenRead($Path)
@@ -165,12 +175,113 @@ function Read-PePolicy([string]$Path) {
     }
 }
 
+function Read-PeSymbolIdentity([string]$Path) {
+    $stream = [IO.File]::OpenRead($Path)
+    $reader = [IO.BinaryReader]::new($stream)
+    try {
+        $stream.Position = 0x3c
+        $peOffset = $reader.ReadInt32()
+        if ($peOffset -lt 0x40 -or $peOffset -gt ($stream.Length - 256)) {
+            throw 'invalid PE offset for symbol identity'
+        }
+        $stream.Position = $peOffset
+        if ($reader.ReadUInt32() -ne 0x00004550) { throw 'invalid PE signature' }
+        $stream.Position = $peOffset + 6
+        $sectionCount = $reader.ReadUInt16()
+        $stream.Position = $peOffset + 20
+        $optionalSize = $reader.ReadUInt16()
+        $optionalOffset = $peOffset + 24
+        $stream.Position = $optionalOffset
+        if ($reader.ReadUInt16() -ne 0x010b) { throw 'symbol owner is not PE32' }
+        $stream.Position = $optionalOffset + 56
+        $imageSize = $reader.ReadUInt32()
+        $headerSize = $reader.ReadUInt32()
+        $stream.Position = $optionalOffset + 96 + (6 * 8)
+        $debugRva = $reader.ReadUInt32()
+        $debugSize = $reader.ReadUInt32()
+        if ($debugRva -eq 0 -or $debugSize -lt 28 -or ($debugSize % 28) -ne 0) {
+            throw 'PE has no bounded debug directory'
+        }
+        $sections = @()
+        $sectionOffset = $optionalOffset + $optionalSize
+        for ($index = 0; $index -lt $sectionCount; ++$index) {
+            $stream.Position = $sectionOffset + ($index * 40) + 8
+            $virtualSize = $reader.ReadUInt32()
+            $virtualAddress = $reader.ReadUInt32()
+            $rawSize = $reader.ReadUInt32()
+            $rawOffset = $reader.ReadUInt32()
+            $sections += [pscustomobject]@{
+                VirtualAddress = [uint64]$virtualAddress
+                Span = [uint64][Math]::Max($virtualSize, $rawSize)
+                RawOffset = [uint64]$rawOffset
+            }
+        }
+        $debugOffset = $null
+        if ([uint64]$debugRva -lt [uint64]$headerSize) {
+            $debugOffset = [uint64]$debugRva
+        } else {
+            foreach ($section in $sections) {
+                if ([uint64]$debugRva -ge $section.VirtualAddress -and
+                    [uint64]$debugRva -lt ($section.VirtualAddress + $section.Span)) {
+                    $debugOffset = $section.RawOffset +
+                        ([uint64]$debugRva - $section.VirtualAddress)
+                    break
+                }
+            }
+        }
+        if ($null -eq $debugOffset -or
+            $debugOffset + [uint64]$debugSize -gt [uint64]$stream.Length) {
+            throw 'PE debug directory does not map into the file'
+        }
+        for ($index = 0; $index -lt ($debugSize / 28); ++$index) {
+            $stream.Position = [int64]$debugOffset + ($index * 28) + 12
+            $type = $reader.ReadUInt32()
+            $recordSize = $reader.ReadUInt32()
+            $reader.ReadUInt32() | Out-Null
+            $recordOffset = $reader.ReadUInt32()
+            if ($type -ne 2 -or $recordSize -lt 25 -or
+                ([uint64]$recordOffset + [uint64]$recordSize) -gt [uint64]$stream.Length) {
+                continue
+            }
+            $stream.Position = $recordOffset
+            if ($reader.ReadUInt32() -ne 0x53445352) { continue }
+            $guidBytes = $reader.ReadBytes(16)
+            $age = $reader.ReadUInt32()
+            $nameBytes = $reader.ReadBytes([int]$recordSize - 24)
+            $terminator = [Array]::IndexOf($nameBytes, [byte]0)
+            if ($terminator -lt 1) { throw 'CodeView PDB name is not terminated' }
+            $embedded = [Text.Encoding]::UTF8.GetString($nameBytes, 0, $terminator)
+            return [pscustomobject][ordered]@{
+                image_size = [uint64]$imageSize
+                pdb_name = [IO.Path]::GetFileName($embedded)
+                pdb_embedded = $embedded
+                pdb_signature = ([Guid]::new($guidBytes)).ToString().ToUpperInvariant()
+                pdb_age = [uint32]$age
+            }
+        }
+        throw 'PE has no RSDS CodeView identity'
+    }
+    finally {
+        $reader.Dispose()
+        $stream.Dispose()
+    }
+}
+
 $gamePe = Read-PePolicy (Join-Path $stageRoot 'rr2nw.exe')
 $validatorPe = Read-PePolicy (Join-Path $stageRoot 'rr2nw-mod-validator.exe')
+$gameSymbols = Read-PeSymbolIdentity (Join-Path $stageRoot 'rr2nw.exe')
+$validatorSymbols = Read-PeSymbolIdentity (Join-Path $stageRoot 'rr2nw-mod-validator.exe')
 if ($gamePe.Subsystem -ne 2 -or $validatorPe.Subsystem -ne 3 -or
     -not $gamePe.DynamicBase -or -not $gamePe.NxCompat -or
     -not $validatorPe.DynamicBase -or -not $validatorPe.NxCompat) {
     throw "PE policy failed: game=$($gamePe | ConvertTo-Json -Compress) validator=$($validatorPe | ConvertTo-Json -Compress)"
+}
+if ($gameSymbols.pdb_name -ne 'rr2nw.pdb' -or
+    $validatorSymbols.pdb_name -ne 'rr2nw-mod-validator.pdb' -or
+    $gameSymbols.pdb_embedded -ne $gameSymbols.pdb_name -or
+    $validatorSymbols.pdb_embedded -ne $validatorSymbols.pdb_name -or
+    $gameSymbols.pdb_age -eq 0 -or $validatorSymbols.pdb_age -eq 0) {
+    throw "Portable CodeView identity failed: game=$($gameSymbols | ConvertTo-Json -Compress) validator=$($validatorSymbols | ConvertTo-Json -Compress)"
 }
 
 function Get-RelativePackagePath([string]$FullName) {
@@ -202,14 +313,42 @@ $fileRecords = @(Get-ChildItem -LiteralPath $stageRoot -Recurse -File |
             sha256 = Get-Sha256Hex $_.FullName
         }
     })
+$binaryRecords = @(
+    [pscustomobject][ordered]@{
+        role = 'game'
+        image = 'rr2nw.exe'
+        image_sha256 = Get-Sha256Hex (Join-Path $stageRoot 'rr2nw.exe')
+        pdb = 'rr2nw.pdb'
+        pdb_sha256 = Get-Sha256Hex (Join-Path $stageRoot 'rr2nw.pdb')
+        map = 'rr2nw.map'
+        map_sha256 = Get-Sha256Hex (Join-Path $stageRoot 'rr2nw.map')
+        codeview_signature = $gameSymbols.pdb_signature
+        codeview_age = $gameSymbols.pdb_age
+    },
+    [pscustomobject][ordered]@{
+        role = 'validator'
+        image = 'rr2nw-mod-validator.exe'
+        image_sha256 = Get-Sha256Hex (Join-Path $stageRoot 'rr2nw-mod-validator.exe')
+        pdb = 'rr2nw-mod-validator.pdb'
+        pdb_sha256 = Get-Sha256Hex (Join-Path $stageRoot 'rr2nw-mod-validator.pdb')
+        map = 'rr2nw-mod-validator.map'
+        map_sha256 = Get-Sha256Hex (Join-Path $stageRoot 'rr2nw-mod-validator.map')
+        codeview_signature = $validatorSymbols.pdb_signature
+        codeview_age = $validatorSymbols.pdb_age
+    }
+)
+$releaseEligible = $Configuration -eq 'Release' -and
+    $revision -ne 'unknown' -and $revision -notmatch '(?i)-dirty$'
 $manifest = [pscustomobject][ordered]@{
-    schema = 1
+    schema = 2
     product = 'RR2NW'
     version = $version
     revision = $revision
     configuration = $Configuration
     architecture = 'x86'
+    release_eligible = $releaseEligible
     retail_data_included = $false
+    binaries = $binaryRecords
     files = $fileRecords
 }
 $manifestJson = $manifest | ConvertTo-Json -Depth 5
@@ -287,16 +426,31 @@ function Quote-NativeArgument([string]$Value) {
     if ($Value -notmatch '[\s"]') { return $Value }
     return '"' + ($Value -replace '"', '\"') + '"'
 }
-function Invoke-PackagedRuntime([string]$Label, [string[]]$ExtraArguments) {
+function Write-RetailSelection([string]$Path, [string]$Directory) {
+    $encoded = ([Text.Encoding]::UTF8.GetBytes($Directory) | ForEach-Object {
+        $_.ToString('x2')
+    }) -join ''
+    [IO.File]::WriteAllText($Path,
+        "RR2DATA1`r`nversion=1`r`npath_hex=$encoded`r`n", $utf8)
+}
+function Invoke-PackagedRuntime([string]$Label, [string[]]$ExtraArguments,
+                                [bool]$UseExplicitData = $true,
+                                [bool]$WritePersistedSelection = $false) {
     $caseRoot = Join-Path $outputPath "runtime-$Label"
     $diagnostics = Join-Path $caseRoot 'diagnostics'
     $saves = Join-Path $caseRoot 'saves'
+    $settings = Join-Path $caseRoot 'settings.cfg'
     [IO.Directory]::CreateDirectory($diagnostics) | Out-Null
-    $arguments = @(
-        '--runtime-smoke', '--data-dir', $dataPath,
+    if ($WritePersistedSelection) {
+        Write-RetailSelection (Join-Path $caseRoot 'retail-data.cfg') $dataPath
+    }
+    $arguments = @('--runtime-smoke')
+    if ($UseExplicitData) { $arguments += @('--data-dir', $dataPath) }
+    $arguments += @(
         '--start-level', 'Level.03N',
         '--diagnostics-dir', $diagnostics,
-        '--save-dir', $saves
+        '--save-dir', $saves,
+        '--settings-file', $settings
     ) + $ExtraArguments
     $line = ($arguments | ForEach-Object { Quote-NativeArgument $_ }) -join ' '
     $process = Start-Process -FilePath (Join-Path $unpackedRoot 'rr2nw.exe') `
@@ -312,18 +466,26 @@ function Invoke-PackagedRuntime([string]$Label, [string[]]$ExtraArguments) {
         $log -notmatch '(?m)^runtime_shutdown=clean\r?$') {
         throw "Packaged runtime '$Label' has no clean level-ready proof"
     }
+    $expectedSource = if ($UseExplicitData) { 'command-line' } else { 'persisted-selection' }
+    if ($log -notmatch "(?m)^retail_data_source=$expectedSource`r?$") {
+        throw "Packaged runtime '$Label' did not prove $expectedSource precedence"
+    }
     return $logPath
 }
 
 $baseLog = ''
 $modLog = ''
+$persistedLog = ''
 $baseResult = 'SKIPPED'
 $modResult = 'SKIPPED'
+$persistedDataResult = 'SKIPPED'
+$corruptDataResult = 'SKIPPED'
 if (-not $SkipRuntimeSmoke) {
-    $baseLog = Invoke-PackagedRuntime 'base' @()
+    $baseLog = Invoke-PackagedRuntime 'base' @() $true $true
     $modLog = Invoke-PackagedRuntime 'example-mod' @(
         '--mod-dir', (Join-Path $unpackedRoot 'examples\mods\rr2nw.example.data-pack')
     )
+    $persistedLog = Invoke-PackagedRuntime 'persisted-data' @() $false $true
     $modText = [IO.File]::ReadAllText($modLog)
     if ($modText -notmatch '(?m)^mod_active=1\r?$' -or
         $modText -notmatch '(?m)^mod_id=rr2nw\.example\.data-pack\r?$') {
@@ -331,6 +493,37 @@ if (-not $SkipRuntimeSmoke) {
     }
     $baseResult = 'PASS'
     $modResult = 'PASS'
+    $persistedDataResult = 'PASS'
+
+    $corruptRoot = Join-Path $outputPath 'runtime-corrupt-data'
+    $corruptDiagnostics = Join-Path $corruptRoot 'diagnostics'
+    [IO.Directory]::CreateDirectory($corruptDiagnostics) | Out-Null
+    [IO.File]::WriteAllText((Join-Path $corruptRoot 'retail-data.cfg'),
+        "RR2DATA1`r`nversion=1`r`npath_hex=0`r`n", $utf8)
+    $corruptArguments = @(
+        '--runtime-smoke', '--start-level', 'Level.03N',
+        '--diagnostics-dir', $corruptDiagnostics,
+        '--save-dir', (Join-Path $corruptRoot 'saves'),
+        '--settings-file', (Join-Path $corruptRoot 'settings.cfg')
+    )
+    $corruptLine = ($corruptArguments | ForEach-Object {
+        Quote-NativeArgument $_
+    }) -join ' '
+    $corruptProcess = Start-Process -FilePath (Join-Path $unpackedRoot 'rr2nw.exe') `
+        -WorkingDirectory $corruptRoot -ArgumentList $corruptLine `
+        -WindowStyle Hidden -PassThru
+    if (-not $corruptProcess.WaitForExit($TimeoutSeconds * 1000)) {
+        $corruptProcess.Kill(); $corruptProcess.WaitForExit()
+        throw 'Packaged corrupt retail selection timed out'
+    }
+    if ($corruptProcess.ExitCode -ne 3) {
+        throw "Packaged corrupt retail selection exited $($corruptProcess.ExitCode), expected 3"
+    }
+    $corruptLog = [IO.File]::ReadAllText((Join-Path $corruptDiagnostics 'rr2nw-startup.log'))
+    if ($corruptLog -notmatch '(?m)^marker=data-not-ready\r?$') {
+        throw 'Packaged corrupt retail selection did not fail closed'
+    }
+    $corruptDataResult = 'PASS'
 }
 
 $hostInfo = Get-CimInstance Win32_OperatingSystem
@@ -347,8 +540,15 @@ $summary = [pscustomobject][ordered]@{
     validator_fingerprint = [string]$unpackedValidatorReport['fingerprint']
     validator_mount_order = [string]$unpackedValidatorReport['mount_order']
     validator_identities_equal = $true
+    release_eligible = $releaseEligible
+    game_codeview_signature = $gameSymbols.pdb_signature
+    game_codeview_age = $gameSymbols.pdb_age
+    validator_codeview_signature = $validatorSymbols.pdb_signature
+    validator_codeview_age = $validatorSymbols.pdb_age
     base_runtime = $baseResult
     example_mod_runtime = $modResult
+    persisted_data_runtime = $persistedDataResult
+    corrupt_data_fail_closed = $corruptDataResult
     game_subsystem = $gamePe.Subsystem
     game_dll_characteristics = $gamePe.DllCharacteristics
     validator_subsystem = $validatorPe.Subsystem
@@ -360,6 +560,7 @@ $summary = [pscustomobject][ordered]@{
     unpacked_root = $unpackedRoot
     base_log = $baseLog
     mod_log = $modLog
+    persisted_data_log = $persistedLog
 }
 $summaryPath = Join-Path $outputPath 'windows-package-summary.json'
 [IO.File]::WriteAllText($summaryPath, ($summary | ConvertTo-Json -Depth 4) + "`n", $utf8)

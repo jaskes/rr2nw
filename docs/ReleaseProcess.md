@@ -118,6 +118,12 @@ runs validator plus base/example runtime smokes from the extracted tree. See
 [WindowsPackage.md](WindowsPackage.md). A `-dirty` package is evidence only and
 cannot be tagged or published.
 
+Schema-2 package identity also binds adjacent PDB/MAP files and the embedded
+basename-only CodeView GUID/age for the game and validator. `release_eligible`
+is true only for a known clean Release revision. The unpacked gate additionally
+proves explicit `--data-dir` precedence, persisted first-run `RR2DATA1` reuse
+and noninteractive fail-closed handling of a corrupt selection.
+
 Windows package содержит:
 
 - RR2NW EXE и runtime dependencies;

@@ -6,7 +6,13 @@ validator, copyright-free example mods and project documentation. It does not
 contain the original game, CD image, retail executable, saves or crash dumps.
 
 You need a legally obtained Russian Roulette II: The Next Worlds data tree.
-Pass it explicitly; the package never modifies that directory.
+On the first ordinary launch RR2NW asks for that folder, validates game.cfg,
+LEVEL0.SC and all nine configured Level directories, then remembers only the
+validated local path. The package never modifies or copies that directory.
+
+An explicit --data-dir always takes precedence and fails closed if invalid:
+
+  .\rr2nw.exe --data-dir "E:\Games\The Next Worlds"
 
 Validate every bundled example and its deterministic stack:
 
@@ -14,7 +20,7 @@ Validate every bundled example and its deterministic stack:
 
 Start the base game:
 
-  .\rr2nw.exe --data-dir "E:\Games\The Next Worlds" --start-level "Level.03N"
+  .\rr2nw.exe --start-level "Level.03N"
 
 Start one example data pack:
 
@@ -27,6 +33,12 @@ attributes are checked again when a Level starts.
 
 See docs\Modding.md for the schema and tools\Invoke-WindowsManualCampaign.ps1
 for the package-bound Windows 10/11 acceptance checklist.
+
+Matching PDB and MAP files are included beside both executables. Keep them
+with the exact package: package-manifest.json binds every executable/symbol
+hash and its embedded CodeView signature for crash diagnosis.
+docs\compatibility-report.txt records the validated bundled mod identities and
+mount fingerprint without exposing your retail installation path.
 
 Original RR2NW files were developed by Logos. See License.txt and
 docs\DataProvenance.md.

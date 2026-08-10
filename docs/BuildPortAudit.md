@@ -4388,3 +4388,38 @@ writing mission status. A27 executes its 48-owner graph, proves the failure
 guard, retires as a no-reward/no-successor row at cumulative count seventeen,
 and passes continuation rollback/reapply plus slot-8 save/fresh-load. No save
 layout, retail file or gameplay movement path changed.
+
+### 2026-08-10: portable RC identity and retail selection
+
+M6 archaeology found that the existing deterministic ZIP omitted all symbol
+files and optimized Release did not generate PDBs. The runtime also had no
+portable first-run owner beyond `--data-dir` and four local probes. The linker
+now produces basename-only CodeView records and matching PDB/MAP pairs for the
+game and validator in every maintained configuration. Package manifest schema
+2 hashes both binaries, all four symbols, documentation and examples, records
+CodeView GUID/age, and publishes a strict clean-Release eligibility bit.
+
+The separate `RR2DATA1` codec accepts one canonical bounded UTF-8 directory,
+hex-encodes it and commits through write/flush/atomic replace. The runtime
+checks explicit CLI, local probes and the persisted selection in that order;
+only ordinary interactive launch may invoke `IFileOpenDialog`. A selected tree
+must pass the unchanged retail catalog validator before persistence. Smoke and
+CI are noninteractive and corrupt/stale selections fail before Level creation.
+
+The pure gate covers seven corrupt classes and an injected failed atomic
+replacement. The hermetic package gate proves two byte-identical archives,
+four symbol rows and eighteen untouched `PENDING` campaign rows. The real-data
+package gate additionally owns explicit precedence, fresh persisted reuse and
+corrupt-selection rejection from the extracted tree. This does not claim a CD
+copier/normalizer, installer or Windows 10/11 manual campaign completion.
+
+The accepted slice builds in Debug, Release and RelWithDebInfo and passes
+76/76 CTest rows in each configuration. Installed acceptance passes retail
+boot 27/27, fresh continuation 27/27 (including the unretried RelWithDebInfo
+`Level.04D` CQ-282 observation point), cross-Level Save/Load 2/2, campaign 6/6,
+Portal 9/9, RecruitCenter presentation 3/3, shell 3/3, Farter/Vehicle audio 3/3
+each, unexpected-SEH crash bundles 3/3 and legacy-fatal bundles 3/3. The final
+dirty evidence archive contains 30 manifested files and passes base, example
+mod, persisted-data and corrupt-data gates; `release_eligible=false` is the
+expected state before this commit. A clean RC archive and all eighteen manual
+Windows rows remain deliberately open.

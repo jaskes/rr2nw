@@ -1,6 +1,7 @@
 #include "GameStartup.h"
 #include "WindowsCrashDiagnostics.h"
 #include "WindowsAudioRuntime.h"
+#include "WindowsRetailDataSelection.h"
 
 #include "RR2NWBuildRevision.h"
 #include "ActiveWorldReplayHash.h"
@@ -38,6 +39,7 @@
 #include "suavik.h"
 
 #include <shlobj.h>
+#include <shobjidl.h>
 
 #include <algorithm>
 #include <array>
@@ -826,6 +828,17 @@ std::wstring DefaultSettingsPath() {
   return JoinPath(DefaultSettingsDirectory(), L"settings.cfg");
 }
 
+std::wstring RetailDataSelectionPath(const StartupOptions& options) {
+  if (options.settingsFile.empty())
+    return JoinPath(DefaultSettingsDirectory(), L"retail-data.cfg");
+  const std::wstring settings = AbsolutePath(options.settingsFile);
+  const std::size_t separator = settings.find_last_of(L"\\/");
+  return JoinPath(separator == std::wstring::npos
+                      ? CurrentDirectory()
+                      : settings.substr(0u, separator),
+                  L"retail-data.cfg");
+}
+
 bool EnsureDirectory(const std::wstring& path) {
   const int result = SHCreateDirectoryExW(nullptr, path.c_str(), nullptr);
   return result == ERROR_SUCCESS || result == ERROR_ALREADY_EXISTS ||
@@ -968,10 +981,61 @@ bool InspectRetailData(const std::wstring& candidate, RetailData* data,
   return true;
 }
 
+bool SelectRetailDataDirectory(std::wstring* selected, std::wstring* failure) {
+  const HRESULT initialized =
+      CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+  const bool uninitialize = initialized == S_OK || initialized == S_FALSE;
+  if (FAILED(initialized) && initialized != RPC_E_CHANGED_MODE) {
+    *failure = L"Windows could not initialize the retail data folder picker";
+    return false;
+  }
+
+  IFileOpenDialog* dialog = nullptr;
+  HRESULT result = CoCreateInstance(CLSID_FileOpenDialog, nullptr,
+                                    CLSCTX_INPROC_SERVER,
+                                    IID_PPV_ARGS(&dialog));
+  if (SUCCEEDED(result)) {
+    FILEOPENDIALOGOPTIONS flags = {};
+    result = dialog->GetOptions(&flags);
+    if (SUCCEEDED(result)) {
+      result = dialog->SetOptions(flags | FOS_PICKFOLDERS |
+                                  FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST |
+                                  FOS_DONTADDTORECENT);
+    }
+    if (SUCCEEDED(result)) {
+      result = dialog->SetTitle(
+          L"Select Russian Roulette II: The Next Worlds data folder");
+    }
+    if (SUCCEEDED(result)) result = dialog->Show(nullptr);
+  }
+
+  IShellItem* item = nullptr;
+  if (SUCCEEDED(result)) result = dialog->GetResult(&item);
+  PWSTR path = nullptr;
+  if (SUCCEEDED(result)) result = item->GetDisplayName(SIGDN_FILESYSPATH, &path);
+  if (SUCCEEDED(result) && path != nullptr) *selected = AbsolutePath(path);
+  if (path != nullptr) CoTaskMemFree(path);
+  if (item != nullptr) item->Release();
+  if (dialog != nullptr) dialog->Release();
+  if (uninitialize) CoUninitialize();
+
+  if (result == HRESULT_FROM_WIN32(ERROR_CANCELLED)) {
+    *failure = L"retail data selection was cancelled";
+    return false;
+  }
+  if (FAILED(result) || selected->empty()) {
+    *failure = L"Windows could not select a retail data directory";
+    return false;
+  }
+  return true;
+}
+
 bool LocateRetailData(const StartupOptions& options, RetailData* data,
-                      std::wstring* failure) {
+                      std::string* source, std::wstring* failure) {
   if (!options.dataDirectory.empty()) {
-    return InspectRetailData(options.dataDirectory, data, failure);
+    if (!InspectRetailData(options.dataDirectory, data, failure)) return false;
+    *source = "command-line";
+    return true;
   }
 
   const std::wstring executableDirectory = ExecutableDirectory();
@@ -984,12 +1048,52 @@ bool LocateRetailData(const StartupOptions& options, RetailData* data,
     std::wstring candidateFailure;
     if (!candidate.empty() &&
         InspectRetailData(candidate, data, &candidateFailure)) {
+      *source = "local-probe";
       return true;
     }
   }
 
-  *failure = L"retail data was not found; pass --data-dir <path>";
-  return false;
+  const std::wstring selectionPath = RetailDataSelectionPath(options);
+  std::wstring persisted;
+  std::string selectionDetail;
+  const WindowsRetailDataSelectionReadResult read =
+      WindowsRetailDataSelection_Read(selectionPath, &persisted,
+                                      &selectionDetail);
+  if (read == WindowsRetailDataSelectionReadResult::kReady) {
+    std::wstring persistedFailure;
+    if (InspectRetailData(persisted, data, &persistedFailure)) {
+      *source = "persisted-selection";
+      return true;
+    }
+    *failure = L"the saved retail data selection is no longer valid";
+  } else if (read == WindowsRetailDataSelectionReadResult::kCorrupt ||
+             read == WindowsRetailDataSelectionReadResult::kIoFailure) {
+    *failure = L"the saved retail data selection is invalid";
+  }
+
+  if (options.launchSmoke || options.runtimeSmoke) {
+    if (failure->empty())
+      *failure = L"retail data was not found; pass --data-dir <path>";
+    return false;
+  }
+
+  std::wstring selected;
+  if (!SelectRetailDataDirectory(&selected, failure)) return false;
+  RetailData inspected;
+  if (!InspectRetailData(selected, &inspected, failure)) return false;
+  const std::size_t separator = selectionPath.find_last_of(L"\\/");
+  const std::wstring selectionDirectory = separator == std::wstring::npos
+      ? CurrentDirectory()
+      : selectionPath.substr(0u, separator);
+  if (!EnsureDirectory(selectionDirectory) ||
+      !WindowsRetailDataSelection_WriteAtomic(selectionPath, inspected.root,
+                                               &selectionDetail)) {
+    *failure = L"the validated retail data selection could not be saved";
+    return false;
+  }
+  *data = inspected;
+  *source = "folder-picker";
+  return true;
 }
 
 bool AppendDeclaredModLevels(RetailData* data, std::wstring* failure) {
@@ -2041,7 +2145,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            (options.nativeDiagnosticMenu ? "1" : "0"));
 
   RetailData data;
-  if (!LocateRetailData(options, &data, &failure)) {
+  std::string retailDataSource;
+  if (!LocateRetailData(options, &data, &retailDataSource, &failure)) {
     log.WideLine("failure", failure);
     log.Line("marker=data-not-ready");
     ShowMessage(options.launchSmoke || options.runtimeSmoke, MB_ICONERROR,
@@ -2049,6 +2154,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 failure + L"\n\nDiagnostic log:\n" + log.path());
     return kDataNotReady;
   }
+  log.Line("retail_data_source=" + retailDataSource);
   ModProfileScope modProfileScope;
   ModRuntimeScope modRuntimeScope;
   AudioRuntimeScope audioRuntimeScope;

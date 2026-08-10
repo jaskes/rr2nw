@@ -67,6 +67,24 @@ if(MSVC)
   target_compile_options(rr2nw_mod_profile PRIVATE /W4 /permissive-)
 endif()
 
+add_library(rr2nw_windows_retail_data_selection STATIC
+  src/platform/windows/WindowsRetailDataSelection.cpp
+  src/platform/windows/WindowsRetailDataSelection.h
+)
+target_include_directories(rr2nw_windows_retail_data_selection PUBLIC
+  src/platform/windows
+)
+target_compile_features(rr2nw_windows_retail_data_selection PUBLIC cxx_std_14)
+target_compile_definitions(rr2nw_windows_retail_data_selection PRIVATE
+  UNICODE
+  _UNICODE
+)
+if(MSVC)
+  target_compile_options(rr2nw_windows_retail_data_selection PRIVATE
+    /W4 /permissive-
+  )
+endif()
+
 add_library(rr2nw_presentation_trace STATIC
   src/runtime/RecoveredPresentationTrace.cpp
   src/runtime/RecoveredPresentationTrace.h
@@ -4491,8 +4509,10 @@ target_compile_definitions(rr2nw_game_startup PRIVATE
 )
 target_link_libraries(rr2nw_game_startup PUBLIC
   rr2nw_recovered_game_services_runtime
+  rr2nw_windows_retail_data_selection
   rr2nw_windows_audio_runtime
   dbghelp
+  ole32
   shell32
 )
 
@@ -4506,6 +4526,19 @@ set_target_properties(rr2nw_game PROPERTIES OUTPUT_NAME rr2nw)
 
 add_executable(rr2nw_audio_device_smoke
   src/portability/WindowsAudioDeviceSmoke.cpp
+)
+add_executable(rr2nw_windows_retail_data_selection_smoke
+  src/portability/WindowsRetailDataSelectionSmoke.cpp
+)
+target_link_libraries(rr2nw_windows_retail_data_selection_smoke PRIVATE
+  rr2nw_windows_retail_data_selection
+)
+target_compile_features(rr2nw_windows_retail_data_selection_smoke PRIVATE
+  cxx_std_14
+)
+target_compile_definitions(rr2nw_windows_retail_data_selection_smoke PRIVATE
+  UNICODE
+  _UNICODE
 )
 target_link_libraries(rr2nw_audio_device_smoke PRIVATE
   rr2nw_windows_audio_runtime
@@ -5052,7 +5085,19 @@ if(MSVC)
     rr2nw_game_startup PRIVATE /W4 /permissive- /utf-8
   )
   target_compile_options(rr2nw_game PRIVATE /W4 /permissive- /utf-8)
-  target_link_options(rr2nw_game PRIVATE /INCREMENTAL:NO /MAP)
+  target_link_options(rr2nw_game PRIVATE
+    /INCREMENTAL:NO /MAP /Brepro
+    "/PDBALTPATH:$<TARGET_PDB_FILE_NAME:rr2nw_game>"
+    $<$<CONFIG:Release>:/DEBUG:FULL>
+  )
+  target_compile_options(rr2nw_windows_retail_data_selection_smoke PRIVATE
+    /W4 /permissive-
+  )
+  target_link_options(rr2nw_mod_validator PRIVATE
+    /INCREMENTAL:NO /MAP /Brepro
+    "/PDBALTPATH:$<TARGET_PDB_FILE_NAME:rr2nw_mod_validator>"
+    $<$<CONFIG:Release>:/DEBUG:FULL>
+  )
   target_compile_options(
     rr2nw_scene_software_draw_link_probe PRIVATE /W4 /permissive-
   )
@@ -5339,6 +5384,10 @@ if(BUILD_TESTING)
             # recovered end to end.
             -ScratchRoot "$ENV{TEMP}/rr2nw-pkg/$<CONFIG>"
             -Configuration "$<CONFIG>"
+  )
+  add_test(
+    NAME windows-retail-data-selection-smoke
+    COMMAND rr2nw_windows_retail_data_selection_smoke
   )
   add_test(
     NAME vehicle-control-journal-smoke

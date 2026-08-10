@@ -852,10 +852,13 @@ build-tree executable:
 
 The gate must report `Windows package: PASS`, a ZIP SHA-256 and an unpacked
 proof directory. `windows-package-summary.json` must show six validated
-examples, passing base/example runtime smokes, GUI subsystem `2` for
-`rr2nw.exe`, Console subsystem `3` for the validator and ASLR/NX bits on both.
-It must also report `validator_identities_equal=true` plus the extracted
-validator fingerprint and mount order; `docs/ModProfiles.md` must be present.
+examples, passing base/example/persisted-data runtime smokes and corrupt-data
+fail-closed proof, GUI subsystem `2` for `rr2nw.exe`, Console subsystem `3` for
+the validator and ASLR/NX bits on both. It must also report nonzero CodeView
+GUID/age for both executables, `validator_identities_equal=true` plus the
+extracted validator fingerprint and mount order. Schema-2 manifest must bind
+both EXEs, all four adjacent PDB/MAP files and
+`docs/compatibility-report.txt`; `docs/ModProfiles.md` must be present.
 The stage and extracted copy must contain no `game.cfg`, `LEVEL0.SC`, retail
 EXE/installer, CD image, save or dump.
 
@@ -884,6 +887,12 @@ Record cases on their actual Windows 10 or Windows 11 host. The tool binds the
 ledger to the package-manifest SHA-256 and `-RequireComplete` must remain red
 until all 18 rows pass. Package runtime smokes are automated evidence only and
 must not pre-fill human campaign results.
+
+For each platform's `base-boot` row use a clean isolated Windows profile (or
+temporarily move that profile's `retail-data.cfg`), select the installed game
+through the real folder picker, then relaunch the exact package and prove the
+picker does not return. Cancel and an invalid directory must create no saved
+selection and no game world. Do not modify the retail tree for this check.
 
 For an interactive check, copy the example, put the two absolute positions
 near a known camera/start location, and use a short delay. An `explosion` uses

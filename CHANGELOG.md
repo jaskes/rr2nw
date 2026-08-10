@@ -7,6 +7,15 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added the first M6 portable RC boundary. Optimized Release now emits
+  basename-only CodeView identity plus matching PDB/MAP files for both the game
+  and standalone validator. Schema-2 package manifests bind every executable,
+  symbol, document and example hash, distinguish clean Release eligibility,
+  and retain deterministic ZIP/extraction/validator identity proof. Ordinary
+  first launch can validate and atomically remember a legal retail data tree
+  as bounded `RR2DATA1`; explicit `--data-dir` remains strict precedence,
+  while cancellation, invalid/corrupt state and every smoke/CI path fail closed
+  without copying retail media or constructing a world.
 - Added bounded player-facing mod profiles and an in-frame Mods selector.
   `RR2MODPROFILE1` stores only explicit package IDs, reuses the production
   dependency/conflict/mount resolver and applies changes only after a process

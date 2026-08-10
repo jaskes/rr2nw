@@ -3260,6 +3260,23 @@ playable Level begins.
   acceptance proves source hashes are unchanged in Debug, Release and
   RelWithDebInfo.
 
+### RP-PACKAGE-001: portable data discovery is a modern read-only boundary
+
+- Retail `game.cfg` remains the authority for `Init/StartLevel` and the exact
+  nine configured Level directories. The new folder picker and `RR2DATA1` do
+  not reinterpret or normalize that content; every source is passed through
+  the same existing admission path before a Level or mod runtime exists.
+- Command-line selection is deterministic strict precedence. A persisted path
+  is only a local convenience and may not rescue an invalid explicit path.
+  Safe mode keeps the legal base-data location while continuing to disable
+  user mods and recovered settings.
+- The M6 package contains no installed asset, original executable, save or
+  machine configuration. Schema-2 EXE/PDB/MAP identity and the first-run UI are
+  modern support guarantees, not claims about a retail installer or March/May
+  executable behavior.
+- The remaining normalized CD/importer decision and package-bound campaign on
+  Windows 10 and 11 stay outside this row.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

@@ -37,8 +37,8 @@ function Get-Sha256Hex([string]$Path) {
 }
 
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-if ($manifest.schema -ne 1 -or $manifest.product -ne 'RR2NW' -or
-    $null -eq $manifest.files) {
+if ($manifest.schema -ne 2 -or $manifest.product -ne 'RR2NW' -or
+    $null -eq $manifest.files -or @($manifest.binaries).Count -ne 2) {
     throw 'Package manifest schema/product is invalid'
 }
 foreach ($record in $manifest.files) {
@@ -75,7 +75,7 @@ $hostPlatform = if ($os.ProductType -ne 1) {
 $hostIdentity = "{0} ({1}; build {2}; {3})" -f $os.Caption, $os.OSArchitecture, $build, $env:COMPUTERNAME
 
 $definitions = @(
-    [pscustomobject]@{ Suffix = 'base-boot'; Area = 'Boot'; Procedure = 'Start packaged base Level.03N; verify a textured moving scene and clean exit.' },
+    [pscustomobject]@{ Suffix = 'base-boot'; Area = 'Boot'; Procedure = 'On an isolated clean profile select the legal retail tree in the first-run folder picker, start packaged base Level.03N, verify a textured moving scene, relaunch without the picker, and exit cleanly.' },
     [pscustomobject]@{ Suffix = 'example-mod'; Area = 'Mods'; Procedure = 'Validate bundled examples, start rr2nw.example.data-pack, and confirm mod diagnostics.' },
     [pscustomobject]@{ Suffix = 'window-focus'; Area = 'Window'; Procedure = 'Exercise resize, minimize, alt-tab, focus loss/gain and high-DPI desktop scaling.' },
     [pscustomobject]@{ Suffix = 'input'; Area = 'Input'; Procedure = 'Use WASD/arrows, release every key, alt-tab and return; verify no sticky movement or rotation.' },

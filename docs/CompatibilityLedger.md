@@ -6081,6 +6081,32 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   dispatch, Smoke expiry, Explosion scheduling and renderer behavior are
   unchanged.
 
+### CQ-286: a portable package needs a content-location owner and exact symbols
+
+- Status: `RR2DATA1`, `PACKAGE_MANIFEST_SCHEMA_2`,
+  `CODEVIEW_BASENAME_BOUND`, `MANUAL_ROWS_PENDING`.
+- Evidence: the recovered runtime accepted an explicit `--data-dir` or probed
+  beside the executable/current directory. A clean extracted package therefore
+  had no player-facing way to find an existing legal installation. Separately,
+  optimized Release emitted `rr2nw.map` but no PDB; the package could not bind
+  the exact crash-symbol pair its diagnostic manifest names.
+- Handling: ordinary first run uses the Windows filesystem folder picker only
+  after command-line and local probes fail. The selected tree passes the
+  existing nine-Level retail admission before bounded `RR2DATA1` is atomically
+  written. Explicit CLI remains strict precedence. Smoke/CI never opens a
+  dialog; missing, corrupt or stale selection exits at `data-not-ready` with
+  zero world mutation. Release now emits reproducible, basename-only CodeView
+  identity and adjacent PDB/MAP for both shipped executables. Package schema 2
+  hashes each pair and records GUID/age without a build or retail path.
+- Verification: the codec gate covers missing, exact round-trip, repeated
+  bytes, corrupt/oversized/invalid UTF-8/relative paths and an injected atomic
+  write failure. Hermetic packaging creates two identical archives and checks
+  four symbol records. Real unpacked runtime acceptance proves CLI precedence,
+  persisted fresh-process use and corrupt-selection rejection.
+- Boundary: this selects an existing read-only data tree; it is not the planned
+  normalized CD importer or an installer. The package-bound Windows 10/11
+  campaign remains human `PENDING` and cannot be inferred from this gate.
+
 ## Maintenance rule
 
 When a new quirk is found:

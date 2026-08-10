@@ -6969,3 +6969,29 @@ The current shell consumes `WM_CHAR` but owns no bounded edit buffer, caret,
 IME or commit/cancel transaction. Create/rename is therefore not approximated
 with raw message bytes. It remains blocked on a genuine text-input owner, as do
 translated labels beyond the now-stable compatibility keys.
+
+### BD-219: retail selection stores location, never content or authority
+
+Status: accepted on 2026-08-10 for the first M6 portable package boundary.
+
+The redistributable engine cannot contain retail media and must not mutate an
+existing installation, but requiring a command line on every launch is not a
+player-facing portable flow. `RR2DATA1` therefore stores exactly one validated
+canonical directory as bounded hex-encoded UTF-8. It is separate from settings,
+saves and mod profiles and cannot encode developer mode, package selection,
+display state or retail payload.
+
+Selection precedence is part of the safety contract. Explicit `--data-dir`
+wins and an invalid explicit path fails immediately; local package probes are
+next; a valid persisted choice follows; only ordinary interactive launch may
+open the Windows folder picker. Admission reuses the existing `game.cfg`,
+`LEVEL0.SC` and nine-directory validator before atomic persistence.
+Cancellation, invalid data, corrupt state or write failure constructs no Level
+and leaves the previous file unchanged. Test modes never synthesize user
+interaction.
+
+Optimized Release symbols are similarly part of the exact candidate rather
+than ambient build-tree state. Both shipped executables embed only their PDB
+basename and package schema 2 binds executable, PDB and MAP hashes plus
+CodeView GUID/age. Dirty, unknown, Debug and playtest manifests explicitly set
+`release_eligible=false`; automation still never changes human campaign rows.

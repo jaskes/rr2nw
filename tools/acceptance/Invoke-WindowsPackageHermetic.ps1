@@ -45,8 +45,21 @@ try {
             $summary.example_mod_runtime -ne 'SKIPPED' -or $summary.validator_mods -ne 6 -or
             -not $summary.validator_identities_equal -or
             [string]::IsNullOrWhiteSpace([string]$summary.validator_fingerprint) -or
-            $summary.game_subsystem -ne 2 -or $summary.validator_subsystem -ne 3) {
+            $summary.game_subsystem -ne 2 -or $summary.validator_subsystem -ne 3 -or
+            [string]::IsNullOrWhiteSpace([string]$summary.game_codeview_signature) -or
+            [uint32]$summary.game_codeview_age -eq 0 -or
+            [string]::IsNullOrWhiteSpace([string]$summary.validator_codeview_signature) -or
+            [uint32]$summary.validator_codeview_age -eq 0) {
             throw "Hermetic package summary is invalid: $summaryPath"
+        }
+        $manifest = Get-Content -LiteralPath (Join-Path ([string]$summary.unpacked_root) `
+            'package-manifest.json') -Raw | ConvertFrom-Json
+        $compatibilityReport = Join-Path ([string]$summary.unpacked_root) `
+            'docs\compatibility-report.txt'
+        if ($manifest.schema -ne 2 -or @($manifest.binaries).Count -ne 2 -or
+            @($manifest.files | Where-Object { $_.path -match '\.(pdb|map)$' }).Count -ne 4 -or
+            -not (Test-Path -LiteralPath $compatibilityReport)) {
+            throw 'Hermetic package does not bind the exact executable/validator symbols'
         }
         $outputs += $summary
     }
@@ -65,7 +78,7 @@ try {
     if ($campaign.Count -ne 18 -or @($campaign | Where-Object Result -ne 'PENDING').Count -ne 0) {
         throw 'Package-bound campaign did not initialize 18 pending rows'
     }
-    Write-Output "windows package hermetic: configuration=$Configuration files=$($outputs[0].package_files) deterministic=1 validator_identity=1 campaign=18"
+    Write-Output "windows package hermetic: configuration=$Configuration files=$($outputs[0].package_files) deterministic=1 validator_identity=1 symbols=4 campaign=18"
 }
 finally {
     if ([IO.Directory]::Exists($resolvedCase)) {

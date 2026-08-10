@@ -2,8 +2,27 @@
 
 The Windows package is a redistributable engine/tooling artifact, not a copy
 of Russian Roulette II. It contains the modern x86 executable, the standalone
-mod validator, copyright-free example mods and selected documentation. It does
-not contain retail data, the retail executable, installers, saves or dumps.
+mod validator, their matching PDB/MAP diagnostics, copyright-free example mods
+and selected documentation. It does not contain retail data, the retail
+executable, installers, saves or dumps.
+
+## First-run retail data selection
+
+An ordinary portable launch with no discoverable data opens the Windows folder
+picker. The selected directory is admitted only after the same strict
+`game.cfg`, `LEVEL0.SC`, nine-Level catalog and directory checks used by
+`--data-dir`. Cancellation or an invalid tree starts no world and writes no
+selection. A valid choice is stored atomically as bounded `RR2DATA1` under
+`%LOCALAPPDATA%\RR2NW\retail-data.cfg`; it contains only a hex-encoded local
+path, never retail bytes, developer capability or settings.
+
+Resolution order is explicit `--data-dir`, package/current-directory probes,
+then the saved selection, then the interactive picker. An invalid explicit
+path never falls back. Smoke/CI modes never open the picker and fail closed on
+missing or corrupt selection. Supplying `--settings-file` isolates the
+selection beside that file for package acceptance without changing a real
+user profile. Safe mode does not erase or broaden the validated content
+location and still disables user mods/settings as before.
 
 ## Standalone validation
 
@@ -42,24 +61,32 @@ Create, hash, unpack and smoke the Release package with:
   -DataRoot "E:\Games\The Next Worlds"
 ```
 
-For a development package with optimized gameplay and diagnostic symbols in
-the local build tree, select RelWithDebInfo explicitly:
+For a development package with optimized gameplay and additional diagnostic
+information, select RelWithDebInfo explicitly:
 
 ```powershell
 & ".\tools\release\New-WindowsPackage.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration RelWithDebInfo
 ```
 
 It receives a `-playtest` package suffix so it cannot be confused with a clean
-Release candidate. The local `RelWithDebInfo` build retains the matching PDB;
-the redistributable ZIP remains the engine/tooling payload described above.
+Release candidate. Every configuration carries its exact adjacent PDB/MAP;
+the Release linker also emits full CodeView identity without disabling
+optimization.
 
 The script builds `rr2nw.exe` and `rr2nw-mod-validator.exe`, creates a new
-whitelist-only stage, validates all bundled examples, verifies PE32 subsystem
-and ASLR/NX policy, writes `package-manifest.json`, and produces a deterministic
-ZIP with fixed entry timestamps and a `.sha256` sidecar. It then extracts that
-exact ZIP into a new directory, verifies every manifested file and runs two
-bounded retail smokes from the unpacked tree: base `Level.03N` and the bundled
-`rr2nw.example.data-pack`.
+whitelist-only stage, validates all bundled examples, verifies PE32 subsystem,
+ASLR/NX policy and basename-only embedded PDB identity, writes schema-2
+`package-manifest.json`, and produces a deterministic ZIP with fixed entry
+timestamps and a `.sha256` sidecar. The manifest binds both EXEs, all four
+PDB/MAP files, CodeView signatures/ages, docs, examples and validator report.
+It then extracts that exact ZIP, verifies every manifested file and runs three
+bounded retail smokes: explicit-path base `Level.03N`, the bundled example mod
+and a fresh process using only `RR2DATA1`. A corrupt saved selection must exit
+at `data-not-ready` without showing a picker or constructing a world.
+
+`docs\compatibility-report.txt` is the exact privacy-safe validator output for
+the bundled examples: final mount order, package identities/fingerprints and
+supported tuning/script status. It contains no retail or physical package path.
 
 CTest also runs a media-free Debug/Release/Playtest package proof with a synthetic
 nine-Level catalog. It creates two independent archives, requires identical
@@ -67,10 +94,11 @@ ZIP SHA-256, verifies extraction and initializes the packaged 18-row ledger.
 `-SkipRuntimeSmoke` exists only for this hermetic tooling test; it is not an RC
 substitute for the real-data command above.
 
-The default output lives under ignored `manual-logs/`. A dirty checkout is
-named with a `-dirty` revision and is development evidence only. A release
-candidate must be created from a clean tagged commit, and its archive hash must
-be preserved with the manual evidence.
+The default output lives under ignored `manual-logs/`. Manifest field
+`release_eligible` is true only for a clean, known-revision Release build. A
+dirty/debug/playtest archive remains reproducible evidence but cannot become
+an RC. A release candidate must be created from the exact clean commit, and
+its archive SHA-256 must be preserved with the manual evidence.
 
 ## Package-bound manual campaign
 
