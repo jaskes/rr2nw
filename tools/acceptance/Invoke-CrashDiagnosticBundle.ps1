@@ -3,7 +3,8 @@ param(
     [Parameter(Mandatory = $true)][string]$DataRoot,
     [ValidateSet("Debug", "Release", "RelWithDebInfo")]
     [string[]]$Configuration = @("Debug"),
-    [ValidateSet("UnexpectedSeh", "LegacyFatal", "CrtAbort")]
+    [ValidateSet("UnexpectedSeh", "LegacyFatal", "CrtAbort",
+                 "CrtInvalidParameter", "CrtPurecall")]
     [string]$Mode = "UnexpectedSeh",
     [string]$Level = "Level.03N",
     [ValidateRange(20, 180)][int]$TimeoutSeconds = 90,
@@ -28,6 +29,10 @@ if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
         "legacy-fatal-bundle"
     } elseif ($Mode -eq "CrtAbort") {
         "crt-abort-bundle"
+    } elseif ($Mode -eq "CrtInvalidParameter") {
+        "crt-invalid-parameter-bundle"
+    } elseif ($Mode -eq "CrtPurecall") {
+        "crt-purecall-bundle"
     } else { "crash-diagnostic-bundle" }
     $OutputRoot = Join-Path $repositoryRoot (
         "build\verification\$modeName-$stamp")
@@ -87,16 +92,28 @@ $exceptionHex = if ($Mode -eq "LegacyFatal") {
     "E0425253"
 } elseif ($Mode -eq "CrtAbort") {
     "E0425254"
+} elseif ($Mode -eq "CrtInvalidParameter") {
+    "E0425255"
+} elseif ($Mode -eq "CrtPurecall") {
+    "E0425256"
 } else { "E0425252" }
 $diagnosticOption = if ($Mode -eq "LegacyFatal") {
     "--legacy-fatal-diagnostic-smoke"
 } elseif ($Mode -eq "CrtAbort") {
     "--crt-abort-diagnostic-smoke"
+} elseif ($Mode -eq "CrtInvalidParameter") {
+    "--crt-invalid-parameter-diagnostic-smoke"
+} elseif ($Mode -eq "CrtPurecall") {
+    "--crt-purecall-diagnostic-smoke"
 } else { "--crash-diagnostic-smoke" }
 $readyMarker = if ($Mode -eq "LegacyFatal") {
     "legacy-fatal-ready"
 } elseif ($Mode -eq "CrtAbort") {
     "crt-abort-ready"
+} elseif ($Mode -eq "CrtInvalidParameter") {
+    "crt-invalid-parameter-ready"
+} elseif ($Mode -eq "CrtPurecall") {
+    "crt-purecall-ready"
 } else { "controlled-crash-ready" }
 $expectedCrashExit = [BitConverter]::ToInt32(
     [BitConverter]::GetBytes([Convert]::ToUInt32($exceptionHex, 16)), 0)
@@ -227,6 +244,18 @@ foreach ($configurationName in $Configuration) {
             [int]$manifest.crt_fatal_signal -le 0) {
             $issues.Add("CRT abort signal identity is missing")
         }
+    } elseif ($Mode -eq "CrtInvalidParameter") {
+        Require-Value $manifest "legacy_fatal" "0" $issues
+        Require-Value $manifest "legacy_fatal_kind" "none" $issues
+        Require-Value $manifest "crt_fatal" "1" $issues
+        Require-Value $manifest "crt_fatal_kind" "invalid_parameter" $issues
+        Require-Value $manifest "crt_fatal_signal" "0" $issues
+    } elseif ($Mode -eq "CrtPurecall") {
+        Require-Value $manifest "legacy_fatal" "0" $issues
+        Require-Value $manifest "legacy_fatal_kind" "none" $issues
+        Require-Value $manifest "crt_fatal" "1" $issues
+        Require-Value $manifest "crt_fatal_kind" "purecall" $issues
+        Require-Value $manifest "crt_fatal_signal" "0" $issues
     } else {
         Require-Value $manifest "legacy_fatal" "0" $issues
         Require-Value $manifest "legacy_fatal_kind" "none" $issues

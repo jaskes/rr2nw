@@ -4532,3 +4532,32 @@ outer 600-second harness limit after completing Debug and seven Release
 processes; separate configuration-scoped runs then emitted complete 9/9
 summaries. No game case timed out or failed, and the incomplete aggregate run
 is not counted as acceptance evidence.
+
+### 2026-08-11: CQ-290 frozen evidence and remaining CRT fatal classes
+
+Tracked-clean revision `646a5bdf97a6` produced two byte-identical Release
+archives from separate staging/extraction roots. Their SHA-256 is
+`f084c00aecf59a55cd2560aa3ce05c112d103146c0b3e7db5c744d8c2ddf993a`.
+The unchanged archive passed RR2RCVERIFY1 candidate verification with manifest
+SHA-256 `fef16c151b41e25424edb89c83e54e2620d53e9e356bc1781b8337ff8d3cac75`,
+validator/base/example runtime identity and exactly 0 PASS / 18 PENDING human
+rows. It remains evidence for revision `646a5bdf97a6`, not transferable
+acceptance for later code. The version stays owner-controlled at the existing
+`0.1.0` package identity while Roadmap still names `1.0.0-rc`.
+
+The remaining fatal inventory then separated intentional and tool-local exits
+from process CRT failure. Linked legacy Menu `exit(0)` follows explicit
+deinitialization; compiler/debug exits are standalone or inactive archive
+paths. They are not crash-bundle candidates. MSVC invalid-parameter and
+purecall dispatch, however, were unowned process-fatal routes. CQ-291 installs
+and restores their process handlers beside SIGABRT, records only fixed
+privacy-safe kinds and enters RR2CRASH1 through distinct noncontinuable codes.
+Hidden real-Level triggers call the actual CRT entry points; no ordinary or
+Developer capability exposes them.
+
+The CQ-291 gate passes complete Debug, Release and RelWithDebInfo builds and
+76/76 CTest in each configuration. Unexpected SEH, DebugExt, SIGABRT, invalid-
+parameter and purecall bundles each pass 3/3. Installed retail passes 27/27,
+cross-Level Save/Load 2/2, Portal 9/9, campaign 6/6, RecruitCenter presentation
+3/3 and in-game shell 3/3. The prior `646a5bdf97a6` frozen archive is retained
+only as local evidence because CQ-291 changes the executable.

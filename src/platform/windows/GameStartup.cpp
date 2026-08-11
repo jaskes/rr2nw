@@ -95,6 +95,8 @@ struct StartupOptions {
   bool crashDiagnosticSmoke = false;
   bool legacyFatalDiagnosticSmoke = false;
   bool crtAbortDiagnosticSmoke = false;
+  bool crtInvalidParameterDiagnosticSmoke = false;
+  bool crtPurecallDiagnosticSmoke = false;
   bool missionSmoke = false;
   bool missionBriefingSmoke = false;
   bool missionCombatSmoke = false;
@@ -352,6 +354,12 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
     } else if (argument == L"--crt-abort-diagnostic-smoke") {
       options->runtimeSmoke = true;
       options->crtAbortDiagnosticSmoke = true;
+    } else if (argument == L"--crt-invalid-parameter-diagnostic-smoke") {
+      options->runtimeSmoke = true;
+      options->crtInvalidParameterDiagnosticSmoke = true;
+    } else if (argument == L"--crt-purecall-diagnostic-smoke") {
+      options->runtimeSmoke = true;
+      options->crtPurecallDiagnosticSmoke = true;
     } else if (argument == L"--mission-smoke") {
       options->runtimeSmoke = true;
       options->missionSmoke = true;
@@ -783,7 +791,9 @@ bool ParseOptions(int argc, wchar_t** argv, StartupOptions* options,
   const int diagnosticModeCount =
       (options->crashDiagnosticSmoke ? 1 : 0) +
       (options->legacyFatalDiagnosticSmoke ? 1 : 0) +
-      (options->crtAbortDiagnosticSmoke ? 1 : 0);
+      (options->crtAbortDiagnosticSmoke ? 1 : 0) +
+      (options->crtInvalidParameterDiagnosticSmoke ? 1 : 0) +
+      (options->crtPurecallDiagnosticSmoke ? 1 : 0);
   if (diagnosticModeCount != 0 &&
       (options->launchSmoke || options->runtimeSmokeExplicit ||
        diagnosticModeCount != 1 ||
@@ -2730,6 +2740,18 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     log.Line("marker=crt-abort-ready");
     log.Flush();
     std::abort();
+  }
+  if (options.crtInvalidParameterDiagnosticSmoke) {
+    log.Line("crt_invalid_parameter=armed");
+    log.Line("marker=crt-invalid-parameter-ready");
+    log.Flush();
+    _invalid_parameter_noinfo_noreturn();
+  }
+  if (options.crtPurecallDiagnosticSmoke) {
+    log.Line("crt_purecall=armed");
+    log.Line("marker=crt-purecall-ready");
+    log.Flush();
+    _purecall();
   }
   const SRecoveredSaveMenuState* saveMenuState =
       RecoveredGameServices_SaveMenuState();

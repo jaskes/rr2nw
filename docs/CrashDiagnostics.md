@@ -6,9 +6,10 @@ The maintained x86 executable installs one process crash owner after
 `rr2nw-startup.log` has opened. Normal startup, Save/Load, campaign,
 presentation and shell failures keep their existing typed reporting and
 rollback paths. The crash owner handles unexpected unhandled Windows SEH; it
-also maps a direct CRT `SIGABRT` into a distinct noncontinuable exception after
-the CRT has already selected fatal termination. It does not relabel an ordinary
-runtime error or explicit normal exit as a crash.
+also maps direct CRT `SIGABRT`, invalid-parameter and purecall termination into
+distinct noncontinuable exceptions after the CRT has already selected a fatal
+path. It does not relabel an ordinary runtime error or explicit normal exit as
+a crash.
 
 The handler is reentrancy guarded. Main-thread emergency stack is reserved at
 installation, mutable context uses two fixed buffers, and the breadcrumb ring
@@ -33,8 +34,12 @@ same record also carries `legacy_fatal=1`, the bounded formatted message and,
 in Debug, assertion text plus source basename and line. Release intentionally
 does not invent source detail that its original macro ABI discarded.
 `std::abort()` and product-linked CRT `assert` instead carry
-`crt_fatal=1`, `crt_fatal_kind=SIGABRT` and the CRT signal number. They do not
-masquerade as an archival DebugExt failure.
+`crt_fatal=1`, `crt_fatal_kind=SIGABRT` and the CRT signal number. Invalid-
+parameter and purecall failures use the same bounded field with kinds
+`invalid_parameter` and `purecall`, a zero signal, and distinct exception
+codes. Incoming CRT expressions, function names and source paths are ignored
+rather than copied into the privacy-bounded manifest. None masquerades as an
+archival DebugExt failure.
 
 It never includes the physical retail/mod root, settings/save contents,
 credentials or a user path. The startup log is outside the bundle and can name
@@ -92,13 +97,18 @@ no modal wait and rejection beside Developer capability in Debug, Release and
 RelWithDebInfo. Uninstall restores both the prior signal handler and abort
 behavior.
 
+`-Mode CrtInvalidParameter` and `-Mode CrtPurecall` invoke the actual CRT
+entry points after the same real-Level boundary. The process owner records
+fixed kind identity and raises private noncontinuable `0xE0425255` or
+`0xE0425256`; the gate proves exact termination, dump/manifest/privacy and
+Developer rejection. Uninstall restores both previous process handlers.
+
 ## Known incomplete fatal paths
 
-The product-linked primary DebugExt `RTCHECK`/assert owner and direct
-`SIGABRT` are bridged. Other archival owners remain heterogeneous: invalid-
-parameter and pure-virtual handlers have distinct CRT contracts, standalone
-debug/tool code can retain `getch()`/`__debugbreak()`, and unrelated explicit
-exits may represent normal termination rather than failure. Those paths
-require reachability classification before interception. Current coverage is
-truthful for unexpected SEH, the primary game fatal owner and direct abort,
+The product-linked primary DebugExt `RTCHECK`/assert owner and the three fatal
+CRT classes above are bridged. Other archival owners remain heterogeneous:
+standalone debug/tool code can retain `getch()`/`__debugbreak()`, and unrelated
+explicit exits may represent normal termination rather than failure. Those
+paths remain deliberately separate. Current coverage is truthful for
+unexpected SEH, the primary game fatal owner and process CRT fatal dispatch,
 not universal capture of every source-tree exit.

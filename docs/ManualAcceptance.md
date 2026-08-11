@@ -1656,8 +1656,21 @@ bounded breadcrumbs and `legacy_fatal=1`. Debug must retain assertion
 formatted message `controlled legacy RTCHECK 17`; Release/RelWithDebInfo must
 truthfully retain only the formatted runtime message. The hidden option is
 rejected beside Developer mode and must not hang on a modal, `getch` or debug
-break. Direct CRT abort/assert, unrelated explicit exits and standalone debug
-tools remain a separate consolidation item.
+break. Then run all three process CRT-fatal routes:
+
+```powershell
+& ".\tools\acceptance\Invoke-CrashDiagnosticBundle.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo -Mode CrtAbort
+& ".\tools\acceptance\Invoke-CrashDiagnosticBundle.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo -Mode CrtInvalidParameter
+& ".\tools\acceptance\Invoke-CrashDiagnosticBundle.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo -Mode CrtPurecall
+```
+
+Expected private exits are respectively `0xE0425254`, `0xE0425255` and
+`0xE0425256`. Every row must retain `legacy_fatal=0`, report the exact
+`crt_fatal_kind` (`SIGABRT`, `invalid_parameter` or `purecall`), create no
+modal wait and reject the hidden option beside Developer capability. Invalid-
+parameter input strings and source paths must not appear in the manifest.
+Intentional Menu exits and standalone tool process policy remain outside this
+game crash gate.
 
 ## Authored Farter loop and physical recovery pass
 

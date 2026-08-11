@@ -6244,6 +6244,33 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   archival utilities. Those require separate reachability and ownership
   evidence before interception.
 
+### CQ-291: process CRT invalid-parameter and purecall bypassed diagnostics
+
+- Status: `CRT_FATAL_CLASSES_OWNED`, `TOOL_EXITS_CLASSIFIED_SEPARATELY`.
+- Evidence: MSVC exposes process handlers for invalid-parameter and purecall
+  termination independently from `SIGABRT` and unhandled SEH. No maintained
+  owner installed either handler. The remaining source-tree `exit()` inventory
+  is not equivalent: linked Menu exits perform intentional shutdown, while
+  compiler/debug exits belong to standalone or inactive archival paths.
+- Handling: crash-owner installation now saves and replaces both process CRT
+  handlers. A selected invalid-parameter or purecall fatal records only a fixed
+  sanitized class (never the CRT-provided expression/function/source path) and
+  raises noncontinuable `0xE0425255` or `0xE0425256` into RR2CRASH1. Clean
+  uninstall restores both previous handlers. Typed errors, Menu shutdown,
+  utilities and normal exits are unchanged.
+- Verification: hidden isolated modes invoke `_invalid_parameter_noinfo_noreturn`
+  and `_purecall` only after a real Level exists. The maintained gate requires
+  exact exception exit, `MDMP`, the atomic two-file manifest, symbol/content
+  identity, privacy, fixed fatal kind, zero signal, bounded breadcrumbs, no
+  modal timeout and fail-closed Developer combination. Debug, Release and
+  RelWithDebInfo builds plus 76/76 CTest pass in each configuration. All five
+  independent crash routes pass 3/3 each; installed retail is 27/27,
+  cross-Level Save/Load 2/2, Portal 9/9, campaign 6/6, RecruitCenter
+  presentation 3/3 and in-game shell 3/3.
+- Boundary: this is diagnostic termination, never recovery. Thread-local CRT
+  handler replacement by future third-party code and standalone tool process
+  policy are not claimed.
+
 ## Maintenance rule
 
 When a new quirk is found:

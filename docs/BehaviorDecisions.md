@@ -7117,3 +7117,20 @@ dispatch and pure-virtual calls are not intercepted merely because they can
 terminate a process. Each needs product reachability and semantic ownership
 before joining the crash contract. This keeps normal termination and tool
 policy out of the game crash owner.
+
+### BD-225: own process CRT fatal classes without owning tool exits
+
+Status: accepted on 2026-08-11 for invalid-parameter and purecall diagnostics.
+
+The maintained Windows process installs the MSVC invalid-parameter and
+purecall handlers next to the already owned `SIGABRT` route. These callbacks
+mean that CRT has selected unrecoverable termination; they may therefore emit
+a fixed class identity and enter RR2CRASH1 through distinct noncontinuable
+exceptions. They must not return, unwind, rollback gameplay or attempt to
+continue.
+
+The invalid-parameter callback deliberately discards expression, function and
+source arguments because they can contain build or user-sensitive paths. Both
+previous handlers are restored on clean shutdown. Intentional Menu shutdown,
+typed runtime errors and standalone compiler/debug utilities keep their own
+process policy: crash diagnostics do not redefine every `exit()` as a crash.

@@ -24,6 +24,9 @@ constexpr std::size_t kBreadcrumbCapacity = 16u;
 constexpr std::size_t kBreadcrumbTextCapacity = 160u;
 constexpr ULONG kStackGuaranteeBytes = 128u * 1024u;
 using SignalHandler = void(__cdecl*)(int);
+using InvalidParameterHandler = void(__cdecl*)(
+    const wchar_t*, const wchar_t*, const wchar_t*, unsigned int, uintptr_t);
+using PurecallHandler = void(__cdecl*)();
 
 struct CrashContext {
   char level[kIdentityCapacity] = "unavailable";
@@ -74,8 +77,12 @@ struct CrashOwner {
   bool mapPresent = false;
   LPTOP_LEVEL_EXCEPTION_FILTER previousFilter = nullptr;
   SignalHandler previousAbortHandler = SIG_DFL;
+  InvalidParameterHandler previousInvalidParameterHandler = nullptr;
+  PurecallHandler previousPurecallHandler = nullptr;
   unsigned int previousAbortBehavior = 0u;
   bool abortHandlerInstalled = false;
+  bool invalidParameterHandlerInstalled = false;
+  bool purecallHandlerInstalled = false;
   volatile LONG writing = 0;
   volatile LONG activeContext = 0;
   volatile LONG nextBreadcrumb = 0;
@@ -87,6 +94,7 @@ struct CrashOwner {
   char legacyFatalMessage[256] = "unavailable";
   bool crtFatal = false;
   int crtFatalSignal = 0;
+  char crtFatalKind[32] = "none";
   std::array<CrashContext, 2> contexts = {};
   std::array<CrashBreadcrumb, kBreadcrumbCapacity> breadcrumbs = {};
 };
@@ -327,19 +335,36 @@ bool WriteManifestAtomic(const char* bytes, DWORD size) {
   return true;
 }
 
-[[noreturn]] void __cdecl CrtAbortSignalHandler(int signalNumber) {
-  if (g_owner.installed && signalNumber == SIGABRT) {
+[[noreturn]] void RaiseCrtFatal(const char* kind, int signalNumber,
+                                DWORD exceptionCode) {
+  if (g_owner.installed) {
     g_owner.crtFatal = true;
     g_owner.crtFatalSignal = signalNumber;
-    WindowsCrashDiagnostics_RecordBreadcrumb("crt-fatal", "SIGABRT");
+    CopySanitized(g_owner.crtFatalKind, sizeof(g_owner.crtFatalKind), kind);
+    WindowsCrashDiagnostics_RecordBreadcrumb("crt-fatal", kind);
     SetErrorMode(GetErrorMode() | SEM_FAILCRITICALERRORS |
                  SEM_NOGPFAULTERRORBOX);
-    RaiseException(kWindowsCrashDiagnosticsCrtAbortCode,
-                   EXCEPTION_NONCONTINUABLE, 0u, nullptr);
+    RaiseException(exceptionCode, EXCEPTION_NONCONTINUABLE, 0u, nullptr);
   }
-  TerminateProcess(GetCurrentProcess(),
-                   kWindowsCrashDiagnosticsCrtAbortCode);
+  TerminateProcess(GetCurrentProcess(), exceptionCode);
   __assume(0);
+}
+
+[[noreturn]] void __cdecl CrtAbortSignalHandler(int signalNumber) {
+  RaiseCrtFatal("SIGABRT", signalNumber,
+                kWindowsCrashDiagnosticsCrtAbortCode);
+}
+
+[[noreturn]] void __cdecl CrtInvalidParameterHandler(
+    const wchar_t*, const wchar_t*, const wchar_t*, unsigned int, uintptr_t) {
+  // The CRT may pass source paths and expressions here. They are deliberately
+  // excluded from the privacy-bounded manifest; the fatal class is sufficient.
+  RaiseCrtFatal("invalid_parameter", 0,
+                kWindowsCrashDiagnosticsCrtInvalidParameterCode);
+}
+
+[[noreturn]] void __cdecl CrtPurecallHandler() {
+  RaiseCrtFatal("purecall", 0, kWindowsCrashDiagnosticsCrtPurecallCode);
 }
 
 LONG WINAPI CrashFilter(EXCEPTION_POINTERS* exceptionPointers) {
@@ -477,7 +502,7 @@ LONG WINAPI CrashFilter(EXCEPTION_POINTERS* exceptionPointers) {
              "crt_fatal=%d\r\ncrt_fatal_kind=%s\r\n"
              "crt_fatal_signal=%d\r\n",
              g_owner.crtFatal ? 1 : 0,
-             g_owner.crtFatal ? "SIGABRT" : "none",
+             g_owner.crtFatalKind,
              g_owner.crtFatalSignal);
 
   const LONG newestSequence =
@@ -586,6 +611,11 @@ bool WindowsCrashDiagnostics_Install(const std::wstring& diagnosticsDirectory,
   g_owner.previousAbortBehavior = _set_abort_behavior(
       0u, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
   g_owner.abortHandlerInstalled = true;
+  g_owner.previousInvalidParameterHandler =
+      _set_invalid_parameter_handler(CrtInvalidParameterHandler);
+  g_owner.invalidParameterHandlerInstalled = true;
+  g_owner.previousPurecallHandler = _set_purecall_handler(CrtPurecallHandler);
+  g_owner.purecallHandlerInstalled = true;
   g_owner.installed = true;
   WindowsCrashDiagnostics_RecordBreadcrumb("process", "crash-owner-installed");
   return true;
@@ -593,6 +623,14 @@ bool WindowsCrashDiagnostics_Install(const std::wstring& diagnosticsDirectory,
 
 void WindowsCrashDiagnostics_Uninstall() {
   if (!g_owner.installed) return;
+  if (g_owner.purecallHandlerInstalled) {
+    _set_purecall_handler(g_owner.previousPurecallHandler);
+    g_owner.purecallHandlerInstalled = false;
+  }
+  if (g_owner.invalidParameterHandlerInstalled) {
+    _set_invalid_parameter_handler(g_owner.previousInvalidParameterHandler);
+    g_owner.invalidParameterHandlerInstalled = false;
+  }
   if (g_owner.abortHandlerInstalled) {
     std::signal(SIGABRT, g_owner.previousAbortHandler);
     _set_abort_behavior(g_owner.previousAbortBehavior,
