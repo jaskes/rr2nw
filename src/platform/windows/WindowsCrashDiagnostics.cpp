@@ -5,8 +5,10 @@
 #include <winternl.h>
 
 #include <array>
+#include <csignal>
 #include <cstddef>
 #include <cstdarg>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <cwchar>
@@ -21,6 +23,7 @@ constexpr std::size_t kIdentityCapacity = 96u;
 constexpr std::size_t kBreadcrumbCapacity = 16u;
 constexpr std::size_t kBreadcrumbTextCapacity = 160u;
 constexpr ULONG kStackGuaranteeBytes = 128u * 1024u;
+using SignalHandler = void(__cdecl*)(int);
 
 struct CrashContext {
   char level[kIdentityCapacity] = "unavailable";
@@ -70,6 +73,9 @@ struct CrashOwner {
   bool pdbPresent = false;
   bool mapPresent = false;
   LPTOP_LEVEL_EXCEPTION_FILTER previousFilter = nullptr;
+  SignalHandler previousAbortHandler = SIG_DFL;
+  unsigned int previousAbortBehavior = 0u;
+  bool abortHandlerInstalled = false;
   volatile LONG writing = 0;
   volatile LONG activeContext = 0;
   volatile LONG nextBreadcrumb = 0;
@@ -79,6 +85,8 @@ struct CrashOwner {
   char legacyFatalAssertion[160] = "unavailable";
   char legacyFatalSource[96] = "unavailable";
   char legacyFatalMessage[256] = "unavailable";
+  bool crtFatal = false;
+  int crtFatalSignal = 0;
   std::array<CrashContext, 2> contexts = {};
   std::array<CrashBreadcrumb, kBreadcrumbCapacity> breadcrumbs = {};
 };
@@ -319,6 +327,21 @@ bool WriteManifestAtomic(const char* bytes, DWORD size) {
   return true;
 }
 
+[[noreturn]] void __cdecl CrtAbortSignalHandler(int signalNumber) {
+  if (g_owner.installed && signalNumber == SIGABRT) {
+    g_owner.crtFatal = true;
+    g_owner.crtFatalSignal = signalNumber;
+    WindowsCrashDiagnostics_RecordBreadcrumb("crt-fatal", "SIGABRT");
+    SetErrorMode(GetErrorMode() | SEM_FAILCRITICALERRORS |
+                 SEM_NOGPFAULTERRORBOX);
+    RaiseException(kWindowsCrashDiagnosticsCrtAbortCode,
+                   EXCEPTION_NONCONTINUABLE, 0u, nullptr);
+  }
+  TerminateProcess(GetCurrentProcess(),
+                   kWindowsCrashDiagnosticsCrtAbortCode);
+  __assume(0);
+}
+
 LONG WINAPI CrashFilter(EXCEPTION_POINTERS* exceptionPointers) {
   if (!g_owner.installed ||
       InterlockedCompareExchange(&g_owner.writing, 1, 0) != 0)
@@ -449,7 +472,13 @@ LONG WINAPI CrashFilter(EXCEPTION_POINTERS* exceptionPointers) {
              "legacy_fatal_line=%d\r\nlegacy_fatal_message=%s\r\n",
              g_owner.legacyFatal ? 1 : 0, g_owner.legacyFatalKind,
              g_owner.legacyFatalAssertion, g_owner.legacyFatalSource,
-             g_owner.legacyFatalLine, g_owner.legacyFatalMessage);
+             g_owner.legacyFatalLine, g_owner.legacyFatalMessage) &&
+      Append(manifest, sizeof(manifest), &length,
+             "crt_fatal=%d\r\ncrt_fatal_kind=%s\r\n"
+             "crt_fatal_signal=%d\r\n",
+             g_owner.crtFatal ? 1 : 0,
+             g_owner.crtFatal ? "SIGABRT" : "none",
+             g_owner.crtFatalSignal);
 
   const LONG newestSequence =
       InterlockedCompareExchange(&g_owner.nextBreadcrumb, 0, 0);
@@ -548,6 +577,15 @@ bool WindowsCrashDiagnostics_Install(const std::wstring& diagnosticsDirectory,
   g_owner.contexts[0] = {};
   g_owner.contexts[1] = g_owner.contexts[0];
   g_owner.previousFilter = SetUnhandledExceptionFilter(CrashFilter);
+  g_owner.previousAbortHandler = std::signal(SIGABRT, CrtAbortSignalHandler);
+  if (g_owner.previousAbortHandler == SIG_ERR) {
+    SetUnhandledExceptionFilter(g_owner.previousFilter);
+    ResetOwner();
+    return false;
+  }
+  g_owner.previousAbortBehavior = _set_abort_behavior(
+      0u, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+  g_owner.abortHandlerInstalled = true;
   g_owner.installed = true;
   WindowsCrashDiagnostics_RecordBreadcrumb("process", "crash-owner-installed");
   return true;
@@ -555,6 +593,12 @@ bool WindowsCrashDiagnostics_Install(const std::wstring& diagnosticsDirectory,
 
 void WindowsCrashDiagnostics_Uninstall() {
   if (!g_owner.installed) return;
+  if (g_owner.abortHandlerInstalled) {
+    std::signal(SIGABRT, g_owner.previousAbortHandler);
+    _set_abort_behavior(g_owner.previousAbortBehavior,
+                        _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+    g_owner.abortHandlerInstalled = false;
+  }
   SetUnhandledExceptionFilter(g_owner.previousFilter);
   g_owner.installed = false;
 }

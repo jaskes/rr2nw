@@ -6517,8 +6517,9 @@ The crash manifest stores a formatted message; Debug additionally stores the
 assertion, basename-only source and line, while Release truthfully has only its
 runtime message. No raw path, varargs object, save, retail payload or game lock
 crosses the boundary. This does not convert ordinary startup/Save/Load/campaign
-errors into crashes, and it does not claim direct CRT abort, unrelated explicit
-exit or standalone debug-tool coverage.
+errors into crashes. Direct CRT abort is now a separate process owner under
+BD-224; unrelated explicit exits and standalone debug-tool paths remain outside
+this decision.
 
 ### BD-200: mission holder replacement captures the old owner, not the whole table
 
@@ -7093,3 +7094,26 @@ The CP866 archive stays byte-identical, and broader Fountain cache/removal/save
 semantics remain an explicit deferred frontier. This narrow compatibility seam
 is preferable to silently editing the historical source or letting allocator
 history decide authoritative gameplay.
+
+### BD-224: intercept a fatal CRT decision, not every process exit
+
+Status: accepted on 2026-08-11 for direct `SIGABRT` diagnostics.
+
+The maintained executable contains direct `std::abort()` fallbacks and a
+product-linked CRT `assert`; both terminate through `SIGABRT` rather than the
+archival DebugExt callback. Once CRT has selected abort, a process-scoped
+signal handler may publish fixed fatal identity and raise a noncontinuable SEH
+for the existing RR2CRASH1 owner. This is diagnostic termination, not recovery:
+no stack unwinding, gameplay rollback or continuation is attempted.
+
+Installation suppresses CRT abort message/report UI so a headless or packaged
+failure cannot wait for a dialog. Shutdown restores the prior signal handler
+and abort behavior. The manifest distinguishes `crt_fatal=SIGABRT` from both
+unexpected SEH and `legacy_fatal`; normal typed failures retain their existing
+reports.
+
+Explicit `exit(0/1)`, standalone script/compiler utilities, invalid-parameter
+dispatch and pure-virtual calls are not intercepted merely because they can
+terminate a process. Each needs product reachability and semantic ownership
+before joining the crash contract. This keeps normal termination and tool
+policy out of the game crash owner.

@@ -6211,6 +6211,39 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   General Fountain population, cache membership, removal and legacy Fountain
   world import remain outside the Portal-specific owner.
 
+### CQ-290: direct CRT abort bypassed the process crash bundle
+
+- Status: `PRODUCT_SIGABRT_OWNER_CONFIRMED`, `RR2CRASH1_GATED`,
+  `TOOL_EXITS_RETAINED`.
+- Evidence: the maintained executable has two direct `std::abort()` fallbacks
+  in the required `ZAV_Config()` hook and links a CRT `assert(0)` owner. On
+  MSVC, `abort` raises `SIGABRT` and then terminates; the existing unhandled-SEH
+  filter and DebugExt callback did not own that distinct CRT route. Repository
+  inventory also found explicit normal exits and standalone compiler/debug
+  `getch()`/`__debugbreak()` paths, which are not equivalent failures.
+- Handling: crash-owner installation registers one process `SIGABRT` handler
+  and suppresses CRT abort message/report UI. After the CRT selects abort, the
+  handler marks a distinct fixed `crt_fatal` context and raises private
+  noncontinuable exception `0xE0425254` into the existing reentrancy-safe
+  RR2CRASH1 writer. Uninstall restores the previous signal handler and abort
+  behavior. Typed errors, DebugExt, explicit normal exits and tools are
+  unchanged.
+- Verification: hidden `--crt-abort-diagnostic-smoke` is isolated from all
+  ordinary/Developer capabilities and calls real `std::abort()` only after a
+  Level exists. The three-configuration gate requires exact exception exit,
+  no modal timeout, `MDMP`, atomic manifest/privacy/symbol identity, Level and
+  content identity, `crt_fatal=1`, `SIGABRT` and a bounded breadcrumb ring.
+  Existing unexpected-SEH and legacy-fatal modes independently require
+  `crt_fatal=0`. Final acceptance passes Debug, Release and RelWithDebInfo
+  builds plus 76/76 CTest in each; abort/SEH/DebugExt bundles are each 3/3,
+  retail and fresh continuation are each 27/27, cross-Level Save/Load is 2/2,
+  Portal is 9/9, campaign is 6/6, RecruitCenter presentation is 3/3 and the
+  in-game shell is 3/3.
+- Boundary: this covers direct abort and CRT `assert`, not `_purecall`, invalid
+  parameter dispatch, explicit `exit`, compiler subprocesses or unlinked
+  archival utilities. Those require separate reachability and ownership
+  evidence before interception.
+
 ## Maintenance rule
 
 When a new quirk is found:

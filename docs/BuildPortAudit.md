@@ -4493,3 +4493,42 @@ field was introduced. The focused poison/reset smoke passes and six
 consecutive unretried RelWithDebInfo installed Level.04D service
 reconstructions pass 6/6. Broader Fountain cache/removal/save ownership remains
 outside this Portal slice.
+
+### 2026-08-11: clean CQ-289 evidence package and direct CRT abort owner
+
+The first tracked-clean post-CQ-289 release audit produced the exact Release
+package twice from revision `4bcb0bd279e1`. Both ZIPs were byte-identical at
+SHA-256 `58d37d1e2d31d4dc0cb521742941017df1f115684185f1eaa040e55c778e0591`.
+The frozen verification manifest SHA-256 was
+`129fb9ac8f8d10596e2daae1f012d0361b3739bc8a977d7feea6a138d687bae5`;
+validator, base runtime and example-mod runtime passed, while all 18 human
+Windows rows correctly remained `PENDING`. This archive is evidence for that
+exact revision, not transferable acceptance for a later package. The unresolved
+`0.1.0` versus `1.0.0-rc` version decision remains owner-controlled.
+
+The next fatal-path inventory separated paired Fountain cache bypass from a
+real product gap. Fountain rendering walks its subject table directly and its
+archived add/remove notifications symmetrically avoid the collidable spatial
+cache; LCN1/RR2SLOT1 do not invoke its legacy raw `loadNotify`, and the legacy
+importer is read-only. No broader Fountain mutation was justified.
+
+By contrast, the linked game contains direct `std::abort()` and CRT `assert`
+paths. The Windows crash owner now installs a process `SIGABRT` handler,
+suppresses CRT abort UI, records a distinct fixed fatal identity and raises
+noncontinuable `0xE0425254` into RR2CRASH1. Previous signal/abort policy is
+restored on clean shutdown. A hidden real-Level mode calls `std::abort()` and
+the maintained acceptance script proves dump, atomic manifest, privacy,
+symbols, exact exit and Developer-mode rejection independently from the
+unexpected-SEH and DebugExt modes. Explicit exits, purecall, invalid-parameter
+dispatch and standalone tools remain outside this bounded claim.
+
+The final CQ-290 gate passes complete Debug, Release and RelWithDebInfo builds
+and 76/76 CTest rows in each configuration. Direct abort, unexpected SEH and
+DebugExt fatal bundles independently pass 3/3. Installed retail bootstrap and
+fresh continuation pass 27/27 each without an in-case retry; cross-Level
+Save/Load passes 2/2, Portal 9/9, campaign 6/6, RecruitCenter presentation 3/3
+and the in-game shell 3/3. One initial aggregate fresh command exhausted its
+outer 600-second harness limit after completing Debug and seven Release
+processes; separate configuration-scoped runs then emitted complete 9/9
+summaries. No game case timed out or failed, and the incomplete aggregate run
+is not counted as acceptance evidence.

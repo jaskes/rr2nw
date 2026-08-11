@@ -5,8 +5,9 @@
 
 namespace rr2nw {
 
-// Process-level owner for unexpected Windows SEH failures. Normal runtime
-// errors and explicit legacy fatal exits remain outside this contract.
+// Process-level owner for unexpected Windows SEH failures and direct CRT
+// SIGABRT termination. Normal runtime errors and explicit normal exits remain
+// outside this contract.
 bool WindowsCrashDiagnostics_Install(const std::wstring& diagnosticsDirectory,
                                      const char* version,
                                      const char* revision,
@@ -43,5 +44,6 @@ void WindowsCrashDiagnostics_SetLegacyFatalContext(
 
 constexpr unsigned long kWindowsCrashDiagnosticsControlledCode = 0xE0425252ul;
 constexpr unsigned long kWindowsCrashDiagnosticsLegacyFatalCode = 0xE0425253ul;
+constexpr unsigned long kWindowsCrashDiagnosticsCrtAbortCode = 0xE0425254ul;
 
 }  // namespace rr2nw

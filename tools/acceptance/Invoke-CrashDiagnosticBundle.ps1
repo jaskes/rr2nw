@@ -3,7 +3,7 @@ param(
     [Parameter(Mandatory = $true)][string]$DataRoot,
     [ValidateSet("Debug", "Release", "RelWithDebInfo")]
     [string[]]$Configuration = @("Debug"),
-    [ValidateSet("UnexpectedSeh", "LegacyFatal")]
+    [ValidateSet("UnexpectedSeh", "LegacyFatal", "CrtAbort")]
     [string]$Mode = "UnexpectedSeh",
     [string]$Level = "Level.03N",
     [ValidateRange(20, 180)][int]$TimeoutSeconds = 90,
@@ -26,6 +26,8 @@ if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
     $stamp = [DateTime]::UtcNow.ToString("yyyyMMdd-HHmmss")
     $modeName = if ($Mode -eq "LegacyFatal") {
         "legacy-fatal-bundle"
+    } elseif ($Mode -eq "CrtAbort") {
+        "crt-abort-bundle"
     } else { "crash-diagnostic-bundle" }
     $OutputRoot = Join-Path $repositoryRoot (
         "build\verification\$modeName-$stamp")
@@ -81,12 +83,20 @@ function Invoke-BoundedProcess([string]$Executable, [string[]]$Arguments,
     }
 }
 
-$exceptionHex = if ($Mode -eq "LegacyFatal") { "E0425253" } else { "E0425252" }
+$exceptionHex = if ($Mode -eq "LegacyFatal") {
+    "E0425253"
+} elseif ($Mode -eq "CrtAbort") {
+    "E0425254"
+} else { "E0425252" }
 $diagnosticOption = if ($Mode -eq "LegacyFatal") {
     "--legacy-fatal-diagnostic-smoke"
+} elseif ($Mode -eq "CrtAbort") {
+    "--crt-abort-diagnostic-smoke"
 } else { "--crash-diagnostic-smoke" }
 $readyMarker = if ($Mode -eq "LegacyFatal") {
     "legacy-fatal-ready"
+} elseif ($Mode -eq "CrtAbort") {
+    "crt-abort-ready"
 } else { "controlled-crash-ready" }
 $expectedCrashExit = [BitConverter]::ToInt32(
     [BitConverter]::GetBytes([Convert]::ToUInt32($exceptionHex, 16)), 0)
@@ -205,9 +215,24 @@ foreach ($configurationName in $Configuration) {
                 "unavailable" $issues
             Require-Value $manifest "legacy_fatal_line" "0" $issues
         }
+        Require-Value $manifest "crt_fatal" "0" $issues
+        Require-Value $manifest "crt_fatal_kind" "none" $issues
+        Require-Value $manifest "crt_fatal_signal" "0" $issues
+    } elseif ($Mode -eq "CrtAbort") {
+        Require-Value $manifest "legacy_fatal" "0" $issues
+        Require-Value $manifest "legacy_fatal_kind" "none" $issues
+        Require-Value $manifest "crt_fatal" "1" $issues
+        Require-Value $manifest "crt_fatal_kind" "SIGABRT" $issues
+        if (-not $manifest.ContainsKey("crt_fatal_signal") -or
+            [int]$manifest.crt_fatal_signal -le 0) {
+            $issues.Add("CRT abort signal identity is missing")
+        }
     } else {
         Require-Value $manifest "legacy_fatal" "0" $issues
         Require-Value $manifest "legacy_fatal_kind" "none" $issues
+        Require-Value $manifest "crt_fatal" "0" $issues
+        Require-Value $manifest "crt_fatal_kind" "none" $issues
+        Require-Value $manifest "crt_fatal_signal" "0" $issues
     }
     if ($startup.ContainsKey("version")) {
         Require-Value $manifest "version" ([string]$startup.version) $issues
