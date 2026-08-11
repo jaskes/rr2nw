@@ -3176,8 +3176,9 @@ playable Level begins.
 - The maintained presentation-exit boundary stops the final Vehicle-owned
   Cinematic token on Escape, Enter and normal completion, then restores the
   current authored Vehicle engine through the existing `updateSound` owner.
-  Level.03N `wav.Ambient` after handoff is the occupied Akula engine and is not
-  classified as a leaked briefing stream.
+  Exact CQ-293 inventory corrects the earlier exploratory attribution:
+  initial Level.03N uses `Vehicle.Attr.default`/`wav.Crow`, not an occupied
+  Akula or `wav.Ambient`.
 - Real Level.03N acceptance covers Escape and Enter in Debug, Release and
   RelWithDebInfo. All six cases open the device before presentation, retain
   zero Cinematic registrations and voices after handoff, keep input neutral
@@ -3185,6 +3186,26 @@ playable Level begins.
   silent until its prior interactive boundary.
 - This closes stream timing and lifetime, not lip synchronization, byte-exact
   Intel RSX mixing, embedded FLIC audio or UI sounds.
+
+### RP-AUDIO-007: presentation output and world emitters have disjoint owners
+
+- Sound ABI 5 publishes a transient presentation flag. Effects and Vehicle
+  submixes are physically muted while Cinematic flags-1 playback is active;
+  configured category volumes and every logical registration remain intact.
+  The synchronous pump calls only audio maintenance, so queued PCM continues
+  without introducing a hidden gameplay tick.
+- Cached SoundObj Effects without a valid emitter/listener relation start at
+  zero gain. Their first authored MOVE_TO promotes the existing token and all
+  later listener, focus and device-recovery applications use that position.
+  This closes the full-volume-origin ambiguity without changing global
+  `DistMax=300` admission or direct Vehicle engine ownership.
+- Physical generated coverage proves unpositioned silence, late promotion,
+  near/far attenuation and recovery. Real Level.03N telemetry records each
+  canonical active basename plus position state, distance, attenuation and
+  applied gain; no Cinematic voice survives the handoff and every unresolved
+  generic emitter has gain zero.
+- This remains XAudio2 compatibility behavior. It does not claim the exact RSX
+  attenuation curve, HRTF, Doppler, embedded FLIC audio or UI sound parity.
 
 ### RP-REPLAY-001: RPH1 proves a versioned per-tick determinism seam
 

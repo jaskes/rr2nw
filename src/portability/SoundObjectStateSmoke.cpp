@@ -25,10 +25,13 @@ struct FakeAudioBackend {
   unsigned int listeners = 0;
   unsigned int pitches = 0;
   unsigned int volumes = 0;
+  unsigned int presentationRequests = 0;
   unsigned int focusChanges = 0;
   unsigned int maintains = 0;
   float volume = 0.0f;
   float cinematicVolume = 0.0f;
+  bool presentationActive = false;
+  bool failPresentation = false;
   bool active = true;
   float lastX = 0.0f;
   float lastY = 0.0f;
@@ -101,6 +104,14 @@ void FakeVolume(void* owner, ESoundStateCategory category, float volume) {
   else if (category == SOUND_STATE_CATEGORY_CINEMATIC)
     backend->cinematicVolume = volume;
   ++backend->volumes;
+}
+
+bool FakePresentation(void* owner, bool active) {
+  FakeAudioBackend* backend = static_cast<FakeAudioBackend*>(owner);
+  ++backend->presentationRequests;
+  if (backend->failPresentation) return false;
+  backend->presentationActive = active;
+  return true;
 }
 
 void FakeFocus(void* owner, bool active) {
@@ -286,7 +297,7 @@ int main() {
   SoundObjectState_Link();
   FakeAudioBackend backend;
   SSoundStateBackend bridge = {};
-  bridge.abiVersion = 4u;
+  bridge.abiVersion = 5u;
   bridge.owner = &backend;
   bridge.admit = FakeAdmit;
   bridge.start = FakeStart;
@@ -295,6 +306,7 @@ int main() {
   bridge.setListener = FakeListener;
   bridge.setPitch = FakePitch;
   bridge.setCategoryVolume = FakeVolume;
+  bridge.setPresentationActive = FakePresentation;
   bridge.setApplicationActive = FakeFocus;
   bridge.maintain = FakeMaintain;
   SoundState_ResetTelemetryForTesting();
@@ -303,6 +315,17 @@ int main() {
     return Fail("maintained backend bridge configuration failed");
   SoundState_SetApplicationActive(false);
   SoundState_SetApplicationActive(true);
+  const bool presentationIsolated =
+      SoundState_SetPresentationActive(true) &&
+      SoundState_Telemetry()->presentationActive &&
+      SoundState_SetPresentationActive(false) &&
+      !SoundState_Telemetry()->presentationActive;
+  backend.failPresentation = true;
+  const bool presentationFailureTransactional =
+      !SoundState_SetPresentationActive(true) &&
+      !SoundState_Telemetry()->presentationActive &&
+      !backend.presentationActive;
+  backend.failPresentation = false;
   const SSoundStateListenerPose listener = {
       0.0f, 0.0f, 0.0f,
       0.0f, 0.0f, 1.0f,
@@ -346,14 +369,18 @@ int main() {
       backend.oneShots == 2u && backend.loops == 7u &&
       backend.streams == 1u && backend.stops == 10u &&
       backend.volumes == 4u &&
+      backend.presentationRequests == 4u &&
       backend.moves == 2u && backend.listeners == 1u &&
       backend.pitches == 1u &&
       backend.lastX == 7.0f && backend.lastY == 8.0f &&
       backend.lastZ == 9.0f &&
       backend.focusChanges == 2u && backend.maintains == 1u &&
-      backend.active && backend.volume == 0.4f &&
+      backend.active && !backend.presentationActive &&
+      backend.volume == 0.4f &&
       backend.cinematicVolume == 1.0f && telemetry != nullptr &&
-      streamRejected && streamAdmitted && repeatRejected && explicitLoop &&
+      presentationIsolated && presentationFailureTransactional &&
+      streamRejected && streamAdmitted &&
+      repeatRejected && explicitLoop &&
       explicitPitch && loopToken == 0 && streamToken == 0 &&
       telemetry->oneShotStarts == 2u &&
       telemetry->loopRequests == 7u && telemetry->loopStarts == 7u &&
@@ -368,6 +395,11 @@ int main() {
       telemetry->listenerFailures == 0u &&
       telemetry->pitchRequests == 1u &&
       telemetry->pitchUpdates == 1u && telemetry->pitchFailures == 0u &&
+      telemetry->presentationRequests == 3u &&
+      telemetry->presentationBegins == 1u &&
+      telemetry->presentationEnds == 1u &&
+      telemetry->presentationFailures == 1u &&
+      !telemetry->presentationActive &&
       telemetry->unsupportedStreamStarts == 1u &&
       telemetry->unsupportedRepeatStarts == 1u;
   SoundState_ClearBackend(&backend);
@@ -375,7 +407,7 @@ int main() {
     return Fail("maintained one-shot/loop bridge was not exact or fail-closed");
   std::printf("sound distance=300/90000 invalid=transactional "
               "vehicle-engine=1/0.5 invalid=transactional "
-              "sound object table=SoundObj capacity=3 backend=callback-v4 "
+              "sound object table=SoundObj capacity=3 backend=callback-v5 "
               "lifecycle=invalid-bind-updateSound-move-start-end-reuse-one-shot-loop "
               "rollback=pool-name fingerprint=%llu\n",
               fingerprint);

@@ -1543,6 +1543,22 @@ bool HandleLevelBriefing(ELevelBriefingPolicy policy, const char* boundary,
                   std::to_string(audio->activeStreamVoices) + "/" +
                   std::to_string(audio->streamStarts) + "/" +
                   std::to_string(audio->streamStops));
+        log->Line(prefix + "audio_stream_buffers=" +
+                  std::to_string(audio->streamBufferSubmissions) + "/" +
+                  std::to_string(audio->streamedSampleBytes) + "/" +
+                  std::to_string(audio->streamUnderruns) + "/" +
+                  std::to_string(audio->maintenanceCalls));
+        log->Line(prefix + "audio_presentation=" +
+                  std::to_string(audio->presentationActive ? 1 : 0) + "/" +
+                  std::to_string(audio->presentationBegins) + "/" +
+                  std::to_string(audio->presentationEnds) + "/" +
+                  std::to_string(audio->presentationFailures) + "/" +
+                  std::to_string(
+                      audio->presentationMutedVoiceObservations));
+        log->Line(prefix + "audio_stream_sequence=" +
+                  std::string(audio->streamStartSequence));
+        log->Line(prefix + "audio_active_voices=" +
+                  std::string(audio->activeVoiceSummary));
       }
     }
     RecoveredPresentationTrace_Record("level-entry", reason, "completed",
@@ -2713,7 +2729,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   }
   const SWindowsAudioRuntimeTelemetry* initialAudio =
       WindowsAudioRuntime_Telemetry();
-  log.Line("audio_backend=xaudio2-2.9-effects-spatial-vehicle-stream-v4");
+  log.Line("audio_backend=xaudio2-2.9-effects-spatial-vehicle-presentation-v5");
   log.Line(std::string("audio_physical_output=") +
            (!options.runtimeSmoke ? "deferred-until-interactive-loop"
                                   : "headless"));
@@ -8214,6 +8230,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(audio->loopRegistrations) + "/" +
              std::to_string(audio->deferredLoopRegistrations) + "/" +
              std::to_string(audio->activeLoopRegistrations));
+    log.Line("audio_active_voices=" +
+             std::string(audio->activeVoiceSummary));
     log.Line("audio_loop_recovery=" +
              std::to_string(audio->loopRestarts) + "/" +
              std::to_string(audio->loopRecoveryFailures));
@@ -8221,6 +8239,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(audio->positionedRegistrations) + "/" +
              std::to_string(audio->emitterMoveUpdates) + "/" +
              std::to_string(audio->emitterMoveFailures));
+    log.Line("audio_late_position_promotions=" +
+             std::to_string(audio->latePositionPromotions));
     log.Line("audio_listener_updates=" +
              std::to_string(audio->listenerUpdates) + "/" +
              std::to_string(audio->listenerFailures));
@@ -8229,6 +8249,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(audio->spatialSilentApplications) + "/" +
              std::to_string(audio->asymmetricModelFallbacks) + "/" +
              std::to_string(audio->nonMonoSpatialFallbacks));
+    log.Line("audio_unpositioned_effect_suppressions=" +
+             std::to_string(audio->unpositionedEffectSuppressions));
     log.Line("audio_vehicle_engine=" +
              std::to_string(audio->vehicleLoopRegistrations) + "/" +
              std::to_string(audio->vehicleLoopStops) + "/" +

@@ -45,12 +45,14 @@ struct SWindowsAudioRuntimeTelemetry {
   unsigned int activeLoopVoices = 0;
   unsigned int activeLoopRegistrations = 0;
   unsigned int positionedRegistrations = 0;
+  unsigned int latePositionPromotions = 0;
   unsigned int emitterMoveUpdates = 0;
   unsigned int emitterMoveFailures = 0;
   unsigned int listenerUpdates = 0;
   unsigned int listenerFailures = 0;
   unsigned int spatialApplications = 0;
   unsigned int spatialSilentApplications = 0;
+  unsigned int unpositionedEffectSuppressions = 0;
   unsigned int asymmetricModelFallbacks = 0;
   unsigned int nonMonoSpatialFallbacks = 0;
   unsigned int vehicleLoopRegistrations = 0;
@@ -63,11 +65,20 @@ struct SWindowsAudioRuntimeTelemetry {
   unsigned int focusSuspends = 0;
   unsigned int focusResumes = 0;
   unsigned int maintenanceCalls = 0;
+  bool presentationActive = false;
+  unsigned int presentationRequests = 0;
+  unsigned int presentationBegins = 0;
+  unsigned int presentationEnds = 0;
+  unsigned int presentationFailures = 0;
+  unsigned int presentationMutedVoiceObservations = 0;
   std::size_t cachedSampleBytes = 0;
   std::size_t streamedSampleBytes = 0;
   float effectsVolume = 1.0f;
   float vehicleVolume = 1.0f;
   float cinematicVolume = 1.0f;
+  // Canonical retail basenames only; no physical path or payload is exposed.
+  char streamStartSequence[512] = {};
+  char activeVoiceSummary[1024] = {};
   char lastError[256] = {};
 };
 

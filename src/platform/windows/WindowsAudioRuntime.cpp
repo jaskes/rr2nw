@@ -23,7 +23,7 @@
 namespace rr2nw {
 namespace {
 
-constexpr unsigned int kBackendAbiVersion = 4u;
+constexpr unsigned int kBackendAbiVersion = 5u;
 // The installed corpus contains 86 WAVs / about 38 MiB. Keep the process-wide
 // cache bounded while allowing every retail Level transition to retain the
 // union without turning late-campaign sounds into deterministic rejections.
@@ -96,6 +96,9 @@ struct VoiceSlot {
   ESoundStateCategory category = SOUND_STATE_CATEGORY_EFFECTS;
   unsigned int sourceChannels = 0;
   SpatialSourceState spatial;
+  float spatialDistance = -1.0f;
+  float spatialAttenuation = 1.0f;
+  float appliedGain = 0.0f;
   bool looping = false;
   bool streaming = false;
   std::FILE* streamFile = nullptr;
@@ -169,6 +172,21 @@ void SetError(const char* message, HRESULT error = S_OK) {
   }
 }
 
+void AppendStreamStartTrace(const std::string& key) {
+  const std::size_t slash = key.find_last_of("\\/");
+  const char* name = key.c_str() +
+      (slash == std::string::npos ? 0u : slash + 1u);
+  if (*name == 0) return;
+  const std::size_t used =
+      std::strlen(g_audio.telemetry.streamStartSequence);
+  if (used >= sizeof(g_audio.telemetry.streamStartSequence) - 1u) return;
+  const char* separator = used == 0u ? "" : ">";
+  (void)std::snprintf(
+      g_audio.telemetry.streamStartSequence + used,
+      sizeof(g_audio.telemetry.streamStartSequence) - used,
+      "%s%s", separator, name);
+}
+
 std::string FoldPath(const char* path) {
   std::string folded(path == nullptr ? "" : path);
   for (char& value : folded) {
@@ -193,6 +211,36 @@ bool ValidAuthoredSoundPath(const char* path, std::string* folded) {
   return true;
 }
 
+void RebuildActiveVoiceSummary() {
+  g_audio.telemetry.activeVoiceSummary[0] = 0;
+  for (const VoiceSlot& slot : g_audio.voices) {
+    if (slot.voice == nullptr) continue;
+    const std::size_t slash = slot.clipKey.find_last_of("\\/");
+    const char* name = slot.clipKey.c_str() +
+        (slash == std::string::npos ? 0u : slash + 1u);
+    const char category =
+        slot.category == SOUND_STATE_CATEGORY_VEHICLE
+            ? 'v'
+            : slot.category == SOUND_STATE_CATEGORY_CINEMATIC ? 'c' : 'e';
+    const char kind = slot.streaming ? 's' : slot.looping ? 'l' : 'o';
+    const char positioned = slot.spatial.positionValid ? 'p' : 'n';
+    const std::size_t used =
+        std::strlen(g_audio.telemetry.activeVoiceSummary);
+    if (used >= sizeof(g_audio.telemetry.activeVoiceSummary) - 1u) return;
+    const int written = std::snprintf(
+        g_audio.telemetry.activeVoiceSummary + used,
+        sizeof(g_audio.telemetry.activeVoiceSummary) - used,
+        "%s%c:%c:%c:%s@%.3f/%.3f/d%.1f/a%.3f/g%.3f",
+        used == 0u ? "" : ">", category, kind, positioned, name,
+        slot.intensity, slot.pitch, slot.spatialDistance,
+        slot.spatialAttenuation, slot.appliedGain);
+    if (written < 0 ||
+        static_cast<std::size_t>(written) >=
+            sizeof(g_audio.telemetry.activeVoiceSummary) - used)
+      return;
+  }
+}
+
 void UpdateActiveLoopTelemetry() {
   unsigned int active = 0;
   for (const VoiceSlot& slot : g_audio.voices)
@@ -200,6 +248,7 @@ void UpdateActiveLoopTelemetry() {
   g_audio.telemetry.activeLoopVoices = active;
   g_audio.telemetry.activeLoopRegistrations =
       static_cast<unsigned int>(g_audio.loops.size());
+  RebuildActiveVoiceSummary();
 }
 
 void UpdateActiveStreamTelemetry() {
@@ -209,6 +258,7 @@ void UpdateActiveStreamTelemetry() {
   g_audio.telemetry.activeStreamVoices = active;
   g_audio.telemetry.activeStreamRegistrations =
       static_cast<unsigned int>(g_audio.streams.size());
+  RebuildActiveVoiceSummary();
 }
 
 IXAudio2SubmixVoice* CategoryVoice(ESoundStateCategory category) {
@@ -219,14 +269,58 @@ IXAudio2SubmixVoice* CategoryVoice(ESoundStateCategory category) {
   return g_audio.effectsVoice;
 }
 
+float EffectiveCategoryVolume(ESoundStateCategory category) {
+  if (g_audio.telemetry.presentationActive &&
+      (category == SOUND_STATE_CATEGORY_EFFECTS ||
+       category == SOUND_STATE_CATEGORY_VEHICLE))
+    return 0.0f;
+  if (category == SOUND_STATE_CATEGORY_VEHICLE)
+    return g_audio.telemetry.vehicleVolume;
+  if (category == SOUND_STATE_CATEGORY_CINEMATIC)
+    return g_audio.telemetry.cinematicVolume;
+  return g_audio.telemetry.effectsVolume;
+}
+
+bool ApplyPhysicalCategoryVolumes() {
+  bool exact = true;
+  if (g_audio.effectsVoice != nullptr &&
+      FAILED(g_audio.effectsVoice->SetVolume(
+          EffectiveCategoryVolume(SOUND_STATE_CATEGORY_EFFECTS),
+          XAUDIO2_COMMIT_NOW)))
+    exact = false;
+  if (g_audio.vehicleVoice != nullptr &&
+      FAILED(g_audio.vehicleVoice->SetVolume(
+          EffectiveCategoryVolume(SOUND_STATE_CATEGORY_VEHICLE),
+          XAUDIO2_COMMIT_NOW)))
+    exact = false;
+  if (g_audio.cinematicVoice != nullptr &&
+      FAILED(g_audio.cinematicVoice->SetVolume(
+          EffectiveCategoryVolume(SOUND_STATE_CATEGORY_CINEMATIC),
+          XAUDIO2_COMMIT_NOW)))
+    exact = false;
+  return exact;
+}
+
 bool ApplyVoiceSpatial(VoiceSlot* slot) {
   if (slot == nullptr || slot->voice == nullptr) return false;
   float gain = slot->intensity;
+  slot->spatialDistance = -1.0f;
+  slot->spatialAttenuation = 1.0f;
+  slot->appliedGain = gain;
   if (slot->category == SOUND_STATE_CATEGORY_VEHICLE ||
       slot->category == SOUND_STATE_CATEGORY_CINEMATIC)
     return SUCCEEDED(slot->voice->SetVolume(gain, XAUDIO2_COMMIT_NOW));
+  // Every generic cached SoundObj is an RSX world emitter.  A START can be
+  // delivered before its first MOVE_TO (notably during Level reconstruction),
+  // but absence of a world position must never turn that emitter into a
+  // listener-centred full-volume loop.  Keep it fail-silent until both ends of
+  // the spatial relation are known; the stable registration is promoted by a
+  // later MOVE_TO and survives device recovery with that position.
   if (!slot->spatial.positionValid || !g_audio.listenerValid) {
-    return SUCCEEDED(slot->voice->SetVolume(gain, XAUDIO2_COMMIT_NOW));
+    slot->spatialAttenuation = 0.0f;
+    slot->appliedGain = 0.0f;
+    ++g_audio.telemetry.unpositionedEffectSuppressions;
+    return SUCCEEDED(slot->voice->SetVolume(0.0f, XAUDIO2_COMMIT_NOW));
   }
   SRecoveredAudioSpatialResult spatial;
   if (!RecoveredAudioSpatial_Evaluate(
@@ -234,7 +328,10 @@ bool ApplyVoiceSpatial(VoiceSlot* slot) {
           &spatial)) {
     return SUCCEEDED(slot->voice->SetVolume(gain, XAUDIO2_COMMIT_NOW));
   }
+  slot->spatialDistance = spatial.distance;
+  slot->spatialAttenuation = spatial.attenuation;
   gain *= spatial.attenuation;
+  slot->appliedGain = gain;
   HRESULT result = slot->voice->SetVolume(gain, XAUDIO2_COMMIT_NOW);
   if (FAILED(result)) return false;
   if (slot->sourceChannels != 1u) return true;
@@ -356,8 +453,9 @@ bool InitializeDevice() {
     SetError("XAudio2 effects category voice could not be created", result);
     return false;
   }
-  result = effects->SetVolume(g_audio.telemetry.effectsVolume,
-                              XAUDIO2_COMMIT_NOW);
+  result = effects->SetVolume(
+      EffectiveCategoryVolume(SOUND_STATE_CATEGORY_EFFECTS),
+      XAUDIO2_COMMIT_NOW);
   if (FAILED(result)) {
     effects->DestroyVoice();
     mastering->DestroyVoice();
@@ -378,8 +476,9 @@ bool InitializeDevice() {
     SetError("XAudio2 vehicle category voice could not be created", result);
     return false;
   }
-  result = vehicle->SetVolume(g_audio.telemetry.vehicleVolume,
-                              XAUDIO2_COMMIT_NOW);
+  result = vehicle->SetVolume(
+      EffectiveCategoryVolume(SOUND_STATE_CATEGORY_VEHICLE),
+      XAUDIO2_COMMIT_NOW);
   if (FAILED(result)) {
     vehicle->DestroyVoice();
     effects->DestroyVoice();
@@ -402,8 +501,9 @@ bool InitializeDevice() {
     SetError("XAudio2 cinematic category voice could not be created", result);
     return false;
   }
-  result = cinematic->SetVolume(g_audio.telemetry.cinematicVolume,
-                                XAUDIO2_COMMIT_NOW);
+  result = cinematic->SetVolume(
+      EffectiveCategoryVolume(SOUND_STATE_CATEGORY_CINEMATIC),
+      XAUDIO2_COMMIT_NOW);
   if (FAILED(result)) {
     cinematic->DestroyVoice();
     vehicle->DestroyVoice();
@@ -704,6 +804,7 @@ bool StartStreamClip(const std::string& key, float intensity, int playCount,
     }
     registeredHere = true;
     ++g_audio.telemetry.streamRegistrations;
+    AppendStreamStartTrace(key);
     *token = assignedToken;
     UpdateActiveStreamTelemetry();
     if (!g_audio.telemetry.deviceReady) {
@@ -995,6 +1096,9 @@ bool StartCachedClip(const std::string& key, float intensity, bool looping,
     return false;
   }
   *token = slot->token;
+  if (g_audio.telemetry.presentationActive &&
+      category != SOUND_STATE_CATEGORY_CINEMATIC)
+    ++g_audio.telemetry.presentationMutedVoiceObservations;
   ++g_audio.telemetry.playbackStarts;
   if (looping) {
     if (deviceRecovery)
@@ -1100,8 +1204,10 @@ bool BackendMove(void*, SoundStatePlaybackToken token,
   }
   const SRecoveredAudioVector3 position = {x, y, z};
   bool found = false;
+  bool promoted = false;
   const auto loop = g_audio.loops.find(token);
   if (loop != g_audio.loops.end()) {
+    promoted = !loop->second.spatial.positionValid;
     loop->second.spatial.position = position;
     loop->second.spatial.positionValid = true;
     found = true;
@@ -1117,7 +1223,9 @@ bool BackendMove(void*, SoundStatePlaybackToken token,
     ++g_audio.telemetry.emitterMoveFailures;
     return false;
   }
+  if (promoted) ++g_audio.telemetry.latePositionPromotions;
   ++g_audio.telemetry.emitterMoveUpdates;
+  RebuildActiveVoiceSummary();
   return true;
 }
 
@@ -1144,6 +1252,7 @@ bool BackendSetListener(void*, const SSoundStateListenerPose* listener) {
     return false;
   }
   ++g_audio.telemetry.listenerUpdates;
+  RebuildActiveVoiceSummary();
   return true;
 }
 
@@ -1154,13 +1263,41 @@ void BackendSetVolume(void*, ESoundStateCategory category, float volume) {
     if (!std::isfinite(volume) || volume < 0.0f || volume > 1.0f) return;
     g_audio.telemetry.vehicleVolume = volume;
     if (g_audio.vehicleVoice != nullptr)
-      (void)g_audio.vehicleVoice->SetVolume(volume, XAUDIO2_COMMIT_NOW);
+      (void)g_audio.vehicleVoice->SetVolume(
+          EffectiveCategoryVolume(category), XAUDIO2_COMMIT_NOW);
   } else if (category == SOUND_STATE_CATEGORY_CINEMATIC) {
     if (!std::isfinite(volume) || volume < 0.0f || volume > 1.0f) return;
     g_audio.telemetry.cinematicVolume = volume;
     if (g_audio.cinematicVoice != nullptr)
-      (void)g_audio.cinematicVoice->SetVolume(volume, XAUDIO2_COMMIT_NOW);
+      (void)g_audio.cinematicVoice->SetVolume(
+          EffectiveCategoryVolume(category), XAUDIO2_COMMIT_NOW);
   }
+}
+
+bool BackendSetPresentationActive(void*, bool active) {
+  ++g_audio.telemetry.presentationRequests;
+  if (g_audio.telemetry.presentationActive == active) return true;
+  const bool previous = g_audio.telemetry.presentationActive;
+  g_audio.telemetry.presentationActive = active;
+  if (!ApplyPhysicalCategoryVolumes()) {
+    g_audio.telemetry.presentationActive = previous;
+    (void)ApplyPhysicalCategoryVolumes();
+    ++g_audio.telemetry.presentationFailures;
+    SetError("XAudio2 presentation category transition failed");
+    return false;
+  }
+  if (active) {
+    ++g_audio.telemetry.presentationBegins;
+    for (const VoiceSlot& slot : g_audio.voices) {
+      if (slot.voice != nullptr &&
+          (slot.category == SOUND_STATE_CATEGORY_EFFECTS ||
+           slot.category == SOUND_STATE_CATEGORY_VEHICLE))
+        ++g_audio.telemetry.presentationMutedVoiceObservations;
+    }
+  } else {
+    ++g_audio.telemetry.presentationEnds;
+  }
+  return true;
 }
 
 void BackendSetActive(void*, bool active) {
@@ -1297,6 +1434,7 @@ bool WindowsAudioRuntime_Configure(float effectsVolume, float vehicleVolume,
   backend.setListener = BackendSetListener;
   backend.setPitch = BackendSetPitch;
   backend.setCategoryVolume = BackendSetVolume;
+  backend.setPresentationActive = BackendSetPresentationActive;
   backend.setApplicationActive = BackendSetActive;
   backend.maintain = BackendMaintain;
   if (!SoundState_ConfigureBackend(&backend)) {
@@ -1351,6 +1489,7 @@ void WindowsAudioRuntime_Shutdown() {
   g_audio.streams.clear();
   g_audio.listenerValid = false;
   g_audio.listener = {};
+  g_audio.telemetry.presentationActive = false;
   g_audio.telemetry.cachedSampleBytes = 0;
   g_audio.telemetry.activeLoopRegistrations = 0;
   g_audio.telemetry.activeStreamRegistrations = 0;
@@ -1390,8 +1529,9 @@ bool WindowsAudioRuntime_SetEffectsVolume(float volume) {
     return false;
   g_audio.telemetry.effectsVolume = volume;
   return g_audio.effectsVoice == nullptr ||
-      SUCCEEDED(g_audio.effectsVoice->SetVolume(volume,
-                                                XAUDIO2_COMMIT_NOW));
+      SUCCEEDED(g_audio.effectsVoice->SetVolume(
+          EffectiveCategoryVolume(SOUND_STATE_CATEGORY_EFFECTS),
+          XAUDIO2_COMMIT_NOW));
 }
 
 const SWindowsAudioRuntimeTelemetry* WindowsAudioRuntime_Telemetry() {
@@ -1408,8 +1548,20 @@ bool WindowsAudioRuntime_StartListeningProbe(unsigned int milliseconds) {
 
 bool WindowsAudioRuntime_StartLoopingProbe(unsigned int milliseconds) {
   if (!InstallSyntheticProbeClip(milliseconds)) return false;
+  const SSoundStateListenerPose listener = {
+      0.0f, 0.0f, 0.0f,
+      0.0f, 0.0f, 1.0f,
+      0.0f, 1.0f, 0.0f};
+  if (!BackendSetListener(nullptr, &listener)) return false;
+  SpatialSourceState spatial;
+  spatial.positionValid = true;
+  spatial.position = {0.0f, 0.0f, 0.0f};
+  spatial.model = {5.0f, 5.0f, 100.0f, 100.0f, 1.0f};
   SoundStatePlaybackToken token = 0;
-  return StartCachedClip(kSyntheticProbeKey, 1.0f, true, &token);
+  const bool started = StartCachedClip(kSyntheticProbeKey, 1.0f, true,
+                                       &token, 0, false, spatial);
+  if (started) ++g_audio.telemetry.positionedRegistrations;
+  return started;
 }
 
 bool WindowsAudioRuntime_StartMovingLoopProbe(unsigned int milliseconds) {
@@ -1420,14 +1572,14 @@ bool WindowsAudioRuntime_StartMovingLoopProbe(unsigned int milliseconds) {
       0.0f, 1.0f, 0.0f};
   if (!BackendSetListener(nullptr, &listener)) return false;
   SpatialSourceState spatial;
-  spatial.positionValid = true;
+  // Exercise the real reconstruction order: the emitter exists and starts
+  // before its first authored MOVE_TO. It must remain silent until promotion.
+  spatial.positionValid = false;
   spatial.position = {-25.0f, 0.0f, 0.0f};
   spatial.model = {5.0f, 5.0f, 100.0f, 100.0f, 1.0f};
   SoundStatePlaybackToken token = 0;
-  const bool started = StartCachedClip(kSyntheticProbeKey, 1.0f, true,
-                                       &token, 0, false, spatial);
-  if (started) ++g_audio.telemetry.positionedRegistrations;
-  return started;
+  return StartCachedClip(kSyntheticProbeKey, 1.0f, true,
+                         &token, 0, false, spatial);
 }
 
 bool WindowsAudioRuntime_StartVehicleEngineProbe(unsigned int milliseconds) {

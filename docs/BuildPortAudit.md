@@ -4588,8 +4588,8 @@ The archived action loop also left its final `SoundN=same` Vehicle token owned
 after returning. The modern presentation boundary now finishes that owner via
 the existing Vehicle audio transition, stopping the Cinematic stream before it
 restores the current engine. This avoids editing the CP866 archive and leaves
-save/content ABI untouched. In Level.03N the subsequent `wav.Ambient` hum is
-the authored occupied Akula Vehicle engine.
+save/content ABI untouched. CQ-293 later corrects the exploratory post-handoff
+voice attribution with exact physical inventory.
 
 The CQ-292 gate passes Debug, Release and RelWithDebInfo builds, 76/76 CTest in
 each, real Escape/Enter Level.03N presentation 6/6 with device enable before
@@ -4598,3 +4598,28 @@ cross-Level Save/Load 2/2, RecruitCenter presentation 3/3, sequential installed
 retail 27/27 and Farter/Vehicle audio 3/3 each. Two Debug rows in
 an exploratory concurrent retail sweep exited at the existing cadence-smoke
 boundary; exact isolated execution passes 2/2 and no automatic retry was added.
+
+### 2026-08-12: CQ-293 presentation isolation and fail-silent world emitters
+
+Interactive retesting showed that CQ-292 fixed device-open and final-token
+order but did not keep a long flags-1 stream fed inside the synchronous
+presenter. It also had no category-level exclusion for already reconstructed
+world sound. Sound ABI 5 now provides that explicit scope: the presentation
+pump services XAudio2 without a Session tick, Cinematic remains audible, and
+Effects/Vehicle submixes are restored only after the final stream is stopped.
+
+The same investigation replaced basename inference with an exact active-voice
+inventory. Level.03N after handoff contains authored `wav.Crow` on the default
+Player Vehicle plus SoundObj `Stepper2`/`Engine6` loops. Generic effects which
+have not yet received MOVE_TO are now zero-gain; a generated physical test
+proves late promotion and recovery. The real Debug Level.03N row records the
+positioned source at distance 199.4 beyond its max radius and all unresolved
+sources at gain 0.000. The player confirmed normal output on that exact build.
+
+The final gate passes complete Debug, Release and RelWithDebInfo builds and
+76/76 CTest in each configuration. Real Level.03N Escape/Enter presentation is
+6/6; a separate 17.5-second Release row crosses `oldman.wav>intro.wav` with 16
+buffer submissions, 1,048,576 streamed bytes and zero underruns. Installed
+retail is 27/27, cross-Level Save/Load 2/2, Portal 9/9, campaign 6/6,
+RecruitCenter presentation 3/3 and Farter/Vehicle audio 3/3 each. No package or
+manual acceptance ledger is reused across the resulting executable identity.

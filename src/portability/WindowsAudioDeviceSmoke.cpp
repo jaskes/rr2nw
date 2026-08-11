@@ -159,6 +159,7 @@ int main(int argc, char** argv) {
   }
   if (streamHeadless || listenStream) {
     const char* path = "..\\SOUND\\stream-probe.wav";
+    const bool presentationBegan = SoundState_SetPresentationActive(true);
     SSoundStatePlaybackRequest request = {
         path, 1, 1, 1.0f, 0, 0.0f, 0.0f, 0.0f,
         0.0f, 0.0f, 0.0f, 0.0f, SOUND_STATE_CATEGORY_CINEMATIC};
@@ -169,6 +170,7 @@ int main(int argc, char** argv) {
       telemetry = rr2nw::WindowsAudioRuntime_Telemetry();
       std::fprintf(stderr, "audio-device-smoke: stream start failed: %s\n",
                    telemetry->lastError);
+      (void)SoundState_SetPresentationActive(false);
       rr2nw::WindowsAudioRuntime_Shutdown();
       return EXIT_FAILURE;
     }
@@ -202,8 +204,14 @@ int main(int argc, char** argv) {
           telemetry->deferredStreamRegistrations == 1u;
       SoundState_StopPlayback(&token);
     }
+    const bool presentationEnded = SoundState_SetPresentationActive(false);
     telemetry = rr2nw::WindowsAudioRuntime_Telemetry();
-    const bool exact = completed && telemetry->admittedStreams == 1u &&
+    const bool exact = presentationBegan && presentationEnded && completed &&
+        !telemetry->presentationActive &&
+        telemetry->presentationBegins == 1u &&
+        telemetry->presentationEnds == 1u &&
+        telemetry->presentationFailures == 0u &&
+        telemetry->admittedStreams == 1u &&
         telemetry->streamRequests == 1u &&
         telemetry->streamRegistrations == 1u &&
         telemetry->rejectedStreams == 0u &&
@@ -349,13 +357,15 @@ int main(int argc, char** argv) {
         telemetry->loopRestarts == 1u &&
         telemetry->loopRecoveryFailures == 0u;
     const bool spatialExact = !listenMovingLoop ||
-        (movedSpatially && telemetry->positionedRegistrations == 1u &&
+        (movedSpatially && telemetry->positionedRegistrations == 0u &&
+         telemetry->latePositionPromotions == 1u &&
          telemetry->emitterMoveUpdates == 2u &&
          telemetry->emitterMoveFailures == 0u &&
          telemetry->listenerUpdates == 1u &&
          telemetry->listenerFailures == 0u &&
-         telemetry->spatialApplications >= 4u &&
-         telemetry->spatialSilentApplications >= 1u &&
+         telemetry->unpositionedEffectSuppressions >= 1u &&
+         telemetry->spatialApplications >= 3u &&
+         telemetry->spatialSilentApplications >= 2u &&
          telemetry->asymmetricModelFallbacks == 0u &&
          telemetry->nonMonoSpatialFallbacks == 0u);
     const bool vehicleExact = !listenVehiclePitch ||
@@ -368,7 +378,7 @@ int main(int argc, char** argv) {
     telemetry = rr2nw::WindowsAudioRuntime_Telemetry();
     std::printf("audio loop device=%s deferred=%u active=%u stopped=%u "
                 "lifecycle=%u/%u/%u recovery=%u/%u/%u "
-                "spatial=%u/%u/%u/%u/%u vehicle=%u/%u/%u/%u\n",
+                "spatial=%u/%u/%u/%u/%u/%u/%u vehicle=%u/%u/%u/%u\n",
                 telemetry->deviceReady ? "XAudio2-2.9" : "unavailable",
                 deferred ? 1u : 0u, remainedActive ? 1u : 0u,
                 stopped ? 1u : 0u,
@@ -377,10 +387,12 @@ int main(int argc, char** argv) {
                 telemetry->deviceRecoveries,
                 telemetry->loopRecoveryFailures,
                 telemetry->positionedRegistrations,
+                telemetry->latePositionPromotions,
                 telemetry->emitterMoveUpdates,
                 telemetry->listenerUpdates,
                 telemetry->spatialApplications,
                 telemetry->spatialSilentApplications,
+                telemetry->unpositionedEffectSuppressions,
                 telemetry->vehicleLoopRegistrations,
                 telemetry->vehiclePitchUpdates,
                 telemetry->vehiclePitchFailures,

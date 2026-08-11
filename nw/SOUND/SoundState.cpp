@@ -9,7 +9,7 @@
 namespace
 {
 
-const unsigned int kSoundStateBackendAbiVersion = 4u;
+const unsigned int kSoundStateBackendAbiVersion = 5u;
 SSoundStateBackend g_backend = {};
 SSoundStateTelemetry g_telemetry = {};
 
@@ -32,6 +32,7 @@ bool ValidBackend(const SSoundStateBackend *backend)
            backend->move != NULL && backend->setListener != NULL &&
            backend->setPitch != NULL &&
            backend->setCategoryVolume != NULL &&
+           backend->setPresentationActive != NULL &&
            backend->setApplicationActive != NULL &&
            backend->maintain != NULL;
 }
@@ -104,6 +105,13 @@ bool SoundState_ConfigureBackend(const SSoundStateBackend *backend)
     g_backend.setCategoryVolume(g_backend.owner,
                                 SOUND_STATE_CATEGORY_CINEMATIC,
                                 g_telemetry.cinematicVolume);
+    if (!g_backend.setPresentationActive(g_backend.owner,
+                                         g_telemetry.presentationActive))
+    {
+        std::memset(&g_backend, 0, sizeof(g_backend));
+        ++g_telemetry.presentationFailures;
+        return false;
+    }
     return true;
 }
 
@@ -111,7 +119,10 @@ void SoundState_ClearBackend(void *owner)
 {
     if (owner == NULL || g_backend.owner != owner)
         return;
+    if (g_telemetry.presentationActive)
+        (void)g_backend.setPresentationActive(g_backend.owner, false);
     std::memset(&g_backend, 0, sizeof(g_backend));
+    g_telemetry.presentationActive = false;
     ++g_telemetry.backendReleases;
 }
 
@@ -265,6 +276,25 @@ bool SoundState_SetCategoryVolume(ESoundStateCategory category, float volume)
     return true;
 }
 
+bool SoundState_SetPresentationActive(bool active)
+{
+    ++g_telemetry.presentationRequests;
+    if (g_telemetry.presentationActive == active)
+        return true;
+    if (g_backend.owner == NULL ||
+        !g_backend.setPresentationActive(g_backend.owner, active))
+    {
+        ++g_telemetry.presentationFailures;
+        return false;
+    }
+    g_telemetry.presentationActive = active;
+    if (active)
+        ++g_telemetry.presentationBegins;
+    else
+        ++g_telemetry.presentationEnds;
+    return true;
+}
+
 void SoundState_SetApplicationActive(bool active)
 {
     if (g_backend.owner != NULL)
@@ -294,8 +324,10 @@ void SoundState_ResetTelemetryForTesting()
     const float effectsVolume = g_telemetry.effectsVolume;
     const float vehicleVolume = g_telemetry.vehicleVolume;
     const float cinematicVolume = g_telemetry.cinematicVolume;
+    const bool presentationActive = g_telemetry.presentationActive;
     std::memset(&g_telemetry, 0, sizeof(g_telemetry));
     g_telemetry.effectsVolume = effectsVolume;
     g_telemetry.vehicleVolume = vehicleVolume;
     g_telemetry.cinematicVolume = cinematicVolume;
+    g_telemetry.presentationActive = presentationActive;
 }

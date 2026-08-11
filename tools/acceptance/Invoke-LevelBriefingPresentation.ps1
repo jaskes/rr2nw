@@ -6,6 +6,8 @@ param(
     [ValidateSet("Escape", "Enter", "None")]
     [string[]]$SkipKey = @("Escape", "Enter"),
     [string]$Level = "Level.03N",
+    [ValidateRange(100, 30000)][int]$SkipDelayMilliseconds = 500,
+    [ValidateRange(0, 1024)][int]$MinimumStreamBufferSubmissions = 0,
     [ValidateRange(30, 300)][int]$TimeoutSeconds = 180,
     [string]$OutputRoot
 )
@@ -106,7 +108,7 @@ foreach ($configurationName in $Configuration) {
         $windowReady = $preflight -and -not $process.HasExited -and
             $process.MainWindowHandle -ne [IntPtr]::Zero
         if ($windowReady -and $keyName -ne "None") {
-            Start-Sleep -Milliseconds 500
+            Start-Sleep -Milliseconds $SkipDelayMilliseconds
             $virtualKey = if ($keyName -eq "Escape") { 27 } else { 13 }
             $process.Refresh()
             $window = $process.MainWindowHandle
@@ -172,6 +174,65 @@ foreach ($configurationName in $Configuration) {
             }
         } else {
             $issues.Add("briefing audio lifecycle telemetry missing")
+        }
+        if ($values.ContainsKey("level_briefing_audio_stream_buffers")) {
+            $bufferParts = @(
+                $values["level_briefing_audio_stream_buffers"].Split('/'))
+            if ($bufferParts.Count -ne 4 -or
+                [int]$bufferParts[0] -lt $MinimumStreamBufferSubmissions -or
+                [int]$bufferParts[2] -ne 0 -or
+                [int]$bufferParts[3] -le 0) {
+                $issues.Add("briefing stream pump contract changed")
+            }
+        } else {
+            $issues.Add("briefing stream buffer telemetry missing")
+        }
+        if ($values.ContainsKey("level_briefing_audio_presentation")) {
+            $presentationAudio = @(
+                $values["level_briefing_audio_presentation"].Split('/'))
+            if ($presentationAudio.Count -ne 5 -or
+                $presentationAudio[0] -ne "0" -or
+                [int]$presentationAudio[1] -ne 1 -or
+                [int]$presentationAudio[2] -ne 1 -or
+                [int]$presentationAudio[3] -ne 0 -or
+                [int]$presentationAudio[4] -le 0) {
+                $issues.Add("cinematic/world category isolation changed")
+            }
+        } else {
+            $issues.Add("briefing presentation-audio telemetry missing")
+        }
+        if (-not $values.ContainsKey("level_briefing_audio_stream_sequence") -or
+            -not $values["level_briefing_audio_stream_sequence"].StartsWith(
+                "oldman.wav")) {
+            $issues.Add("authored briefing stream sequence changed")
+        }
+        if (-not $values.ContainsKey("level_briefing_audio_active_voices") -or
+            $values["level_briefing_audio_active_voices"] -match
+                '(^|>)c:') {
+            $issues.Add("cinematic voice survived briefing handoff")
+        }
+        if (-not $values.ContainsKey("audio_active_voices")) {
+            $issues.Add("post-handoff physical voice inventory missing")
+        } else {
+            foreach ($voice in @($values["audio_active_voices"].Split('>'))) {
+                if ($voice.StartsWith("e:") -and
+                    $voice.Contains(":n:") -and
+                    -not $voice.EndsWith("/g0.000")) {
+                    $issues.Add("unpositioned world emitter became audible")
+                }
+                if ($voice.StartsWith("c:")) {
+                    $issues.Add("cinematic stream escaped into gameplay")
+                }
+            }
+        }
+        if (-not $values.ContainsKey("audio_late_position_promotions") -or
+            [int]$values["audio_late_position_promotions"] -lt 1) {
+            $issues.Add("late authored MOVE_TO promotion was not observed")
+        }
+        if (-not $values.ContainsKey(
+                "audio_unpositioned_effect_suppressions") -or
+            [int]$values["audio_unpositioned_effect_suppressions"] -lt 1) {
+            $issues.Add("fail-silent world-emitter boundary was not observed")
         }
         $exactValues = @{
             "game_services_issues" = "0"

@@ -28,7 +28,10 @@ bool SoundState_SetMaximumDistance(double maximumDistance);
 // backend may apply a documented compatibility spatial model. Streamed media
 // ABI-3 adds separately routed Vehicle loops and their source-proven
 // frequency-ratio updates. ABI-4 admits source-proven flags-1 nonspatial
-// presentation streams through a separate Cinematic category.
+// presentation streams through a separate Cinematic category. ABI-5 adds a
+// transient presentation mode: authored Effects/Vehicle voices remain alive
+// but the maintained backend suppresses their physical category output while
+// Cinematic owns the synchronous briefing. This is not a persisted volume.
 enum ESoundStateCategory
 {
     SOUND_STATE_CATEGORY_EFFECTS = 0,
@@ -85,6 +88,7 @@ struct SSoundStateBackend
                      float ratio);
     void (*setCategoryVolume)(void *owner, ESoundStateCategory category,
                               float volume);
+    bool (*setPresentationActive)(void *owner, bool active);
     void (*setApplicationActive)(void *owner, bool active);
     void (*maintain)(void *owner);
 };
@@ -118,6 +122,11 @@ struct SSoundStateTelemetry
     unsigned int pitchFailures;
     unsigned int focusChanges;
     unsigned int maintenanceCalls;
+    unsigned int presentationRequests;
+    unsigned int presentationBegins;
+    unsigned int presentationEnds;
+    unsigned int presentationFailures;
+    bool presentationActive;
     float effectsVolume;
     float vehicleVolume;
     float cinematicVolume;
@@ -134,6 +143,7 @@ bool SoundState_MovePlayback(SoundStatePlaybackToken token,
 bool SoundState_SetListener(const SSoundStateListenerPose *listener);
 bool SoundState_SetPlaybackPitch(SoundStatePlaybackToken token, float ratio);
 bool SoundState_SetCategoryVolume(ESoundStateCategory category, float volume);
+bool SoundState_SetPresentationActive(bool active);
 void SoundState_SetApplicationActive(bool active);
 void SoundState_Maintain();
 bool SoundState_BackendConfigured();

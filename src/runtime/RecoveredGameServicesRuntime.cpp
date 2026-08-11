@@ -5318,6 +5318,10 @@ bool PumpMessages() {
 int PumpLevelBriefingPresentation() {
   if (!g_levelBriefingPresentationActive) return 0;
   if (!PumpMessages()) return VK_ESCAPE;
+  // The archived presenter is synchronous and does not return through the
+  // Windows frame loop while a FLIC/flight is active. Keep only the maintained
+  // presentation backend alive here; no Session/gameplay tick is performed.
+  SoundState_Maintain();
   if (g_levelBriefingPresentationBoundaryFailed) return VK_ESCAPE;
   return g_levelBriefingSkipRequested ? g_levelBriefingSkipKey : 0;
 }
@@ -5332,6 +5336,12 @@ void HandleLevelBriefingPresentationBoundary(int entering) {
     g_levelBriefingSkipRequested = false;
     g_levelBriefingSkipKey = 0;
     g_levelBriefingOverlayOwned = false;
+
+    if (!SoundState_SetPresentationActive(true)) {
+      g_levelBriefingPresentationBoundaryFailed = true;
+      Report(RECOVERED_GAME_SERVICES_FRAME_FAILURE);
+      return;
+    }
 
     if (!g_windowsInputAdapter.OverlayActive()) {
       SRecoveredWindowsInputBatch releases = {};
@@ -5355,6 +5365,10 @@ void HandleLevelBriefingPresentationBoundary(int entering) {
   // returns.  End that owner before restoring gameplay audio.
   if (g_vehicle != nullptr)
     g_vehicle->updateSound(Session::m_moment);
+  if (!SoundState_SetPresentationActive(false)) {
+    g_levelBriefingPresentationBoundaryFailed = true;
+    Report(RECOVERED_GAME_SERVICES_FRAME_FAILURE);
+  }
   g_levelBriefingOverlayOwned = false;
   g_levelBriefingPresentationActive = false;
   g_levelBriefingPresentationTelemetry.active = false;

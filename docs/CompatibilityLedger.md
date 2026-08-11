@@ -6298,10 +6298,44 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   installed retail matrix is 27/27, and Farter/Vehicle audio are 3/3 each. An exploratory
   concurrent broad sweep starved two Debug cadence-smoke processes; both exact
   rows pass 2/2 when run in isolation and are not hidden by harness retry.
-- Boundary: the remaining post-handoff `wav.Ambient` loop on Level.03N is the
-  authored occupied `Vehicle.Attr.Akula` engine, not leaked briefing audio.
-  Byte-exact RSX mixing, non-WAV FLIC audio and UI audio remain outside this
-  fix.
+- Boundary: CQ-293 supersedes the earlier exploratory identification of the
+  post-handoff voice. Exact physical inventory shows the initial Level.03N
+  Player remains `Vehicle.Attr.default` with authored `wav.Crow`; it is not an
+  occupied Akula and no `wav.Ambient` voice is active. Byte-exact RSX mixing,
+  non-WAV FLIC audio and UI audio remain outside this fix.
+
+### CQ-293: synchronous presentation starved its stream and exposed world loops
+
+- Status: `PRESENTATION_STREAM_MAINTAINED`,
+  `WORLD_AUDIO_ISOLATED`, `UNPOSITIONED_EMITTER_FAIL_SILENT`.
+- Evidence: a package playtest established two defects beyond CQ-292. The
+  synchronous FLIC/flight loop pumps Windows messages but does not return to
+  the normal frame owner, so an XAudio2 flags-1 stream submitted its initial
+  buffers and then starved. At the same time already reconstructed world
+  Effects/Vehicle loops remained physically audible under the presentation.
+  After handoff, exact Level.03N inventory found one authored listener-centred
+  `wav.Crow` Vehicle loop and five SoundObj loops. Four SoundObj registrations
+  had received START before their first MOVE_TO; treating their missing
+  position as listener-centred would turn `Stepper2.wav`/`Engine6.wav` into
+  full-volume mechanical noise.
+- Handling: the synchronous presentation pump now maintains only the audio
+  backend, never Session or gameplay. Sound ABI 5 owns a transient,
+  nonserialized presentation state which mutes the Effects and Vehicle
+  submixes while leaving Cinematic streaming live; exit first stops the final
+  briefing token and then restores the exact configured category volumes.
+  Generic SoundObj Effects are fail-silent until both emitter position and
+  listener are valid. A later MOVE_TO promotes the stable registration and is
+  retained across device recovery. Direct Vehicle and Cinematic owners retain
+  their source-proven listener-centred semantics.
+- Verification: a generated physical probe proves silent unpositioned start,
+  one late position promotion, near/far attenuation and device-loss recovery.
+  Real Level.03N Escape acceptance proves stream maintenance without underrun,
+  zero retained Cinematic voices, exact post-handoff gain inventory and a
+  player-confirmed normal audible result. The final multi-configuration and
+  regression gate is recorded in `BuildPortAudit.md`.
+- Boundary: the symmetric linear attenuation/equal-power pan remains a
+  documented XAudio2 compatibility mapping, not byte-exact Intel RSX. Authored
+  `wav.Crow` remains enabled; this fix does not special-case retail filenames.
 
 ## Maintenance rule
 

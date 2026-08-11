@@ -7171,3 +7171,22 @@ stop the final briefing token first, then restore the current authored Vehicle
 engine. Presentation state stays nonserialized and audio failure remains
 subordinate to gameplay. The historical CP866 briefing and Vehicle files are
 not re-encoded for this compatibility rule.
+
+### BD-228: synchronous presentation is an audio mode, not a second game loop
+
+Status: accepted on 2026-08-12 for CQ-293.
+
+The archived presenter blocks the Windows gameplay loop while it displays a
+FLIC/flight. Its pump may service the maintained audio backend so flags-1 PCM
+continues submitting buffers, but it must not poll Session, advance Vehicle,
+consume gameplay input or serialize presentation time. During this scope the
+Cinematic category exclusively owns physical output. Effects and Vehicle
+registrations remain alive but their submixes are zeroed and restored from the
+existing user settings atomically at exit.
+
+Generic SoundObj audio is always a world emitter. START without a valid
+MOVE_TO/listener is therefore fail-silent rather than implicitly centred; the
+stable token is promoted by a later authored position and device recovery uses
+that promoted state. Direct occupied-vehicle engine and Cinematic streams keep
+their distinct listener-centred owners. This is a class/lifecycle rule, never
+a filename blacklist or a change to simulation, LCN1/RR2SLOT1 or content ABI.

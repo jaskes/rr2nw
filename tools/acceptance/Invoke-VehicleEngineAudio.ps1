@@ -73,7 +73,7 @@ foreach ($configurationName in $Configuration) {
     $postVehicle = Read-UnsignedTuple $log "audio_post_level_vehicle" 3
     $postLoops = Read-UnsignedTuple $log "audio_post_level_loops" 3
     $exact = $log["audio_backend"] -eq `
-            "xaudio2-2.9-effects-spatial-vehicle-stream-v4" -and
+            "xaudio2-2.9-effects-spatial-vehicle-presentation-v5" -and
         $log["audio_physical_output"] -eq "headless" -and
         $log["audio_vehicle_engine_config"] -eq "1/0.500000" -and
         $engine[0] -gt 0 -and $engine[1] + 1 -eq $engine[0] -and
