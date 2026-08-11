@@ -4561,3 +4561,15 @@ parameter and purecall bundles each pass 3/3. Installed retail passes 27/27,
 cross-Level Save/Load 2/2, Portal 9/9, campaign 6/6, RecruitCenter presentation
 3/3 and in-game shell 3/3. The prior `646a5bdf97a6` frozen archive is retained
 only as local evidence because CQ-291 changes the executable.
+
+### 2026-08-12: first public release identity resolved as 0.1.0
+
+The project owner resolved the former `0.1.0` versus `1.0.0-rc` ambiguity:
+the first public playable Windows package is `0.1.0`. This matches the existing
+CMake/package identity and avoids claiming full campaign, remaining visible
+AI/cinematic/audio parity, sanitizer or prolonged Windows 10/11 acceptance.
+The 18-row archive-bound matrix remains mandatory for that exact package, but
+it is a representative early-release gate rather than proof of complete 1.0
+campaign parity. `v1.0.0` remains reserved for the complete Windows core
+roadmap. No save, content, runtime or executable behavior changed in this
+policy slice.

@@ -38,7 +38,7 @@ Remotes должны иметь однозначные роли:
 Рекомендуемые checkpoints:
 
 - `v0.0.1` — automated evidence/manifests;
-- `v0.1.0` — modern Windows x86 vertical slice;
+- `v0.1.0` — first public modern Windows x86 release with documented limits;
 - `v0.2.0` — SDL platform/stability;
 - `v0.5.0` — retail parity;
 - `v0.7.0` — save/replay/VFS;
@@ -137,13 +137,21 @@ Windows package содержит:
 По умолчанию package не содержит retail EXE, DirectX/RSX installers, полный CD
 data set, user saves или machine-local config.
 
-For 1.0 the portable ZIP is the distribution boundary. The selector accepts a
-complete mounted-disc root or existing installation only after strict catalog
-validation and never copies it. A normalized CD importer/installer is not
-claimed; full legacy-world conversion remains blocked by deferred LCN1 owners.
+Starting with 0.1.0, the portable ZIP is the distribution boundary. The
+selector accepts a complete mounted-disc root or existing installation only
+after strict catalog validation and never copies it. A normalized CD
+importer/installer is not claimed; full legacy-world conversion remains
+blocked by deferred LCN1 owners.
 After packaging, `Test-WindowsFrozenPackage.ps1` consumes the unchanged ZIP and
 sidecar, proves exact manifest/PE/symbol/runtime identity and creates an archive-
 and-manifest-bound 18-row manual ledger with every result still `PENDING`.
+
+The first public release keeps the existing CMake/project identity `0.1.0`.
+Its frozen candidates are identified by exact revision, archive hash and
+manifest hash rather than a premature `1.0.0-rc` claim. `v0.1.0` is created
+only after all required rows for one unchanged archive pass. The later
+`v1.0.0` remains reserved for the complete Windows core roadmap and full
+campaign acceptance.
 
 ## Tag and publish
 

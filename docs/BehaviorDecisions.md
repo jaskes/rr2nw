@@ -7134,3 +7134,22 @@ source arguments because they can contain build or user-sensitive paths. Both
 previous handlers are restored on clean shutdown. Intentional Menu shutdown,
 typed runtime errors and standalone compiler/debug utilities keep their own
 process policy: crash diagnostics do not redefine every `exit()` as a crash.
+
+### BD-226: publish the first playable milestone as 0.1.0, not 1.0
+
+Status: accepted by the project owner on 2026-08-12.
+
+The recovered port is already a substantial playable Windows vertical slice,
+but it still has explicit campaign, visible AI/guide/cinematic, broader audio,
+sanitizer and long-session acceptance work ahead. Calling that state 1.0 would
+erase useful semantic distance between “first public build” and “complete
+Windows core roadmap.” The existing CMake version `0.1.0` is therefore the
+intended first public release identity.
+
+The release remains package-bound and strict: one clean reproducible archive,
+its exact symbols/manifest/hash, nine Windows 10 rows and nine Windows 11 rows,
+with known limitations shipped beside it. Those representative rows do not
+claim full campaign completion. Subsequent compatible fixes use `0.1.x` and
+completed feature milestones advance through `0.x`; `v1.0.0` stays reserved
+for full Windows campaign/core acceptance. This changes release claims and
+documentation only, not save/content ABI or gameplay behavior.

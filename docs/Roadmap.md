@@ -17,15 +17,18 @@ Native Windows x64, Linux, macOS и multiplayer не являются блоке
 современный компилятор.
 
 ```text
-M0 evidence ─> M1 modern x86 ─> M2 platform ─> M2.5 in-game shell ─> M3 retail parity ─> M4 state/VFS ─> M5 mods ─> M6 RC ─> 1.0
+M0 evidence ─> M1 modern x86 ─> M2 platform ─> M2.5 in-game shell ─> M3 retail parity ─> M4 state/VFS ─> M5 mods ─> M6 RC ─> 0.1.0
+
+0.1.0 ─> evidence-backed 0.x milestones ─> complete Windows core ─> 1.0
 
 Legacy reference lane - - - > optional evidence for any milestone, never a gate
 ```
 
 Первый milestone не требует PCem, ручного прохождения или даже работающей
 legacy-сборки. Ручное тестирование начинается после появления современного
-играбельного vertical slice. Полное ручное прохождение требуется только для
-release candidate.
+играбельного vertical slice. Первый публичный `0.1.0` требует ограниченной
+пакетной матрицы Windows 10/11; полное ручное прохождение всей retail-кампании
+остаётся критерием настоящего 1.0.
 
 ## M0. Автоматическая фиксация доказательств — 0.0.1
 
@@ -892,22 +895,27 @@ Lua, native plugin ABI и новые C++ object classes откладываютс
 - Поврежденный или несовместимый mod отклоняется до мутации игры.
 - Save с отсутствующим обязательным mod не открывается под другим content set.
 
-## M6. Windows release candidate — 1.0.0-rc
+## M6. Первый публичный Windows release candidate — 0.1.0
+
+`0.1.0` — честный ранний modern Windows x86 release. Он доказывает пригодный
+для распространения portable package, все девять загружаемых миров и основные
+игровые вертикали, но не заявляет полную campaign/audio/AI parity будущего
+1.0. Известные ограничения публикуются вместе с архивом.
 
 ### Автоматический gate
 
-- clean Release и sanitizer builds;
+- clean Debug, Release и RelWithDebInfo builds;
 - content/mod validation;
 - boot smoke всех девяти runtime directories;
 - save round-trip и legacy import;
 - fixed-seed replay verification;
-- packaging и installer/importer smoke;
+- portable packaging и read-only retail-selector smoke;
 - GUI subsystem и SHA-256 release artifacts.
 
 ### Ручной gate
 
-- полная кампания на Windows 10;
-- полная кампания или расширенный smoke на Windows 11;
+- девять package-bound acceptance rows на Windows 10;
+- те же девять package-bound acceptance rows на Windows 11;
 - window/fullscreen/alt-tab/high-DPI;
 - ввод, звук, FLIC и briefing;
 - несколько типов техники, faction change, mission, portal, death/restart;
@@ -916,6 +924,18 @@ Lua, native plugin ABI и новые C++ object classes откладываютс
 - проверка diagnostic bundle после контролируемого crash test.
 
 Ручной gate выполняется по точному упакованному RC, а не по EXE из build tree.
+
+## Путь от 0.1.0 к 1.0
+
+- полное ручное прохождение retail-кампании на Windows 10 и Windows 11;
+- видимая parity движения People/Tank/mission guide и всей authored cinematic
+  последовательности;
+- расширение доказанного audio ownership на оставшиеся moving/UI/non-WAV
+  классы без ложной Intel RSX parity;
+- sanitizer и длительные multi-monitor/focus/performance прогоны;
+- deterministic projections для оставшихся Route/Lamp/Smoker/Fountain owners
+  и более полный legacy world import;
+- локализация mod/profile UI и закрытие найденных campaign compatibility rows.
 
 ## После 1.0
 
@@ -2326,18 +2346,18 @@ packaged Windows 10/11 manual gates have not yet passed.
 | M3 retail parity | 99% | People/Tank combat, two weapons, missions, center FLC plus briefing, all Level-entry intro scripts, simultaneous navigable objective graphs, independent success/failure/surrender result persistence, reward/Artefact, complete ordinary no-reward progression across Level.01D/02D and both Level.04D centers, terminal Level.01N Outsider, the complete persisted Level.04D Actek branch `G0 -> S04 -> S07 -> S10 -> S05 -> A26 -> S09 -> S06 -> AER04 -> AER06 -> AER08 -> AER10 -> AER00 -> AER16 -> AER21 -> S03 -> A27`, complete persisted Colony branch `G3 -> G5 -> G4 -> G8 -> A25 -> G10 -> G11 -> G12 -> G14 -> A28 -> G1 -> A29 -> S08 -> G7 -> AER03 -> AER13 -> AER15 -> AER17 -> AER20 -> AER24 -> G2`, terminal Level.05D Civilians branch `A30 -> S18 -> S11 -> S12 -> S19 -> S16 -> S20 -> A31` with HWZ1 v4 future-holder persistence, complete Level.05D Robbers branch `A32 -> A34 -> S21 -> S15 -> A35 -> A36 -> S17 -> S13 -> A33` with same-slot-8 terminal restore, two independent mission-reward/Portal/fresh-load chains, full guide-route rollback, complete Level.06N command-34 `part6 -> part7 -> s_RestartLevel(7) -> Level.01N` lifecycle with MSH1 v5 and exact process rollback, and exact Level.01D command-33 3D polling/script/save lifecycle with CPK1 v2 symbolic watchers | visible AI/guide/cinematic parity and complete campaign proof; unrecovered Destroyable callbacks remain evidence-bounded; Level.07N is an authored empty ProjectTable with no RecruitCenter, not a missing candidate |
 | M4 save/timing/VFS | 95% | versioned 17-owner LCN1, atomic same/cross-Level load, CTJ1, RNG split, deterministic VFS/content identity, backward-compatible RPH1 algorithm 2 with 12-component active gameplay-core hashes and bounded mismatch localization, live bounded Windows fixed-step cadence with zero-to-four Session/Vehicle ticks per presentation, focus/shell reset, post-present transactions, LCN1 epoch rebase, a 27/27 installed-Level production gate, explicit DWORD wrap/one-year-long-origin timing, a read-only installed `PIN_SaveFile` detector and atomic legacy `CONFIG.CFG` subset import | deterministic projections for deferred Route/Lamp/Smoker/Fountain owners and reviewed content-identity binding before full legacy world conversion; renderer interpolation remains optional |
 | M5 modding | 97% | discovery, dependencies/conflicts, deterministic mount order, validator, data/script overlays, bounded player profiles, restart-only in-frame selector, 128-candidate pagination, activation, bounded ASCII create/rename, confirmed deletion, compatibility keys and extracted-package identity parity | translated strings/general UTF text and final Win10/Win11 package campaign remain |
-| M6 release candidate | 55% | CI configurations, schema-2 reproducible package with exact EXE/validator/PDB/MAP identity, portable first-run retail selection, frozen-archive verifier, archive-bound pending ledger, diagnostics and support/privacy/known-limit docs | exact clean post-commit RC artifact, Win10 full campaign and Win11 extended pass |
+| M6 first public 0.1.0 candidate | 80% | CI configurations, schema-2 reproducible clean package with exact EXE/validator/PDB/MAP identity, portable first-run retail selection, frozen-archive verifier, archive-bound pending ledger, diagnostics and support/privacy/known-limit docs | exact post-policy package plus nine Windows 10 and nine Windows 11 human rows |
 
-The shortest critical path is:
+The shortest critical path to `0.1.0` is:
 
 1. complete packaged multi-monitor Win10/Win11 soak for the closed M2.5 shell,
    Controls, Video rollback and explicit Developer capability;
 2. repeat visible People/Tank/guide motion, manually validate packaged
-   cinematic timing and close only the remaining evidence-backed campaign gaps;
-3. widen the closed listener/moving-Tank/Player-Vehicle/briefing-stream audio
-   model to broader moving classes and UI/non-WAV cinematic owners;
-   finish window/focus/performance stability and keep standalone tool/normal
-   exit policy separate from the owned game crash contract;
-4. complete replay/import/mod UX gates;
-5. freeze a package and run the full Windows 10 plus extended Windows 11
-   acceptance campaign before `develop -> master -> 1.0.0`.
+   cinematic timing and record any release-blocking defect;
+3. freeze one post-policy package and complete its exact 18-row ledger;
+4. fix only reproduced blockers, refreeze if code/package inputs changed, then
+   advance `develop -> master -> v0.1.0` with explicit owner approval.
+
+Broader audio, full campaign proof, deferred state projections, sanitizer and
+remaining localization continue as evidence-backed `0.x` milestones toward
+the separate `1.0` product definition above.
