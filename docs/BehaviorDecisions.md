@@ -7068,3 +7068,28 @@ list preserves all 133 selector rows and the established pagination contract.
 This decision does not establish a reusable Unicode editor or translated UI.
 Those require an explicit UTF/IME/caret/localization lifecycle and cannot grow
 implicitly from the profile-identity boundary.
+
+### BD-223: pending Fountain presentation state cannot seed simulation
+
+Status: accepted on 2026-08-11 for the CQ-282 reconstruction closure.
+
+The one admitted Level.04D Portal Fountain is a real archived subject, but its
+archived `addNotify` skips the normal `ct_Subject` initializer. Consequently a
+presentation observation (`m_isVisible`) could inherit allocator bytes before
+the authored START handler used that observation to choose whether to draw one
+random interval. The result was not merely visual: every later simulation RNG
+consumer moved by one position and active People reconstruction became
+process-dependent.
+
+The maintained creation boundary now normalizes only the two fields that the
+skipped subject initializer owns: audible-this-frame and visible-this-frame.
+It does so after allocation and before START for both script creation overloads
+and partial-Portal recreation. Failure to identify the new object as a real
+Fountain rejects creation. The fix deliberately does not reseed RNG, normalize
+the resulting People fingerprint, retry a failed reconstruction or write
+presentation state into LCN1/RPH1.
+
+The CP866 archive stays byte-identical, and broader Fountain cache/removal/save
+semantics remain an explicit deferred frontier. This narrow compatibility seam
+is preferable to silently editing the historical source or letting allocator
+history decide authoritative gameplay.

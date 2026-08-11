@@ -3317,6 +3317,20 @@ playable Level begins.
   that March/May saves can be converted, or that an original installer may be
   redistributed. Those claims remain explicitly excluded.
 
+### RP-PORTAL-001: pending Fountain presentation is normalized before START
+
+- The installed Level.04D `localmain.sci` still creates the exact
+  `Portal.Arabesk`, `Fount.Attr.Arab` and authored position through the real
+  archived Fountain table. The maintained seam does not synthesize another
+  Portal owner or rewrite the retail script.
+- Archived `Fountain::addNotify()` bypasses the subject initializer. Clearing
+  its two skipped presentation fields before START is a modern determinism fix:
+  it prevents allocator bytes from selecting a different RNG path, but is not
+  a claim that the May executable had deterministic heap contents.
+- Six unretried installed Level.04D service reconstructions reproduce the same
+  initial/reconstructed world. General Fountain population, visuals,
+  cache/removal lifecycle and legacy world conversion remain outside this row.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

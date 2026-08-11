@@ -2,6 +2,7 @@
 
 #include "HowitzerActiveWorldState.h"
 #include "HowitzerSubjectState.h"
+#include "obase/fountain/FountainSubjectState.h"
 
 #include <cmath>
 #include <cstdio>
@@ -865,6 +866,14 @@ KR_ObjectID RecoveredLegacyScriptHost::NewObject(int classTable,
                   name, classTable);
     Report(RECOVERED_LEGACY_SCRIPT_HOST_OBJECT_CREATION_FAILURE, message);
   }
+  if (!object.isNUL() &&
+      classTable == m_arena->searchSeanceClassTable("Fountain") &&
+      !FountainSubjectState_PrepareNewObject(m_arena->getContext(), object)) {
+    m_arena->getContext()->removeObject(object);
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_OBJECT_CREATION_FAILURE,
+           "new Fountain retained an unowned pending presentation state");
+    return KR_ObjectID::NUL();
+  }
   const bool discardMissingHolderHowitzer =
       m_discardNextMissingHolderHowitzer &&
       classTable == m_arena->searchSeanceClassTable("Howitzer");
@@ -912,6 +921,13 @@ KR_ObjectID RecoveredLegacyScriptHost::NewObject(const char* className,
                   "script named-class object creation failed for %.100s in "
                   "%.100s", name, className);
     Report(RECOVERED_LEGACY_SCRIPT_HOST_OBJECT_CREATION_FAILURE, message);
+  }
+  if (!object.isNUL() && std::strcmp(className, "Fountain") == 0 &&
+      !FountainSubjectState_PrepareNewObject(m_arena->getContext(), object)) {
+    m_arena->getContext()->removeObject(object);
+    Report(RECOVERED_LEGACY_SCRIPT_HOST_OBJECT_CREATION_FAILURE,
+           "new named Fountain retained an unowned pending presentation state");
+    return KR_ObjectID::NUL();
   }
   if (!object.isNUL() && std::strcmp(className, "Howitzer") == 0 &&
       !HowitzerSubjectState_PrepareNewObject(m_arena->getContext(), object)) {

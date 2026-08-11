@@ -2946,6 +2946,7 @@ endif()
 add_library(rr2nw_arena_obase_fountain STATIC
   nw/ARENA/OBASE/Fountain/FountainRecoveredTranslationUnit.cpp
   nw/ARENA/OBASE/Fountain/FountainClassTableState.h
+  nw/ARENA/OBASE/Fountain/FountainSubjectState.h
 )
 target_link_libraries(
   rr2nw_arena_obase_fountain PUBLIC rr2nw_arena_obase_fountain_state

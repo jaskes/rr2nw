@@ -4469,7 +4469,27 @@ and restart-only VFS ownership.
 Debug, Release and RelWithDebInfo builds pass 76/76 CTest rows. The real-window
 selector proves create/rename/fresh restore, duplicate rejection, Esc and
 focus-loss cancellation in all three configurations. Adjacent gates pass
-in-game shell 3/3, installed retail 27/27 without retry (CQ-282 remains open),
+in-game shell 3/3, installed retail 27/27 without retry,
 intro Escape/Enter presentation 6/6, cross-Level Save/Load 2/2, Portal 9/9 and
 campaign 6/6. No retail payload, save format, settings schema, content identity
 or live world state changed.
+
+### 2026-08-11: deterministic pending Portal Fountain admission
+
+CQ-282 was a real initialization defect rather than a timing tolerance issue.
+Predicate-local stage bisection placed the first divergence immediately after
+the single Level.04D `Portal.Arabesk` bootstrap: the two constructions had
+consumed 10 and 11 gameplay RNG draws before any Vehicle, Tank or People
+publication. The archived `Fountain::addNotify()` bypasses
+`ct_Subject::addNotify()`, so allocator history selected its initial visible
+branch and that branch consumed one additional random interval.
+
+A UTF-8 compatibility header now clears only the skipped audible/visible
+presentation fields after allocation and before the real START event. Numeric
+and named script creation plus partial-Portal recreation share the helper and
+fail closed if the allocated object is not a Fountain. The CP866 archive is
+still byte-identical; no RNG reseed, retry, hash tolerance or new serialized
+field was introduced. The focused poison/reset smoke passes and six
+consecutive unretried RelWithDebInfo installed Level.04D service
+reconstructions pass 6/6. Broader Fountain cache/removal/save ownership remains
+outside this Portal slice.

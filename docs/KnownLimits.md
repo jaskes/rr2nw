@@ -26,9 +26,6 @@ here until a source-backed implementation and its regression gate are complete.
   bounded briefing WAV streams. It does not claim byte-exact RSX spatial,
   Doppler/HRTF, every moving class, UI sound or unsupported non-WAV cinematic
   parity.
-- CQ-282 remains open: one RelWithDebInfo Level.04D deep-reconstruction run was
-  observed to fail its final-frame predicate; its exact retry and later
-  unretried matrices passed. No production retry or timing relaxation hides it.
 
 ## Gameplay, saves and mods
 

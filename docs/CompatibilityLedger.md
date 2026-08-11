@@ -5989,9 +5989,9 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   content identity transition, save/replay invalidation and rollback. A UI
   convenience request alone is not evidence for live mutation.
 
-### CQ-282: one fresh reconstruction cell remains intermittently unowned
+### CQ-282: one fresh reconstruction cell remained intermittently unowned
 
-- Status: `OPEN_RELWITHDEBINFO_LEVEL04D_RECONSTRUCTION_FLAKE`.
+- Status: `CLOSED_BY_CQ_289`, `NO_RETRY`.
 - Evidence: after the Mods root-row navigation contract was corrected, the
   complete fresh matrix reached its deep reconstruction path. One of 27 cells
   (`RelWithDebInfo`, `Level.04D`) rejected the final explicit frame with
@@ -6002,15 +6002,16 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   by an automatic retry. The failed and successful evidence directories are
   retained under the ignored build verification root. The release claim uses
   the independently green profile, CLI, save/load, campaign, Portal and
-  presentation gates, while this observation remains open.
+  presentation gates while the observation remained under investigation.
 - Instrumentation: the reconstruction failure now records the exact initial
   and reconstructed People fingerprint, gameplay-RNG draw count, whether the
   final explicit-frame predicate was reached, call success, target/before/after
   view time, simulation ticks, presentation counts and frame seconds. The
   adjacent parity record retains both issue owners. Evaluation order remains
   short-circuited and no retry or tolerance was added.
-- Revisit when: another occurrence supplies this predicate-local record. Do
-  not change timing tolerance or lifecycle ownership without that evidence.
+- Resolution: CQ-289 used this predicate-local record to isolate the first
+  divergent draw to `Portal.Arabesk` pending visibility and closes the issue
+  without timing tolerance, lifecycle retry or fingerprint normalization.
 
 ### CQ-283: profile creation and rename need a bounded text-input owner
 
@@ -6177,6 +6178,38 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   no stale repeats and a successful post-presentation Taxi checkpoint/drive.
 - Boundary: visual timing remains bounded by the recovered 15 fps FLIC policy;
   this does not claim byte-exact retail retrace timing or non-WAV FLIC audio.
+
+### CQ-289: Portal Fountain visibility leaked allocator state into gameplay RNG
+
+- Status: `CLOSED_PENDING_PRESENTATION_RESET`, `CQ-282_RESOLVED`,
+  `ARCHIVE_BYTE_IDENTICAL`.
+- Evidence: the saved CQ-282 predicate-local failures alternated between two
+  complete Level.04D People fingerprints and RNG counts. A stage bisection
+  proved the first difference immediately after the single authored
+  `Portal.Arabesk` bootstrap: one reconstruction consumed 10 RNG draws and the
+  other 11 before any Vehicle, Tank or People publication. The archived
+  `Fountain::addNotify()` calls `ct_Object::addNotify()` instead of
+  `ct_Subject::addNotify()`, leaving `m_isVisible` and
+  `m_audibleThisFrame` dependent on allocator/reuse bytes. Its START handler
+  branches on `m_isVisible`; the visible branch consumes one additional random
+  interval and shifts every later simulation draw.
+- Handling: the maintained script-admission boundary clears exactly those two
+  presentation fields after a real `Fountain` object is allocated and before
+  its authored START event. Both numeric and named script creation paths plus
+  partial-Portal recreation use the same fail-closed helper. The CP866
+  `Fountain.cpp` remains byte-for-byte unchanged; no RNG reset, fingerprint
+  tolerance, retry or presentation serialization was added.
+- Verification: the focused Fountain smoke poisons both fields and proves the
+  reset leaves simulation timestamp/position untouched. Six consecutive
+  unretried RelWithDebInfo executions of the exact installed Level.04D
+  game-services reconstruction completed 6/6; each execution performs both
+  initial and reconstructed publication. Debug, Release and RelWithDebInfo
+  builds and 76/76 CTest pass in each configuration; installed Level.04D is
+  3/3, Portal 9/9, cross-Level Save/Load 2/2, campaign 6/6, RecruitCenter
+  presentation 3/3 and in-game shell 3/3.
+- Boundary: this closes CQ-282's startup/reconstruction nondeterminism only.
+  General Fountain population, cache membership, removal and legacy Fountain
+  world import remain outside the Portal-specific owner.
 
 ## Maintenance rule
 

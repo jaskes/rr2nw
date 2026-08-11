@@ -9,6 +9,7 @@
 #define LAST_H__VIEW
 #include "game.h"
 #include "obase/fountain/fountain.h"
+#include "obase/fountain/FountainSubjectState.h"
 #include "storage/h/savefile.h"
 
 namespace {
@@ -33,6 +34,19 @@ bool ExerciseFreeList() {
     branch = branch->m_next;
   }
   return branch == nullptr;
+}
+
+bool ExercisePendingPresentationReset() {
+  SubjectData pending = {};
+  pending.m_audibleThisFrame = 0x12345678;
+  pending.m_isVisible = -7;
+  pending.m_lastMoveTimeStamp = 17.25;
+  pending.m_position = CFVector3(1.0, 2.0, 3.0);
+
+  FountainSubjectState_ResetPendingPresentation(&pending);
+  return pending.m_audibleThisFrame == 0 && pending.m_isVisible == 0 &&
+         pending.m_lastMoveTimeStamp == 17.25 &&
+         pending.m_position == CFVector3(1.0, 2.0, 3.0);
 }
 
 bool ExerciseBranchSave(const char* path) {
@@ -96,6 +110,9 @@ int main(int argc, char** argv) {
   std::remove(argv[1]);
   if (!ExerciseFreeList()) {
     return Fail("free-list reconstruction diverged");
+  }
+  if (!ExercisePendingPresentationReset()) {
+    return Fail("pending presentation normalization diverged");
   }
   if (!ExerciseBranchSave(argv[1])) {
     return Fail("branch save round-trip diverged");

@@ -4,6 +4,7 @@
 #include "Fountain.cpp"
 
 #include "FountainClassTableState.h"
+#include "FountainSubjectState.h"
 
 void FountainClassTable_Link() {}
 
@@ -23,6 +24,10 @@ bool FountainClassTable_EnsurePortalArabesk(SimulationContext *context,
       g_arena.newObject(table, "Portal.Arabesk");
   if (object.isNUL())
     return false;
+  if (!FountainSubjectState_PrepareNewObject(context, object)) {
+    context->removeObject(object);
+    return false;
+  }
 
   KR_Event event;
   event.label = fou_EVCMD_START;
