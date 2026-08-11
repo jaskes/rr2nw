@@ -6271,6 +6271,38 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   handler replacement by future third-party code and standalone tool process
   policy are not claimed.
 
+### CQ-292: startup briefing audio began only after presentation returned
+
+- Status: `SYNCHRONOUS_STREAM_OWNER_RESTORED`,
+  `POST_BRIEFING_STREAM_LEAK_CLOSED`.
+- Evidence: interactive XAudio2 output was intentionally kept closed while
+  startup-only reconstruction probes ran, but the same boundary also enclosed
+  the real initial `CBriefing::PlayBriefing`. Level.03N therefore registered
+  its flags-1 `wav.Oldman`/`wav.Intro` stream without a device. The later
+  interactive-loop enable recovered that registration after the visual intro
+  had returned, exactly matching the reported late dialogue. The archived
+  action loop replaces sounds between actions but does not explicitly detach
+  the final action from `Vehicle`.
+- Handling: ordinary presentation now enables the physical device after all
+  startup-only probes but before the first real Level briefing action. Runtime
+  smoke, suppressed briefing and startup-load paths keep the old silent probe
+  boundary and enable only at the interactive-loop handoff. The maintained
+  presentation-exit owner calls the existing `Vehicle::updateSound`, which
+  stops the final Cinematic token and restores the authored current Vehicle
+  engine. No CP866 archive was rewritten.
+- Verification: Debug, Release and RelWithDebInfo build and pass 76/76 CTest.
+  Real Level.03N Escape/Enter presentation is 6/6; every row records physical
+  enable at `before-level-briefing`, then `device/registrations/voices=1/0/0`
+  after the handoff and clean shutdown. Portal is 9/9, cross-Level Save/Load is
+  2/2, the normal RecruitCenter presentation loop is 3/3, the sequential
+  installed retail matrix is 27/27, and Farter/Vehicle audio are 3/3 each. An exploratory
+  concurrent broad sweep starved two Debug cadence-smoke processes; both exact
+  rows pass 2/2 when run in isolation and are not hidden by harness retry.
+- Boundary: the remaining post-handoff `wav.Ambient` loop on Level.03N is the
+  authored occupied `Vehicle.Attr.Akula` engine, not leaked briefing audio.
+  Byte-exact RSX mixing, non-WAV FLIC audio and UI audio remain outside this
+  fix.
+
 ## Maintenance rule
 
 When a new quirk is found:

@@ -7153,3 +7153,21 @@ claim full campaign completion. Subsequent compatible fixes use `0.1.x` and
 completed feature milestones advance through `0.x`; `v1.0.0` stays reserved
 for full Windows campaign/core acceptance. This changes release claims and
 documentation only, not save/content ABI or gameplay behavior.
+
+### BD-227: a synchronous briefing owns audible output and its final stream
+
+Status: accepted on 2026-08-12 for the CQ-292 startup briefing fix.
+
+Keeping the physical audio device closed during startup-only reconstruction
+probes remains mandatory, but a player-facing synchronous briefing is not a
+probe. The device must be enabled before its first authored Sound action so
+audio cannot be recovered later over live gameplay. Suppressed and headless
+paths remain silent until their established interactive boundary.
+
+The briefing presentation scope owns its final Cinematic token even when the
+archived action list ends with `SoundN=same`. Escape, Enter, normal completion
+and a presentation failure therefore converge on the maintained exit boundary:
+stop the final briefing token first, then restore the current authored Vehicle
+engine. Presentation state stays nonserialized and audio failure remains
+subordinate to gameplay. The historical CP866 briefing and Vehicle files are
+not re-encoded for this compatibility rule.

@@ -3167,6 +3167,25 @@ playable Level begins.
   from LCN1/RR2SLOT1. Non-WAV FLIC audio, UI sounds, lip synchronization and
   byte-exact RSX timing/mixing remain open.
 
+### RP-AUDIO-006: initial briefing playback is synchronous with presentation
+
+- The maintained device stays closed through startup-only gameplay probes but
+  is enabled before an ordinary initial `CBriefing::PlayBriefing`. Authored
+  flags-1 Sound actions can therefore begin with their FLIC/flight action
+  instead of being recovered after Level control is returned.
+- The maintained presentation-exit boundary stops the final Vehicle-owned
+  Cinematic token on Escape, Enter and normal completion, then restores the
+  current authored Vehicle engine through the existing `updateSound` owner.
+  Level.03N `wav.Ambient` after handoff is the occupied Akula engine and is not
+  classified as a leaked briefing stream.
+- Real Level.03N acceptance covers Escape and Enter in Debug, Release and
+  RelWithDebInfo. All six cases open the device before presentation, retain
+  zero Cinematic registrations and voices after handoff, keep input neutral
+  and shut down cleanly. Headless/suppressed/startup-load behavior remains
+  silent until its prior interactive boundary.
+- This closes stream timing and lifetime, not lip synchronization, byte-exact
+  Intel RSX mixing, embedded FLIC audio or UI sounds.
+
 ### RP-REPLAY-001: RPH1 proves a versioned per-tick determinism seam
 
 - The surviving loop is currently variable-rate: one `Session::poll()` tick is

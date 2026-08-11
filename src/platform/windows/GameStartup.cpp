@@ -1534,6 +1534,16 @@ bool HandleLevelBriefing(ELevelBriefingPolicy policy, const char* boundary,
                 "/" + std::to_string(presentation.legacySessionPolls) +
                 "/" + std::to_string(presentation.normalCompletions) +
                 "/" + std::to_string(presentation.skippedCompletions));
+      const SWindowsAudioRuntimeTelemetry* audio =
+          WindowsAudioRuntime_Telemetry();
+      if (audio != nullptr) {
+        log->Line(prefix + "audio_streams=" +
+                  std::to_string(audio->deviceReady ? 1 : 0) + "/" +
+                  std::to_string(audio->activeStreamRegistrations) + "/" +
+                  std::to_string(audio->activeStreamVoices) + "/" +
+                  std::to_string(audio->streamStarts) + "/" +
+                  std::to_string(audio->streamStops));
+      }
     }
     RecoveredPresentationTrace_Record("level-entry", reason, "completed",
                                       summary.resolvedPath.c_str());
@@ -4128,6 +4138,22 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   int forcedScriptedTransitionFailures =
       options.missionCheckpointSmoke ? 1 : 0;
   bool loopFailed = !RecoveredGameServices_IsReady();
+  bool interactiveAudioEnableAttempted = false;
+  const auto enableInteractiveAudio = [&](const char* boundary) {
+    if (options.runtimeSmoke || interactiveAudioEnableAttempted) return;
+    interactiveAudioEnableAttempted = true;
+    const bool audioDeviceReady = WindowsAudioRuntime_EnablePhysicalOutput();
+    const SWindowsAudioRuntimeTelemetry* activatedAudio =
+        WindowsAudioRuntime_Telemetry();
+    log.Line(std::string("audio_interactive_device_boundary=") + boundary);
+    log.Line("audio_interactive_device_enable=" +
+             std::to_string(audioDeviceReady ? 1 : 0));
+    log.Line("audio_startup_probe_output=deferred-device-closed");
+    if (!audioDeviceReady && activatedAudio != nullptr &&
+        activatedAudio->lastError[0] != 0)
+      log.Line(std::string("audio_interactive_device_error=") +
+               activatedAudio->lastError);
+  };
   std::string levelBriefingFailure;
   const ELevelBriefingPolicy initialBriefingPolicy =
       options.startupLoadSlot >= 0 || options.skipLevelBriefing
@@ -4137,6 +4163,12 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                        ? ELevelBriefingPolicy::ValidateOnly
                        : ELevelBriefingPolicy::Suppress)
                 : ELevelBriefingPolicy::Present;
+  // Startup-only reconstruction probes ran with the device closed.  A real
+  // synchronous intro, however, must own physical output before its first
+  // authored Sound action; otherwise the stream is deferred and starts only
+  // after control has already returned to the Level.
+  if (!loopFailed && initialBriefingPolicy == ELevelBriefingPolicy::Present)
+    enableInteractiveAudio("before-level-briefing");
   if (!loopFailed && !HandleLevelBriefing(initialBriefingPolicy, nullptr,
                                           &log, &levelBriefingFailure)) {
     log.Line("failure_level_briefing=" + levelBriefingFailure);
@@ -6983,19 +7015,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     }
     loopFailed = !freshExact;
   }
-  if (!loopFailed && !options.runtimeSmoke) {
-    const bool audioDeviceReady =
-        WindowsAudioRuntime_EnablePhysicalOutput();
-    const SWindowsAudioRuntimeTelemetry* activatedAudio =
-        WindowsAudioRuntime_Telemetry();
-    log.Line("audio_interactive_device_enable=" +
-             std::to_string(audioDeviceReady ? 1 : 0));
-    log.Line("audio_startup_probe_output=deferred-device-closed");
-    if (!audioDeviceReady && activatedAudio != nullptr &&
-        activatedAudio->lastError[0] != 0)
-      log.Line(std::string("audio_interactive_device_error=") +
-               activatedAudio->lastError);
-  }
+  if (!loopFailed && !options.runtimeSmoke)
+    enableInteractiveAudio("before-interactive-loop");
   typedef std::chrono::steady_clock PresentationClock;
   PresentationClock::time_point previousPresentationSample =
       PresentationClock::now();

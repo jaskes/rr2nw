@@ -5349,6 +5349,12 @@ void HandleLevelBriefingPresentationBoundary(int entering) {
 
   if (g_levelBriefingOverlayOwned)
     g_windowsInputAdapter.LeaveOverlay();
+  // The final authored Sound action belongs to the synchronous briefing.
+  // Archived action-to-action replacement stops the previous stream, but the
+  // final action otherwise remains attached to Vehicle after presentation
+  // returns.  End that owner before restoring gameplay audio.
+  if (g_vehicle != nullptr)
+    g_vehicle->updateSound(Session::m_moment);
   g_levelBriefingOverlayOwned = false;
   g_levelBriefingPresentationActive = false;
   g_levelBriefingPresentationTelemetry.active = false;

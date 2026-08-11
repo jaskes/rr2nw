@@ -4573,3 +4573,28 @@ it is a representative early-release gate rather than proof of complete 1.0
 campaign parity. `v1.0.0` remains reserved for the complete Windows core
 roadmap. No save, content, runtime or executable behavior changed in this
 policy slice.
+
+### 2026-08-12: synchronous Level briefing audio and exact handoff
+
+The first package-bound Level.03N playtest exposed a real ordering bug: the
+visual intro ran while the XAudio2 device was deliberately closed for startup
+probes, then the deferred flags-1 briefing WAV began only after gameplay had
+started. The device boundary now moves only for ordinary presented intros: all
+startup-only probes remain silent, physical output opens immediately before
+the briefing, and suppressed/runtime-smoke/startup-load paths retain the later
+interactive-loop enable.
+
+The archived action loop also left its final `SoundN=same` Vehicle token owned
+after returning. The modern presentation boundary now finishes that owner via
+the existing Vehicle audio transition, stopping the Cinematic stream before it
+restores the current engine. This avoids editing the CP866 archive and leaves
+save/content ABI untouched. In Level.03N the subsequent `wav.Ambient` hum is
+the authored occupied Akula Vehicle engine.
+
+The CQ-292 gate passes Debug, Release and RelWithDebInfo builds, 76/76 CTest in
+each, real Escape/Enter Level.03N presentation 6/6 with device enable before
+the briefing and zero retained stream registrations/voices, Portal 9/9,
+cross-Level Save/Load 2/2, RecruitCenter presentation 3/3, sequential installed
+retail 27/27 and Farter/Vehicle audio 3/3 each. Two Debug rows in
+an exploratory concurrent retail sweep exited at the existing cadence-smoke
+boundary; exact isolated execution passes 2/2 and no automatic retry was added.

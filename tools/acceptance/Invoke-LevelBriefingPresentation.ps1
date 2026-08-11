@@ -164,6 +164,15 @@ foreach ($configurationName in $Configuration) {
         } else {
             $issues.Add("presentation telemetry missing")
         }
+        if ($values.ContainsKey("level_briefing_audio_streams")) {
+            $audioParts = @($values["level_briefing_audio_streams"].Split('/'))
+            if ($audioParts.Count -ne 5 -or $audioParts[0] -ne "1" -or
+                $audioParts[1] -ne "0" -or $audioParts[2] -ne "0") {
+                $issues.Add("briefing stream escaped its presentation scope")
+            }
+        } else {
+            $issues.Add("briefing audio lifecycle telemetry missing")
+        }
         $exactValues = @{
             "game_services_issues" = "0"
             "vehicle_fallback_active" = "0"
