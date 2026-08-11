@@ -1711,8 +1711,9 @@ playable Level begins.
   Invalid CLI conflict/missing-ID stacks retain their historical fail-closed
   diagnostics; only invalid persisted player profiles recover to vanilla.
 - No retail data, profile paths, developer capability or presentation state is
-  persisted or reported. Profile creation/rename polish, localization and
-  packaged compatibility UX remain separate M5 work.
+  persisted or reported. Bounded ASCII creation/rename now stages through the
+  same catalog; general localized text and translated labels remain separate
+  UI work.
 
 ### RP-MOD-009: large selectors and package reports preserve resolver identity
 
@@ -1722,15 +1723,17 @@ playable Level begins.
   shell. Pagination changes only presentation selection; discovery ordering,
   dependency closure, mount order and content fingerprints remain owned by the
   production resolver.
-- Existing profiles can be selected and a non-default profile can be deleted
-  after confirmation. Both operations are staged, restart-only and atomic;
-  `default`, safe mode and CLI override remain fail-closed.
+- Existing profiles can be selected, created as empty profiles, renamed and a
+  non-default profile can be deleted after confirmation. Every operation is
+  staged, restart-only and atomic; `default`, safe mode and CLI override remain
+  fail-closed.
 - Compatibility categories are bounded stable keys over the existing resolver
   bitset. The extracted Windows package contains the same validator, examples
   and profile documentation, and its report must match the staging report for
   every package identity, mount order and fingerprint.
-- Raw text create/rename is excluded until a validated shell text-input owner
-  exists. This is an explicit safety boundary, not missing resolver behavior.
+- The validated 64-byte ASCII editor owns replacement, Backspace, Enter/Esc,
+  focus-loss cancellation and IME/clipboard rejection. It deliberately does
+  not claim a general localized/UTF input widget.
 
 ### RP-INPUT-001: Win32 input has one semantic state owner
 

@@ -67,7 +67,8 @@ std::uint64_t Fingerprint(const std::vector<std::uint8_t>& bytes) {
 }
 
 bool ValidToken(const std::string& value) {
-  if (value.empty() || value.size() > 64u) return false;
+  if (value.empty() || value.size() > kRecoveredModProfileMaximumNameBytes)
+    return false;
   for (char character : value) {
     if (!((character >= 'a' && character <= 'z') ||
           (character >= '0' && character <= '9') || character == '.' ||
@@ -752,6 +753,73 @@ bool RecoveredModProfile_ResetStaged() {
   if (index >= g_state.staged.profiles.size()) return false;
   g_state.staged.profiles[index].selectedIds.clear();
   g_state.snapshot.status = "Active profile staged as vanilla";
+  RefreshSnapshot();
+  return true;
+}
+
+bool RecoveredModProfile_CreateStaged(const std::string& name) {
+  if (!g_state.configured || g_state.safeMode || g_state.cliOverride) {
+    g_state.snapshot.status =
+        "Cannot create a profile in this selector mode";
+    return false;
+  }
+  if (!ValidToken(name)) {
+    g_state.snapshot.status =
+        "Profile name must use lowercase ASCII [a-z0-9._-]";
+    return false;
+  }
+  if (g_state.staged.profiles.size() >=
+      kRecoveredModProfileMaximumProfiles) {
+    g_state.snapshot.status = "Cannot create more than 16 profiles";
+    return false;
+  }
+  if (FindProfile(g_state.staged, name) < g_state.staged.profiles.size()) {
+    g_state.snapshot.status = "A profile with that name already exists";
+    return false;
+  }
+  g_state.staged.profiles.push_back({name, {}});
+  g_state.staged.activeProfile = name;
+  g_state.snapshot.status =
+      "Empty profile created; apply to commit it";
+  RefreshSnapshot();
+  return true;
+}
+
+bool RecoveredModProfile_RenameStaged(const std::string& name) {
+  if (!g_state.configured || g_state.safeMode || g_state.cliOverride) {
+    g_state.snapshot.status =
+        "Cannot rename a profile in this selector mode";
+    return false;
+  }
+  const std::size_t index =
+      FindProfile(g_state.staged, g_state.staged.activeProfile);
+  if (index >= g_state.staged.profiles.size()) {
+    g_state.snapshot.status = "Cannot rename an unavailable profile";
+    return false;
+  }
+  if (g_state.staged.profiles[index].name == "default") {
+    g_state.snapshot.status =
+        "The canonical default profile cannot be renamed";
+    return false;
+  }
+  if (!ValidToken(name)) {
+    g_state.snapshot.status =
+        "Profile name must use lowercase ASCII [a-z0-9._-]";
+    return false;
+  }
+  const std::size_t duplicate = FindProfile(g_state.staged, name);
+  if (duplicate < g_state.staged.profiles.size() && duplicate != index) {
+    g_state.snapshot.status = "A profile with that name already exists";
+    return false;
+  }
+  if (g_state.staged.profiles[index].name == name) {
+    g_state.snapshot.status = "Profile name is unchanged";
+    RefreshSnapshot();
+    return true;
+  }
+  g_state.staged.profiles[index].name = name;
+  g_state.staged.activeProfile = name;
+  g_state.snapshot.status = "Profile rename staged; apply to commit it";
   RefreshSnapshot();
   return true;
 }

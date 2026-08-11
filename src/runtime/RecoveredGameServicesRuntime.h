@@ -629,6 +629,12 @@ enum ERecoveredInGameVideoCommand {
   RECOVERED_SHELL_VIDEO_REVERT = 3
 };
 
+enum ERecoveredInGameShellTextEntry {
+  RECOVERED_SHELL_TEXT_NONE = 0,
+  RECOVERED_SHELL_TEXT_MOD_PROFILE_CREATE = 1,
+  RECOVERED_SHELL_TEXT_MOD_PROFILE_RENAME = 2
+};
+
 struct SRecoveredInGameShellState {
   bool configured = false;
   bool open = false;
@@ -640,6 +646,9 @@ struct SRecoveredInGameShellState {
   int conflictBinding = -1;
   bool overwriteConfirmation = false;
   bool modSelectorDeleteConfirmation = false;
+  ERecoveredInGameShellTextEntry textEntry = RECOVERED_SHELL_TEXT_NONE;
+  bool textEntryReplaceOnInput = false;
+  std::string textEntryBuffer;
   std::uint32_t overwriteSlot = 0;
   int windowMode = 0;
   int windowScale = 1;
@@ -695,6 +704,12 @@ struct SRecoveredInGameShellState {
   unsigned int modSelectorPageMoves = 0;
   unsigned int modSelectorDeleteConfirmations = 0;
   unsigned int modSelectorDeletes = 0;
+  unsigned int modSelectorTextEntryStarts = 0;
+  unsigned int modSelectorTextEntryCancels = 0;
+  unsigned int modSelectorTextEntryCommits = 0;
+  unsigned int modSelectorTextEntryRejections = 0;
+  unsigned int modSelectorCreates = 0;
+  unsigned int modSelectorRenames = 0;
   std::size_t modSelectorVisibleFirst = 0;
   std::size_t modSelectorVisibleLast = 0;
   std::size_t modSelectorMaximumSelection = 0;

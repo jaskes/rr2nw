@@ -6014,16 +6014,26 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 
 ### CQ-283: profile creation and rename need a bounded text-input owner
 
-- Status: `EVIDENCE_BOUNDARY`, not a resolver or codec failure.
+- Status: `CLOSED_BOUNDED_ASCII_OWNER`, `STAGED_ONLY`,
+  `FOCUS_CANCELLED`, `IME_CLIPBOARD_REJECTED`.
 - Evidence: the in-frame shell consumes character messages while open but owns
-  no edit buffer, caret, IME path, validated UTF/ASCII projection or atomic
-  commit/cancel lifecycle. Reusing key-binding capture would conflate virtual
-  keys with text and make focus/dead-key handling unsafe.
-- Handling: existing valid profiles can be selected and confirmed-deleted;
-  `default` is protected. Creation/rename is not exposed until a dedicated
-  bounded owner exists. Compatibility message keys are stable meanwhile.
-- Revisit when: M2.5 adds a reusable text-entry widget with focus loss,
-  truncation, duplicate/invalid-name rejection and rollback tests.
+  no archival or reusable text widget. The profile codec, however, already
+  proves one exact 64-byte lowercase ASCII token grammar and atomic catalog
+  boundary; it does not require arbitrary localized text.
+- Handling: the Mods page owns a separate edit state entered by Insert/F2.
+  It consumes `WM_CHAR`, normalizes Latin letters, admits only
+  `[a-z0-9._-]`, handles replacement/Backspace/Enter/Esc, rejects IME and
+  clipboard messages and cancels on focus loss. Create produces an empty
+  staged profile; rename cannot alter `default`. Neither touches disk until
+  the existing atomic Apply, and safe mode/CLI override remain read-only.
+- Verification: the codec smoke covers invalid/duplicate names, default
+  protection, the exact 16-profile ceiling, injected atomic write failure and
+  fresh reload. The three-configuration real-window gate proves create,
+  rename, duplicate rejection, explicit and focus-loss cancellation while
+  preserving the exact 133-row pagination contract.
+- Revisit when: translated profile names or any other free-form input has a
+  complete UTF/IME/caret/localization owner. Do not widen this ASCII identity
+  widget by treating `WM_CHAR` as already validated Unicode.
 
 ### CQ-284: physical-input smoke used the wrong clock owner
 

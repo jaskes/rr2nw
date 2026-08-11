@@ -7952,6 +7952,18 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(shellState->modSelectorDeleteConfirmations));
     log.Line("in_game_shell_mod_selector_deletes=" +
              std::to_string(shellState->modSelectorDeletes));
+    log.Line("in_game_shell_mod_selector_text_entry_starts=" +
+             std::to_string(shellState->modSelectorTextEntryStarts));
+    log.Line("in_game_shell_mod_selector_text_entry_cancels=" +
+             std::to_string(shellState->modSelectorTextEntryCancels));
+    log.Line("in_game_shell_mod_selector_text_entry_commits=" +
+             std::to_string(shellState->modSelectorTextEntryCommits));
+    log.Line("in_game_shell_mod_selector_text_entry_rejections=" +
+             std::to_string(shellState->modSelectorTextEntryRejections));
+    log.Line("in_game_shell_mod_selector_creates=" +
+             std::to_string(shellState->modSelectorCreates));
+    log.Line("in_game_shell_mod_selector_renames=" +
+             std::to_string(shellState->modSelectorRenames));
     log.Line("in_game_shell_mod_selector_visible_range=" +
              std::to_string(shellState->modSelectorVisibleFirst) + "/" +
              std::to_string(shellState->modSelectorVisibleLast));

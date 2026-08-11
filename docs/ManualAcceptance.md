@@ -894,9 +894,11 @@ Before freezing the package, run the complete in-frame selector gate:
 ```
 
 It must report three configurations, exact fresh `stack-core -> stack-addon`
-restore, `profiles=activate/delete`, `pagination=133`, safe-mode disable and a
-read-only CLI override. The generated 128-package case must reach global row
-132 through End and return through PageUp/PageDown/Home; the deletion case must
+restore, `profiles=activate/create/rename/delete`, `pagination=133`, safe-mode
+disable and a read-only CLI override. The generated 128-package case must reach
+global row 132 through End and return through PageUp/PageDown/Home. The naming
+case uses Insert/F2, atomically restores `renamed` in a fresh process and proves
+duplicate rejection plus Esc/focus-loss cancellation. The deletion case must
 record one confirmation, one staged delete, one atomic commit and one-profile
 fresh reload with protected `default`.
 

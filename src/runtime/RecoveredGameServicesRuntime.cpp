@@ -3098,6 +3098,9 @@ void ShellSelectPage(ERecoveredInGameShellPage page) {
   g_inGameShellState.conflictBinding = -1;
   g_inGameShellState.overwriteConfirmation = false;
   g_inGameShellState.modSelectorDeleteConfirmation = false;
+  g_inGameShellState.textEntry = RECOVERED_SHELL_TEXT_NONE;
+  g_inGameShellState.textEntryReplaceOnInput = false;
+  g_inGameShellState.textEntryBuffer.clear();
   if (page == RECOVERED_SHELL_PAGE_SAVE ||
       page == RECOVERED_SHELL_PAGE_LOAD)
     RequestShellSaveCatalogRefresh();
@@ -3386,6 +3389,122 @@ bool ActivateDeveloperShellItem(std::size_t item) {
   return false;
 }
 
+bool BeginModProfileTextEntry(ERecoveredInGameShellTextEntry entry) {
+  const SRecoveredModSelectorSnapshot* selector =
+      RecoveredModProfile_Snapshot();
+  if (g_inGameShellState.page != RECOVERED_SHELL_PAGE_MODS ||
+      selector == nullptr || selector->safeMode || selector->cliOverride) {
+    ++g_inGameShellState.modSelectorBlockedSelections;
+    g_inGameShellState.status =
+        "Profile names are read-only in this selector mode";
+    return true;
+  }
+  if (entry == RECOVERED_SHELL_TEXT_MOD_PROFILE_CREATE) {
+    if (selector->profileCount >= kRecoveredModProfileMaximumProfiles) {
+      ++g_inGameShellState.modSelectorBlockedSelections;
+      g_inGameShellState.status = "The 16-profile limit is already reached";
+      return true;
+    }
+    g_inGameShellState.textEntryBuffer.clear();
+    g_inGameShellState.textEntryReplaceOnInput = false;
+    g_inGameShellState.status =
+        "Type a name for the new empty profile";
+  } else if (entry == RECOVERED_SHELL_TEXT_MOD_PROFILE_RENAME) {
+    if (selector->stagedProfile == "default") {
+      ++g_inGameShellState.modSelectorBlockedSelections;
+      g_inGameShellState.status =
+          "The canonical default profile cannot be renamed";
+      return true;
+    }
+    g_inGameShellState.textEntryBuffer = selector->stagedProfile;
+    g_inGameShellState.textEntryReplaceOnInput = true;
+    g_inGameShellState.status =
+        "Type a replacement name for the staged profile";
+  } else {
+    return false;
+  }
+  g_inGameShellState.textEntry = entry;
+  g_inGameShellState.lastError.clear();
+  g_inGameShellState.modSelectorDeleteConfirmation = false;
+  ++g_inGameShellState.modSelectorTextEntryStarts;
+  return true;
+}
+
+void CancelModProfileTextEntry(const char* status) {
+  if (g_inGameShellState.textEntry == RECOVERED_SHELL_TEXT_NONE) return;
+  g_inGameShellState.textEntry = RECOVERED_SHELL_TEXT_NONE;
+  g_inGameShellState.textEntryReplaceOnInput = false;
+  g_inGameShellState.textEntryBuffer.clear();
+  g_inGameShellState.lastError.clear();
+  g_inGameShellState.status = status;
+  ++g_inGameShellState.modSelectorTextEntryCancels;
+}
+
+bool AppendModProfileTextCharacter(std::uint32_t codePoint) {
+  if (g_inGameShellState.textEntry == RECOVERED_SHELL_TEXT_NONE)
+    return false;
+  if (codePoint >= 'A' && codePoint <= 'Z')
+    codePoint = codePoint - 'A' + 'a';
+  const bool admitted =
+      (codePoint >= 'a' && codePoint <= 'z') ||
+      (codePoint >= '0' && codePoint <= '9') || codePoint == '.' ||
+      codePoint == '_' || codePoint == '-';
+  if (!admitted) {
+    if (codePoint >= 0x20u) {
+      g_inGameShellState.lastError =
+          "Name accepts only ASCII letters, digits, dot, underscore and dash";
+      ++g_inGameShellState.modSelectorTextEntryRejections;
+    }
+    return true;
+  }
+  if (g_inGameShellState.textEntryReplaceOnInput) {
+    g_inGameShellState.textEntryBuffer.clear();
+    g_inGameShellState.textEntryReplaceOnInput = false;
+  }
+  if (g_inGameShellState.textEntryBuffer.size() >=
+      kRecoveredModProfileMaximumNameBytes) {
+    g_inGameShellState.lastError = "Profile name is limited to 64 bytes";
+    ++g_inGameShellState.modSelectorTextEntryRejections;
+    return true;
+  }
+  g_inGameShellState.textEntryBuffer.push_back(
+      static_cast<char>(codePoint));
+  g_inGameShellState.lastError.clear();
+  return true;
+}
+
+bool CommitModProfileTextEntry() {
+  const ERecoveredInGameShellTextEntry entry =
+      g_inGameShellState.textEntry;
+  if (entry == RECOVERED_SHELL_TEXT_NONE) return false;
+  const bool committed =
+      entry == RECOVERED_SHELL_TEXT_MOD_PROFILE_CREATE
+          ? RecoveredModProfile_CreateStaged(
+                g_inGameShellState.textEntryBuffer)
+          : RecoveredModProfile_RenameStaged(
+                g_inGameShellState.textEntryBuffer);
+  const SRecoveredModSelectorSnapshot* selector =
+      RecoveredModProfile_Snapshot();
+  if (!committed) {
+    ++g_inGameShellState.modSelectorTextEntryRejections;
+    g_inGameShellState.lastError = selector == nullptr
+        ? "Profile name was rejected"
+        : selector->status;
+    return true;
+  }
+  if (entry == RECOVERED_SHELL_TEXT_MOD_PROFILE_CREATE)
+    ++g_inGameShellState.modSelectorCreates;
+  else
+    ++g_inGameShellState.modSelectorRenames;
+  ++g_inGameShellState.modSelectorTextEntryCommits;
+  g_inGameShellState.textEntry = RECOVERED_SHELL_TEXT_NONE;
+  g_inGameShellState.textEntryReplaceOnInput = false;
+  g_inGameShellState.textEntryBuffer.clear();
+  g_inGameShellState.lastError.clear();
+  if (selector != nullptr) g_inGameShellState.status = selector->status;
+  return true;
+}
+
 bool ActivateShellSelection() {
   const std::size_t selected = g_inGameShellState.selected;
   switch (g_inGameShellState.page) {
@@ -3556,6 +3675,23 @@ bool ActivateShellSelection() {
 bool HandleInGameShellKey(std::uint32_t key) {
   if (!g_inGameShellState.open) return key == VK_ESCAPE && OpenInGameShell();
   g_inGameShellState.lastError.clear();
+  if (g_inGameShellState.textEntry != RECOVERED_SHELL_TEXT_NONE) {
+    if (key == VK_ESCAPE) {
+      CancelModProfileTextEntry("Profile name edit cancelled");
+      return true;
+    }
+    if (key == VK_RETURN) return CommitModProfileTextEntry();
+    if (key == VK_BACK) {
+      if (g_inGameShellState.textEntryReplaceOnInput) {
+        g_inGameShellState.textEntryBuffer.clear();
+        g_inGameShellState.textEntryReplaceOnInput = false;
+      } else if (!g_inGameShellState.textEntryBuffer.empty()) {
+        g_inGameShellState.textEntryBuffer.pop_back();
+      }
+      return true;
+    }
+    return true;
+  }
   if (g_inGameShellState.captureBinding >= 0) {
     if (key == VK_ESCAPE) {
       g_inGameShellState.captureBinding = -1;
@@ -3580,6 +3716,13 @@ bool HandleInGameShellKey(std::uint32_t key) {
       ShellSelectPage(RECOVERED_SHELL_PAGE_ROOT);
     return true;
   }
+  if (g_inGameShellState.page == RECOVERED_SHELL_PAGE_MODS &&
+      key == VK_INSERT)
+    return BeginModProfileTextEntry(
+        RECOVERED_SHELL_TEXT_MOD_PROFILE_CREATE);
+  if (g_inGameShellState.page == RECOVERED_SHELL_PAGE_MODS && key == VK_F2)
+    return BeginModProfileTextEntry(
+        RECOVERED_SHELL_TEXT_MOD_PROFILE_RENAME);
   const std::size_t count = ShellPageItemCount();
   if (g_inGameShellState.page == RECOVERED_SHELL_PAGE_MODS &&
       (key == VK_PRIOR || key == VK_NEXT || key == VK_HOME ||
@@ -3703,7 +3846,29 @@ bool HandleInGameShellMessage(UINT message, WPARAM wParam,
     }
     return false;
   }
+  if (message == WM_ACTIVATEAPP && wParam == FALSE &&
+      g_inGameShellState.textEntry != RECOVERED_SHELL_TEXT_NONE) {
+    CancelModProfileTextEntry("Profile name edit cancelled on focus loss");
+    return false;
+  }
+  const bool textComposition = message == WM_IME_STARTCOMPOSITION ||
+      message == WM_IME_COMPOSITION || message == WM_IME_ENDCOMPOSITION ||
+      message == WM_PASTE || message == WM_CUT || message == WM_COPY;
+  if (g_inGameShellState.textEntry != RECOVERED_SHELL_TEXT_NONE &&
+      textComposition) {
+    *result = 0;
+    return true;
+  }
   if (!keyboard && !character && !mouse) return false;
+  if (g_inGameShellState.textEntry != RECOVERED_SHELL_TEXT_NONE &&
+      message == WM_CHAR) {
+    const std::uint32_t codePoint = static_cast<std::uint32_t>(wParam);
+    if (codePoint != VK_BACK && codePoint != VK_RETURN &&
+        codePoint != VK_ESCAPE)
+      AppendModProfileTextCharacter(codePoint);
+    *result = 0;
+    return true;
+  }
   if ((message == WM_KEYDOWN || message == WM_SYSKEYDOWN) &&
       (lParam & 0x40000000) == 0)
     HandleInGameShellKey(static_cast<std::uint32_t>(wParam));
@@ -4020,17 +4185,27 @@ void DrawInGameShell() {
         deletion += " [CONFIRM]";
       lines.push_back(std::move(deletion));
       lines.push_back("Back");
-      std::string summary =
-          "Mount: " + std::to_string(selector->activePackageCount) +
-          " package(s), fingerprint " +
-          std::to_string(selector->stagedFingerprint);
-      if (!selector->planReady) {
-        summary += " [" + std::string(RecoveredModProfile_CompatibilityKey(
-            RecoveredModProfile_CompatibilityCategory(
-                selector->planIssues))) + "]";
+      if (g_inGameShellState.textEntry != RECOVERED_SHELL_TEXT_NONE) {
+        ShellPrint(
+            72, 78,
+            std::string(g_inGameShellState.textEntry ==
+                                RECOVERED_SHELL_TEXT_MOD_PROFILE_CREATE
+                            ? "New profile: "
+                            : "Rename profile: ") +
+                g_inGameShellState.textEntryBuffer + "_");
+      } else {
+        std::string summary =
+            "Mount: " + std::to_string(selector->activePackageCount) +
+            " package(s), fingerprint " +
+            std::to_string(selector->stagedFingerprint);
+        if (!selector->planReady) {
+          summary += " [" + std::string(RecoveredModProfile_CompatibilityKey(
+              RecoveredModProfile_CompatibilityCategory(
+                  selector->planIssues))) + "]";
+        }
+        if (selector->restartRequired) summary += " - RESTART REQUIRED";
+        ShellPrint(72, 78, summary);
       }
-      if (selector->restartRequired) summary += " - RESTART REQUIRED";
-      ShellPrint(72, 78, summary);
       break;
     }
     case RECOVERED_SHELL_PAGE_DEVELOPER:
@@ -4146,10 +4321,13 @@ void DrawInGameShell() {
     ShellPrint(72, 410, "ERROR: " + g_inGameShellState.lastError);
   else if (!g_inGameShellState.status.empty())
     ShellPrint(72, 410, g_inGameShellState.status);
-  ShellPrint(72, 428,
-             g_inGameShellState.page == RECOVERED_SHELL_PAGE_MODS
-                 ? "Arrows/PgUp/PgDn/Home/End   Enter: accept   Esc: back"
-                 : "Arrows: select   Enter: accept   Esc: back");
+  ShellPrint(
+      72, 428,
+      g_inGameShellState.textEntry != RECOVERED_SHELL_TEXT_NONE
+          ? "ASCII name   Backspace: erase   Enter: stage   Esc: cancel"
+          : g_inGameShellState.page == RECOVERED_SHELL_PAGE_MODS
+                ? "Arrows/Pg/Home/End  Ins:new  F2:rename  Enter:accept"
+                : "Arrows: select   Enter: accept   Esc: back");
 }
 
 bool ProcessPendingInGameShellVideoCommand() {

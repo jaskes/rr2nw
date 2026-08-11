@@ -117,6 +117,7 @@ struct SRecoveredModSelectorSnapshot {
 constexpr std::size_t kRecoveredModProfileMaximumBytes = 64u * 1024u;
 constexpr std::size_t kRecoveredModProfileMaximumProfiles = 16u;
 constexpr std::size_t kRecoveredModProfileMaximumSelected = 64u;
+constexpr std::size_t kRecoveredModProfileMaximumNameBytes = 64u;
 
 bool RecoveredModProfile_Decode(
     const std::vector<std::uint8_t>& bytes,
@@ -149,6 +150,8 @@ bool RecoveredModProfile_StartupSelection(
 bool RecoveredModProfile_SelectRelative(int direction);
 bool RecoveredModProfile_ToggleCandidate(std::size_t index);
 bool RecoveredModProfile_ResetStaged();
+bool RecoveredModProfile_CreateStaged(const std::string& name);
+bool RecoveredModProfile_RenameStaged(const std::string& name);
 bool RecoveredModProfile_DeleteStaged();
 bool RecoveredModProfile_CommitStaged();
 

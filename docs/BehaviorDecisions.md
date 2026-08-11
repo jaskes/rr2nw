@@ -6965,10 +6965,11 @@ catalog as read-only. Manifest/dependency/conflict failures are reduced to
 stable localization keys before display while the exact production reason is
 retained; neither representation contains physical paths.
 
-The current shell consumes `WM_CHAR` but owns no bounded edit buffer, caret,
-IME or commit/cancel transaction. Create/rename is therefore not approximated
-with raw message bytes. It remains blocked on a genuine text-input owner, as do
-translated labels beyond the now-stable compatibility keys.
+At this slice the shell consumed `WM_CHAR` but owned no bounded edit buffer,
+caret, IME or commit/cancel transaction, so create/rename was not approximated
+with raw message bytes. BD-222 later closes the narrower deterministic ASCII
+profile-identity editor; translated labels and general UTF input remain beyond
+this decision.
 
 ### BD-219: retail selection stores location, never content or authority
 
@@ -7043,3 +7044,27 @@ not authorize presenting an incomplete black buffer. Only complete decoded
 frames reach the software presentation owner. These input, timing and palette
 states are diagnostic presentation state and are deliberately absent from
 LCN1, RR2SLOT1 and RPH1.
+
+### BD-222: profile-name text is a bounded identity editor
+
+Status: accepted on 2026-08-11 for M5 profile creation and rename.
+
+`RR2MODPROFILE1` names are deterministic lowercase ASCII identity tokens, not
+player prose. The shell therefore does not need to pretend that it owns a
+general legacy text field. Its dedicated profile editor is capped at 64 bytes,
+normalizes Latin key text, admits only `[a-z0-9._-]` and explicitly consumes
+IME composition and clipboard commands. Backspace, replacement-on-first-input,
+Enter, Esc and focus-loss cancellation have one visible state owner; gameplay
+and binding capture never see those messages.
+
+Insert creates a new empty staged profile. F2 renames only the current
+non-default staged profile. Empty, duplicate or invalid names, a seventeenth
+profile, `default` rename, safe mode and CLI override fail closed. Successful
+editing mutates only the neutral staged catalog; the existing Apply action is
+still the sole atomic filesystem commit, and the live VFS/content identity is
+still unchanged until restart. Keeping create/rename off the scrollable row
+list preserves all 133 selector rows and the established pagination contract.
+
+This decision does not establish a reusable Unicode editor or translated UI.
+Those require an explicit UTF/IME/caret/localization lifecycle and cannot grow
+implicitly from the profile-identity boundary.

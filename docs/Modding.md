@@ -488,8 +488,8 @@ same-target override.
 
 ## Deliberately deferred
 
-- profile creation/rename polish, localized compatibility reports, optional
-  dependencies and semantic version ranges;
+- general localized/UTF profile text, translated compatibility reports,
+  optional dependencies and semantic version ranges;
 - standalone Levels that do not derive from a verified retail catalog,
   campaign/progression registration and authoring tools;
 - People/Tank armour and remaining model/sound/effect/cannon graphs, Vehicle

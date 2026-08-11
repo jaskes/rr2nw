@@ -56,6 +56,17 @@ function Send-Key([IntPtr]$Window, [int]$VirtualKey) {
     Start-Sleep -Milliseconds 100
 }
 
+function Send-Text([IntPtr]$Window, [string]$Text) {
+    foreach ($character in $Text.ToCharArray()) {
+        if (-not [RR2ModProfileNative]::PostMessage(
+                $Window, 0x0102, [IntPtr][int]$character,
+                [IntPtr]::Zero)) {
+            throw "PostMessage failed for text character"
+        }
+        Start-Sleep -Milliseconds 40
+    }
+}
+
 function Send-Down([IntPtr]$Window, [int]$Count) {
     for ($index = 0; $index -lt $Count; ++$index) {
         Send-Key $Window 0x28
@@ -312,6 +323,115 @@ foreach ($configurationName in $Configuration) {
         Require-Value $deletedFreshLog $entry.Key ([string]$entry.Value) $issues "delete-fresh"
     }
 
+    Write-Host "[$configurationName] proving bounded create/rename and fresh restore"
+    $nameProfiles = Join-Path $caseRoot "name-profiles.cfg"
+    $nameLog = Invoke-GameCase $executable (Join-Path $caseRoot "names") `
+        $settings $nameProfiles $modsPath @() {
+            param([IntPtr]$window)
+            Send-Key $window 0x1B
+            Send-Down $window 7
+            Send-Key $window 0x0D
+            # Insert starts a bounded empty-name editor without adding a row.
+            Send-Key $window 0x2D
+            Send-Text $window "playtest"
+            Send-Key $window 0x0D
+            # F2 preloads the staged name; first admitted character replaces it.
+            Send-Key $window 0x71
+            Send-Text $window "ReNamed"
+            Send-Key $window 0x0D
+            # Candidate count is six; Apply remains row seven.
+            Send-Down $window 7
+            Send-Key $window 0x0D
+            Send-Key $window 0x1B
+            Send-Key $window 0x1B
+        }
+    foreach ($entry in @{
+            marker = "level-ready"
+            runtime_shutdown = "clean"
+            mod_profile_count = "2"
+            mod_profile_active = "renamed"
+            mod_profile_staged = "renamed"
+            in_game_shell_mod_selector_text_entry_starts = "2"
+            in_game_shell_mod_selector_text_entry_commits = "2"
+            in_game_shell_mod_selector_text_entry_cancels = "0"
+            in_game_shell_mod_selector_text_entry_rejections = "0"
+            in_game_shell_mod_selector_creates = "1"
+            in_game_shell_mod_selector_renames = "1"
+            in_game_shell_mod_selector_commits = "1"
+            in_game_shell_mod_selector_blocked_selections = "0"
+            game_services_issues = "0"
+        }.GetEnumerator()) {
+        Require-Value $nameLog $entry.Key ([string]$entry.Value) $issues "names"
+    }
+    if (-not (Test-Path -LiteralPath $nameProfiles -PathType Leaf)) {
+        $issues.Add("created/renamed profile file is missing")
+    } else {
+        $nameProfileText = Get-Content -LiteralPath $nameProfiles -Raw
+        if ($nameProfileText -notmatch '(?m)^active=renamed\r?$' -or
+            $nameProfileText -notmatch '(?m)^profiles=2\r?$' -or
+            $nameProfileText -notmatch '(?m)^profile_1_name=renamed\r?$') {
+            $issues.Add("created/renamed profile file is not canonical")
+        }
+    }
+    $nameFreshLog = Invoke-GameCase $executable `
+        (Join-Path $caseRoot "names-fresh") $settings $nameProfiles `
+        $modsPath @() $null
+    foreach ($entry in @{
+            marker = "level-ready"
+            runtime_shutdown = "clean"
+            mod_profile_count = "2"
+            mod_profile_active = "renamed"
+            mod_profile_staged = "renamed"
+            mod_profile_dirty = "0"
+            game_services_issues = "0"
+        }.GetEnumerator()) {
+        Require-Value $nameFreshLog $entry.Key ([string]$entry.Value) $issues "names-fresh"
+    }
+
+    Write-Host "[$configurationName] proving duplicate rejection and cancel"
+    $nameRejectLog = Invoke-GameCase $executable `
+        (Join-Path $caseRoot "names-reject") $settings $nameProfiles `
+        $modsPath @() {
+            param([IntPtr]$window)
+            Send-Key $window 0x1B
+            Send-Down $window 7
+            Send-Key $window 0x0D
+            Send-Key $window 0x2D
+            Send-Text $window "default"
+            Send-Key $window 0x0D
+            Send-Key $window 0x1B
+            # A second edit owns focus loss and cancels without touching disk.
+            Send-Key $window 0x71
+            if (-not [RR2ModProfileNative]::PostMessage(
+                    $window, 0x001C, [IntPtr]::Zero, [IntPtr]::Zero)) {
+                throw "WM_ACTIVATEAPP focus-loss post failed"
+            }
+            Start-Sleep -Milliseconds 100
+            if (-not [RR2ModProfileNative]::PostMessage(
+                    $window, 0x001C, [IntPtr]1, [IntPtr]::Zero)) {
+                throw "WM_ACTIVATEAPP focus-restore post failed"
+            }
+            Start-Sleep -Milliseconds 100
+            Send-Key $window 0x1B
+            Send-Key $window 0x1B
+        }
+    foreach ($entry in @{
+            marker = "level-ready"
+            runtime_shutdown = "clean"
+            mod_profile_count = "2"
+            mod_profile_active = "renamed"
+            in_game_shell_mod_selector_text_entry_starts = "2"
+            in_game_shell_mod_selector_text_entry_commits = "0"
+            in_game_shell_mod_selector_text_entry_cancels = "2"
+            in_game_shell_mod_selector_text_entry_rejections = "1"
+            in_game_shell_mod_selector_creates = "0"
+            in_game_shell_mod_selector_renames = "0"
+            in_game_shell_mod_selector_commits = "0"
+            game_services_issues = "0"
+        }.GetEnumerator()) {
+        Require-Value $nameRejectLog $entry.Key ([string]$entry.Value) $issues "names-reject"
+    }
+
     Write-Host "[$configurationName] proving all 128 candidate rows are reachable"
     $paginationSettings = Join-Path $caseRoot "pagination-settings.cfg"
     $paginationProfiles = Join-Path $caseRoot "pagination-profiles.cfg"
@@ -385,11 +505,13 @@ foreach ($configurationName in $Configuration) {
         cli_override = [string]$cliLog["mod_selection_source"]
         pagination_rows = [int]$paginationLog["in_game_shell_mod_selector_maximum_selection"] + 1
         profile_delete = [int]$deleteLog["in_game_shell_mod_selector_deletes"]
+        profile_create = [int]$nameLog["in_game_shell_mod_selector_creates"]
+        profile_rename = [int]$nameLog["in_game_shell_mod_selector_renames"]
     })
 }
 
 $records | Format-Table -AutoSize
 Write-Output (("mod profile selector: configurations={0} profile_restore=1 " +
-              "restart_boundary=1 profiles=activate/delete pagination=133 " +
+              "restart_boundary=1 profiles=activate/create/rename/delete pagination=133 " +
               "safe_mode=1 cli_override=1") -f `
     $records.Count)

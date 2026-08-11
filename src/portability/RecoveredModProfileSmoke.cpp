@@ -355,6 +355,55 @@ int main(int argc, char** argv) {
       RecoveredModProfile_DeleteStaged())
     return Fail("deleted profile was not absent after fresh reload");
 
+  const std::string beforeNameEdit = Read(profile);
+  if (RecoveredModProfile_RenameStaged("renamed-default") ||
+      RecoveredModProfile_CreateStaged("") ||
+      RecoveredModProfile_CreateStaged("Uppercase") ||
+      RecoveredModProfile_CreateStaged(std::string(65u, 'a')) ||
+      RecoveredModProfile_CreateStaged("default") ||
+      !RecoveredModProfile_CreateStaged("testing"))
+    return Fail("profile create validation or default protection failed");
+  snapshot = RecoveredModProfile_Snapshot();
+  if (snapshot == nullptr || snapshot->profileCount != 2u ||
+      snapshot->stagedProfile != "testing" || !snapshot->dirty ||
+      Read(profile) != beforeNameEdit ||
+      RecoveredModProfile_CreateStaged("testing") ||
+      RecoveredModProfile_RenameStaged("default") ||
+      !RecoveredModProfile_RenameStaged("playtest"))
+    return Fail("profile create/rename staging boundary failed");
+  snapshot = RecoveredModProfile_Snapshot();
+  if (snapshot == nullptr || snapshot->stagedProfile != "playtest" ||
+      snapshot->profileNames !=
+          std::vector<std::string>({"default", "playtest"}) ||
+      Read(profile) != beforeNameEdit)
+    return Fail("profile rename changed the committed file early");
+  RecoveredModProfile_FailNextAtomicCommitForTesting();
+  if (RecoveredModProfile_CommitStaged() || Read(profile) != beforeNameEdit ||
+      !RecoveredModProfile_CommitStaged())
+    return Fail("profile name atomic commit boundary failed");
+  RecoveredModProfile_Release();
+  if (!RecoveredModProfile_Configure(profileWide, base.c_str(), candidates,
+                                     2u, 0u, nullptr, 0u, false, true, false))
+    return Fail("renamed profile fresh reload failed");
+  snapshot = RecoveredModProfile_Snapshot();
+  if (snapshot == nullptr || snapshot->profileCount != 2u ||
+      snapshot->activeProfile != "playtest" ||
+      snapshot->stagedProfile != "playtest" || snapshot->dirty ||
+      !RecoveredModProfile_SelectRelative(1) ||
+      RecoveredModProfile_RenameStaged("renamed-default"))
+    return Fail("fresh profile name or default rename protection failed");
+  if (!RecoveredModProfile_SelectRelative(-1))
+    return Fail("profile selection could not return to playtest");
+  for (unsigned int index = 0u; index < 14u; ++index) {
+    const std::string name = "bounded-" + std::to_string(index);
+    if (!RecoveredModProfile_CreateStaged(name))
+      return Fail("bounded profile creation failed before capacity");
+  }
+  if (RecoveredModProfile_Snapshot()->profileCount !=
+          kRecoveredModProfileMaximumProfiles ||
+      RecoveredModProfile_CreateStaged("overflow"))
+    return Fail("profile capacity did not fail closed");
+
   const char* cliRequested[1] = {"rr2nw.stack.addon"};
   RecoveredModProfile_Release();
   if (!RecoveredModProfile_Configure(profileWide, base.c_str(), candidates,
@@ -365,6 +414,8 @@ int main(int argc, char** argv) {
   if (snapshot == nullptr || !snapshot->cliOverride ||
       snapshot->source != "command-line" ||
       snapshot->activePackageCount != 2u ||
+      RecoveredModProfile_CreateStaged("cli-write") ||
+      RecoveredModProfile_RenameStaged("cli-write") ||
       RecoveredModProfile_ToggleCandidate(
           CandidateIndex(*snapshot, "rr2nw.stack.addon")) ||
       RecoveredModProfile_CommitStaged())
@@ -394,6 +445,8 @@ int main(int argc, char** argv) {
   activateAll = true;
   if (snapshot == nullptr || !snapshot->safeMode ||
       snapshot->source != "safe-mode" || snapshot->candidateCount != 0u ||
+      RecoveredModProfile_CreateStaged("safe-write") ||
+      RecoveredModProfile_RenameStaged("safe-write") ||
       !RecoveredModProfile_StartupSelection(&requested, &activateAll) ||
       !requested.empty() || activateAll)
     return Fail("safe mode did not disable user mods");
@@ -436,6 +489,7 @@ int main(int argc, char** argv) {
   std::printf("recovered mod profile smoke: codec=1 truncation=1 bounds=1 "
               "dependency_closure=2 mount_order=core,addon atomic=1 "
               "fresh_reload=1 selector_rows=133 pagination=8 "
+              "profile_create=1 profile_rename=1 profile_capacity=16 "
               "profile_delete=1 cli_override=1 safe_mode=1 corrupt=1 "
               "unknown_id=1 fingerprint=%llu\n",
               static_cast<unsigned long long>(fingerprint));

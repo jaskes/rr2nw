@@ -41,9 +41,16 @@ claim authorship of inherited Logos code or retail data.
   unavailable-content and capacity failures without exposing paths. A real
   three-configuration gate reaches all 133 rows, proves fresh deletion, and
   the extracted Windows package now carries profile documentation and reports
-  the same package identities, mount order and fingerprint as staging. Safe
-  create/rename remains explicitly deferred because the shell has no bounded
-  text/IME/caret owner.
+  the same package identities, mount order and fingerprint as staging.
+- Added a bounded ASCII text-entry owner for mod-profile creation and rename.
+  Insert creates an empty staged profile and F2 renames a non-default staged
+  profile; both retain the existing 133-row selector and require the normal
+  atomic Apply before disk changes. The 64-byte editor lowercases Latin input,
+  rejects duplicates/invalid names and the 16-profile overflow, cancels on Esc
+  or focus loss, blocks IME/clipboard ambiguity and remains read-only under
+  safe mode or CLI override. Unit and real-window gates prove create, rename,
+  injected write failure, fresh restore, rejection and cancellation in every
+  maintained configuration.
 - Routed the primary archival `RTCHECK`/assert fatal owner into the maintained
   Windows diagnostic bundle. Fatal Debug assertions retain bounded assertion,
   source-basename, line and formatted message context; Release retains the

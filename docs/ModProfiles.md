@@ -64,6 +64,17 @@ the deletion remains staged until **Apply on next launch** performs the same
 atomic catalog write as a package change. The canonical `default` profile is
 protected and CLI/safe-mode selectors remain entirely read-only.
 
+Press `Insert` to create a new empty profile and `F2` to rename the current
+non-default profile. This opens a bounded 64-byte ASCII editor without adding
+rows to the selector: Latin letters are normalized to lowercase, and only
+`[a-z0-9._-]` reaches the staged catalog. `Backspace` edits, `Enter` stages the
+name and `Esc` cancels. The first admitted character after `F2` replaces the
+displayed old name. Focus loss also cancels; IME composition and clipboard
+messages are deliberately not admitted by this ASCII profile-name contract.
+Duplicate/empty/invalid names, the protected `default`, a seventeenth profile,
+safe mode and CLI override all fail closed. Create and rename still do not
+write a file until **Apply on next launch** succeeds atomically.
+
 Compatibility failures use stable localization-ready category keys:
 `invalid-manifest`, `missing-dependency`, `dependency-version`, `conflict`,
 `cycle`, `unavailable-content`, `capacity-limit` and `invalid-request`. The
@@ -86,12 +97,11 @@ embedded NULs and oversized input are rejected. Writes use a flushed temporary
 file plus replace-existing/write-through commit; a failed replacement leaves
 the prior catalog byte-for-byte intact.
 
-The current Win32 shell has no bounded text-entry owner: `WM_CHAR` is consumed
-while the pause overlay is open, but there is no validated edit buffer, caret,
-IME or commit/cancel lifecycle. The game therefore does not pretend to offer
-safe create/rename editing yet. Additional valid profiles may be provisioned
-by a launcher or by writing `RR2MODPROFILE1`; activation and confirmed deletion
-then work in-frame. Create/rename remains a separate shell-text-owner slice.
+The text owner is intentionally narrow rather than a general chat/localization
+widget. It accepts only the existing profile codec's ASCII token grammar and
+has no clipboard, IME or free-form UTF contract. This keeps profile identity
+portable and deterministic while leaving a reusable localized text widget as
+separate future UI work.
 
 ## Verification
 
@@ -99,7 +109,8 @@ The synthetic profile smoke covers canonical round-trip, row truncation,
 invalid/oversized input, duplicates, dependency closure, deterministic mount
 order, injected atomic failure, fresh reload, safe mode, CLI precedence,
 invalid-CLI propagation, corrupt recovery, 133-row pagination, category keys,
-default protection and atomic deletion. The real-window gate selects
+default protection, bounded create/rename, focus/Esc cancellation and atomic
+deletion. The real-window gate selects
 the shipped stack addon,
 restarts into exact `core -> addon` order, then proves safe-mode disable and a
 different CLI override. It also uses 128 generated copyright-free candidates
@@ -118,6 +129,6 @@ identical package identities, mount order and stack fingerprint.
 
 This product slice deliberately does not provide live reload, writable
 retail overlays, optional dependency/version-range semantics, remote package
-download, Lua or native plugins. Profile creation/rename polish and localized
-translated strings remain later work behind their missing text/localization
-owners; the compatibility message IDs and existing-profile UX are complete.
+download, Lua or native plugins. Translated strings and a reusable general
+UTF/IME widget remain later work behind a separate localization owner; the
+bounded ASCII profile editor and compatibility message IDs are complete.

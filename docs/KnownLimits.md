@@ -37,8 +37,8 @@ here until a source-backed implementation and its regression gate are complete.
 - Save slots are the eight versioned RR2SLOT1 slots. Presentation/audio/UI state
   is intentionally reconstructed rather than serialized.
 - Mods support deterministic data/script overlays, dependencies, conflicts and
-  restart-applied profiles. There is no hot reload, Lua/native plugin ABI or
-  player-facing create/rename text editor yet.
+  restart-applied profiles with a bounded ASCII create/rename editor. There is
+  no hot reload, Lua/native plugin ABI or general localized/UTF text widget.
 - Some recovered behavior is compatibility behavior rather than byte-exact RSX
   or March-binary parity; those boundaries are named in RetailParity.md.
 

@@ -4448,3 +4448,28 @@ selection of an existing legal data tree. No installer, CD normalizer or full
 legacy-world converter is claimed. Support, privacy and current limitations
 are shipped as package documentation. A new clean package from the eventual
 post-slice commit and real Windows 10/11 human campaign are still required.
+
+### 2026-08-11: bounded mod-profile name editor
+
+CQ-283's missing text owner was narrowed to the actual persisted identity
+contract rather than expanded into an unsupported general UI widget.
+`RR2MODPROFILE1` already limits names to 64 lowercase ASCII bytes, so the Mods
+page now owns an explicit Insert/F2 editor over exactly `[a-z0-9._-]`.
+Uppercase Latin input is normalized; Backspace, replacement-on-first-input,
+Enter, Esc and focus-loss cancellation are deterministic. IME and clipboard
+messages are consumed without entering the buffer.
+
+Create adds an empty staged profile and rename preserves the current staged
+selection. Neither writes the catalog until the existing atomic Apply action;
+`default`, duplicate/invalid/oversized names, the seventeenth profile, safe
+mode and CLI override all fail closed. The editor uses shortcuts instead of
+new list rows, preserving the exact 17-visible/133-total pagination contract
+and restart-only VFS ownership.
+
+Debug, Release and RelWithDebInfo builds pass 76/76 CTest rows. The real-window
+selector proves create/rename/fresh restore, duplicate rejection, Esc and
+focus-loss cancellation in all three configurations. Adjacent gates pass
+in-game shell 3/3, installed retail 27/27 without retry (CQ-282 remains open),
+intro Escape/Enter presentation 6/6, cross-Level Save/Load 2/2, Portal 9/9 and
+campaign 6/6. No retail payload, save format, settings schema, content identity
+or live world state changed.
