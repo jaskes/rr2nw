@@ -4307,7 +4307,48 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(cadence.zeroTickPresentations) + "/" +
              std::to_string(cadence.catchUpPresentations) + "/" +
              std::to_string(cadence.maximumTicksPerPresentation));
-    loopFailed = !exact;
+    const std::uint64_t rebaseTickBefore = Session::m_simulationTick;
+    const double rebaseTimeBefore = Session::m_viewTime;
+    const unsigned int rebaseVehicleFramesBefore =
+        RecoveredGameServices_VehicleFrameCount();
+    const unsigned int rebaseCameraFramesBefore =
+        RecoveredGameServices_VehicleCameraFrameCount();
+    const DWORD rebasePresentationsBefore = dwFrames;
+    const bool rebaseSubmitted = exact &&
+        RecoveredGameServices_TestOnlyRebaseBlockingPresentation() &&
+        runScheduledPresentation(61.0) &&
+        Session::m_simulationTick == rebaseTickBefore &&
+        std::fabs(Session::m_viewTime - rebaseTimeBefore) < 1.0e-9 &&
+        runScheduledPresentation(0.025);
+    SRecoveredProductionCadenceTelemetry rebasedCadence = {};
+    const bool rebaseTelemetryReady =
+        RecoveredGameServices_ProductionCadenceTelemetry(&rebasedCadence);
+    const bool rebaseExact = rebaseSubmitted && rebaseTelemetryReady &&
+        rebasedCadence.active &&
+        rebasedCadence.presentationSamples == 1u &&
+        rebasedCadence.simulationTicks == 1u &&
+        rebasedCadence.discardedBlockingPresentationSamples == 1u &&
+        rebasedCadence.zeroTickPresentations == 0u &&
+        rebasedCadence.catchUpPresentations == 0u &&
+        rebasedCadence.maximumTicksPerPresentation == 1u &&
+        std::fabs(rebasedCadence.accumulatorSeconds) < 1.0e-9 &&
+        std::fabs(rebasedCadence.droppedSeconds) < 1.0e-9 &&
+        std::fabs(rebasedCadence.lastDiscardedBlockingPresentationSeconds -
+                  61.0) < 1.0e-9 &&
+        Session::m_simulationTick == rebaseTickBefore + 1u &&
+        std::fabs(Session::m_viewTime - (rebaseTimeBefore + 0.025)) < 1.0e-9 &&
+        RecoveredGameServices_VehicleFrameCount() ==
+            rebaseVehicleFramesBefore + 1u &&
+        RecoveredGameServices_VehicleCameraFrameCount() ==
+            rebaseCameraFramesBefore + 2u &&
+        dwFrames == rebasePresentationsBefore + 2u;
+    log.Line("presentation_cadence_rebase_smoke=" +
+             std::to_string(rebaseExact ? 1 : 0) + "/" +
+             std::to_string(
+                 rebasedCadence.discardedBlockingPresentationSamples) + "/" +
+             std::to_string(rebasedCadence.presentationSamples) + "/" +
+             std::to_string(rebasedCadence.simulationTicks));
+    loopFailed = !rebaseExact;
   }
   if (!loopFailed && options.portalTransitionSmoke) {
     const int sourceLevelIndex = currentLevelIndex;
@@ -4455,6 +4496,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(mission.presentedCenterFlicks) + "/" +
              std::to_string(mission.presentedHostilityBriefings) + "/" +
              std::to_string(mission.centerPresentationFailures));
+    log.Line("mission_smoke_result_presentation_restores=" +
+             std::to_string(mission.restoredResultPresentations));
     log.Line("mission_smoke_post_briefing_collisions=" +
              std::to_string(mission.postBriefingCollisionEvents) + "/" +
              std::to_string(mission.postBriefingCollisionSuppressions) + "/" +
@@ -4727,6 +4770,10 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                "/" + std::to_string(guideRoute.contactCode3Frames) +
                "/" + std::to_string(guideRoute.contactCode9Frames) +
                "/" + std::to_string(guideRoute.contactCode11Frames) +
+               "/" + std::to_string(guideRoute.worstStaticContactSegment) +
+               "/" + std::to_string(guideRoute.worstStaticContactFrames) +
+               "/" + std::to_string(
+                   guideRoute.maximumConsecutiveStaticContactFrames) +
                "/" + std::to_string(guideRoute.elapsed) +
                "/" + std::to_string(guideRoute.authoredDistance) +
                "/" + std::to_string(guideRoute.travelledDistance) +
@@ -4736,7 +4783,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                "/" + std::to_string(guideRoute.endingX) +
                "/" + std::to_string(guideRoute.endingZ) +
                "/" + std::to_string(guideRoute.routeStartTime) +
-               "/" + std::to_string(guideRoute.lastEventTime));
+               "/" + std::to_string(guideRoute.lastEventTime) +
+               "/" + std::to_string(guideRoute.maximumAbsPitch));
       log.Line("mission_guide_route_save=" +
                std::to_string(guideBaselineReady ? 1 : 0) + "/" +
                std::to_string(guideRouteStaged ? 1 : 0) + "/" +
@@ -6878,10 +6926,130 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                      RecoveredGameServices_LastLevelContinuationError());
         }
       }
+      bool resultPresentationHandoffExact = !options.missionBriefingSmoke;
+      if (options.missionBriefingSmoke && !options.campaignQuestChainSmoke &&
+          resultRollbackExact) {
+        std::vector<std::uint8_t> handoffBaseline;
+        std::vector<std::uint8_t> handoffCommitted;
+        std::vector<std::uint8_t> handoffCommittedRecaptured;
+        std::vector<std::uint8_t> handoffRolledBack;
+        SLevelContinuationSummary handoffBaselineCaptured;
+        SLevelContinuationSummary handoffCommittedCaptured;
+        SLevelContinuationSummary handoffCommittedRestored;
+        SLevelContinuationSummary handoffCommittedVerified;
+        SLevelContinuationSummary handoffRollbackRestored;
+        SLevelContinuationSummary handoffRollbackVerified;
+        const bool handoffBaselineReady =
+            RecoveredGameServices_CaptureLevelContinuation(
+                &handoffBaseline, &handoffBaselineCaptured);
+        RecruitCenterMissionResultPresentationProbeSummary handoff = {};
+        const bool handoffReady = handoffBaselineReady &&
+            RecruitCenterSubjectState_ResultPresentationHandoffProbeForCenter(
+                g_super.m_context,
+                (std::max)(0.1, Session::m_moment + 0.3),
+                mission.centerName, &handoff);
+
+        // The real successor briefing returns through the production
+        // presentation boundary.  Its next outer clock sample includes the
+        // complete synchronous dwell and must be discarded rather than
+        // converted into simulation catch-up.
+        const std::uint64_t resumeTickBefore = Session::m_simulationTick;
+        const double resumeTimeBefore = Session::m_viewTime;
+        const bool staleDwellDiscarded = handoffReady &&
+            runScheduledPresentation(61.0) &&
+            Session::m_simulationTick == resumeTickBefore &&
+            std::fabs(Session::m_viewTime - resumeTimeBefore) < 1.0e-9;
+        const bool freshSampleAdvanced = staleDwellDiscarded &&
+            runScheduledPresentation(0.025) &&
+            Session::m_simulationTick == resumeTickBefore + 1u &&
+            std::fabs(Session::m_viewTime -
+                      (resumeTimeBefore + 0.025)) < 1.0e-9;
+        SRecoveredProductionCadenceTelemetry handoffCadence = {};
+        const bool handoffCadenceReady = freshSampleAdvanced &&
+            RecoveredGameServices_ProductionCadenceTelemetry(
+                &handoffCadence) &&
+            handoffCadence.discardedBlockingPresentationSamples >= 1u &&
+            std::fabs(
+                handoffCadence.lastDiscardedBlockingPresentationSeconds -
+                61.0) < 1.0e-9;
+
+        const bool handoffCommittedReady = handoffCadenceReady &&
+            RecoveredGameServices_CaptureLevelContinuation(
+                &handoffCommitted, &handoffCommittedCaptured);
+        const bool handoffCommittedRestoreReady = handoffCommittedReady &&
+            RecoveredGameServices_RestoreLevelContinuation(
+                handoffCommitted, &handoffCommittedRestored);
+        const bool handoffCommittedRecaptureReady =
+            handoffCommittedRestoreReady &&
+            RecoveredGameServices_CaptureLevelContinuation(
+                &handoffCommittedRecaptured, &handoffCommittedVerified);
+        const bool handoffCommittedExact =
+            handoffCommittedRecaptureReady &&
+            handoffCommitted == handoffCommittedRecaptured &&
+            handoffCommittedCaptured.ready &&
+            handoffCommittedRestored.ready &&
+            handoffCommittedVerified.ready &&
+            handoffCommittedCaptured.worldFingerprint ==
+                handoffCommittedRestored.restoredWorldFingerprint &&
+            handoffCommittedCaptured.worldFingerprint ==
+                handoffCommittedVerified.worldFingerprint;
+        const bool handoffRollbackReady = handoffCommittedExact &&
+            RecoveredGameServices_RestoreLevelContinuation(
+                handoffBaseline, &handoffRollbackRestored);
+        const bool handoffRollbackRecaptureReady = handoffRollbackReady &&
+            RecoveredGameServices_CaptureLevelContinuation(
+                &handoffRolledBack, &handoffRollbackVerified);
+        const bool handoffRollbackExact = handoffRollbackRecaptureReady &&
+            handoffBaseline == handoffRolledBack &&
+            handoffBaselineCaptured.ready &&
+            handoffRollbackRestored.ready &&
+            handoffRollbackVerified.ready &&
+            handoffBaselineCaptured.worldFingerprint ==
+                handoffRollbackRestored.restoredWorldFingerprint &&
+            handoffBaselineCaptured.worldFingerprint ==
+                handoffRollbackVerified.worldFingerprint;
+        resultPresentationHandoffExact = handoffReady &&
+            handoffCadenceReady && handoffCommittedExact &&
+            handoffRollbackExact;
+        log.Line(std::string("mission_result_presentation_handoff=") +
+                 handoff.completedProjectName + "/" +
+                 handoff.nextProjectName + "/" +
+                 std::to_string(handoff.conditionsRemoved) + "/" +
+                 std::to_string(handoff.statusPresentations) + "/" +
+                 std::to_string(handoff.resultPresentations) + "/" +
+                 std::to_string(handoff.resultPresentationRestores) + "/" +
+                 std::to_string(handoff.nextMissionStaged) + "/" +
+                 std::to_string(handoff.presentedBriefings) + "/" +
+                 handoff.restoredMessage);
+        log.Line("mission_result_presentation_cadence=" +
+                 std::to_string(staleDwellDiscarded ? 1 : 0) + "/" +
+                 std::to_string(freshSampleAdvanced ? 1 : 0) + "/" +
+                 std::to_string(
+                     handoffCadence.discardedBlockingPresentationSamples) +
+                 "/" + std::to_string(handoffCadence.simulationTicks));
+        log.Line("mission_result_presentation_save=" +
+                 std::to_string(handoffCommittedReady ? 1 : 0) + "/" +
+                 std::to_string(handoffCommittedRestoreReady ? 1 : 0) +
+                 "/" +
+                 std::to_string(handoffCommittedRecaptureReady ? 1 : 0) +
+                 "/" + std::to_string(handoffCommittedExact ? 1 : 0));
+        log.Line("mission_result_presentation_rollback=" +
+                 std::to_string(handoffRollbackReady ? 1 : 0) + "/" +
+                 std::to_string(handoffRollbackRecaptureReady ? 1 : 0) +
+                 "/" + std::to_string(handoffRollbackExact ? 1 : 0));
+        if (!resultPresentationHandoffExact) {
+          const char* handoffError =
+              RecruitCenterSubjectState_LastError();
+          log.Line(std::string("mission_result_presentation_error=") +
+                   (handoffError != nullptr && handoffError[0] != 0
+                        ? handoffError
+                        : RecoveredGameServices_LastLevelContinuationError()));
+        }
+      }
       loopFailed = !resultReady || !resultSaveExact ||
           !resultDropSaveExact || !portalAdmissionReady ||
           !resultPortalSaveExact || !resultRollbackExact ||
-          !campaignChainExact;
+          !campaignChainExact || !resultPresentationHandoffExact;
     }
     if (!loopFailed && saveAfterMission) {
       const bool overwriteLoadedSlot = options.startupLoadSlot >= 0 &&
@@ -7057,6 +7225,9 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     log.Line("game_services_issues=" +
              std::to_string(RecoveredGameServices_Issues()));
     log.Line("marker=loop-not-ready");
+    const char* frameFailure = RecoveredGameServices_LastFrameFailure();
+    if (frameFailure != nullptr && frameFailure[0] != '\0')
+      log.Line(std::string("game_services_frame_failure=") + frameFailure);
     const SRecoveredSaveMenuState* failedSaveState =
         RecoveredGameServices_SaveMenuState();
     if (failedSaveState != nullptr &&
@@ -7079,10 +7250,15 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     }
     ZAV_DeInitLevel();
     ZAV_Deinit();
+    const std::wstring frameFailureMessage =
+        frameFailure != nullptr && frameFailure[0] != '\0'
+            ? L"\n\nFailure boundary:\n" + Utf8ToWide(frameFailure)
+            : std::wstring();
     ShowMessage(options.runtimeSmoke, MB_ICONERROR,
                 L"RR2NW runtime error",
                 L"The recovered services could not complete the software "
-                L"loop.\n\nDiagnostic log:\n" + log.path());
+                L"loop." + frameFailureMessage +
+                L"\n\nDiagnostic log:\n" + log.path());
     return kRuntimeNotReady;
   }
 

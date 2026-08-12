@@ -6,6 +6,8 @@ param(
     [string]$Level = "Level.03N",
     [string]$Center = "Inhabitants.Recruit.0",
     [ValidateRange(10, 300)][int]$TimeoutSeconds = 120,
+    [switch]$PresentationHandoff,
+    [string]$BuildRoot,
     [string]$OutputRoot
 )
 
@@ -14,6 +16,12 @@ $ErrorActionPreference = "Stop"
 
 $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\.."))
 $DataRoot = [IO.Path]::GetFullPath($DataRoot)
+if ([string]::IsNullOrWhiteSpace($BuildRoot)) {
+    $BuildRoot = Join-Path $repositoryRoot "build\windows-msvc-x86"
+} elseif (-not [IO.Path]::IsPathRooted($BuildRoot)) {
+    $BuildRoot = Join-Path $repositoryRoot $BuildRoot
+}
+$BuildRoot = [IO.Path]::GetFullPath($BuildRoot)
 if (-not (Test-Path -LiteralPath (Join-Path $DataRoot "game.cfg") -PathType Leaf)) {
     throw "game.cfg not found under retail data root: $DataRoot"
 }
@@ -29,8 +37,7 @@ New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 
 $records = [Collections.Generic.List[object]]::new()
 foreach ($configurationName in $Configuration) {
-    $executable = Join-Path $repositoryRoot (
-        "build\windows-msvc-x86\{0}\rr2nw.exe" -f $configurationName)
+    $executable = Join-Path $BuildRoot ("{0}\rr2nw.exe" -f $configurationName)
     if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
         throw "Game executable not found; build $configurationName first: $executable"
     }
@@ -46,6 +53,9 @@ foreach ($configurationName in $Configuration) {
         "--mission-center", $Center,
         "--diagnostics-dir", ('"' + $caseRoot + '"')
     )
+    if ($PresentationHandoff) {
+        $arguments += "--mission-briefing-smoke"
+    }
 
     Write-Host "[$configurationName][$Level][$Center] mission result"
     $started = [DateTime]::UtcNow
@@ -88,6 +98,15 @@ foreach ($configurationName in $Configuration) {
     $portalSave = [regex]::Match(
         $startup, 'mission_result_portal_save=1/1/1/1')
     $rollback = [regex]::Match($startup, 'mission_result_rollback=1/1/1')
+    $handoff = [regex]::Match(
+        $startup,
+        'mission_result_presentation_handoff=([^/\r\n]+)/([^/\r\n]+)/(\d+)/1/1/1/1/(\d+)/([^\r\n]+)')
+    $handoffCadence = [regex]::Match(
+        $startup, 'mission_result_presentation_cadence=1/1/(\d+)/(\d+)')
+    $handoffSave = [regex]::Match(
+        $startup, 'mission_result_presentation_save=1/1/1/1')
+    $handoffRollback = [regex]::Match(
+        $startup, 'mission_result_presentation_rollback=1/1/1')
     $issues = [Collections.Generic.List[string]]::new()
     if ($timedOut) { $issues.Add("timeout") }
     if ($null -ne $exitCode -and $exitCode -ne 0) {
@@ -122,6 +141,26 @@ foreach ($configurationName in $Configuration) {
         $issues.Add("post-Portal save proof missing")
     }
     if (-not $rollback.Success) { $issues.Add("pre-result rollback proof missing") }
+    if ($PresentationHandoff) {
+        if (-not $handoff.Success -or
+            $handoff.Groups[1].Value -eq $handoff.Groups[2].Value -or
+            [int]$handoff.Groups[3].Value -le 0 -or
+            [int]$handoff.Groups[4].Value -le 0 -or
+            [string]::IsNullOrWhiteSpace($handoff.Groups[5].Value)) {
+            $issues.Add("result/successor briefing handoff proof missing")
+        }
+        if (-not $handoffCadence.Success -or
+            [int]$handoffCadence.Groups[1].Value -lt 1 -or
+            [int]$handoffCadence.Groups[2].Value -lt 1) {
+            $issues.Add("blocking-presentation cadence rebase proof missing")
+        }
+        if (-not $handoffSave.Success) {
+            $issues.Add("post-handoff save proof missing")
+        }
+        if (-not $handoffRollback.Success) {
+            $issues.Add("pre-handoff rollback proof missing")
+        }
+    }
     if ($startup -notmatch 'game_services_issues=0') {
         $issues.Add("game service issue reported")
     }
@@ -139,6 +178,7 @@ foreach ($configurationName in $Configuration) {
         passed = $issues.Count -eq 0
         completed_project = if ($project.Success) { $project.Groups[1].Value } else { "" }
         next_project = if ($project.Success) { $project.Groups[2].Value } else { "" }
+        presentation_handoff = [bool]$PresentationHandoff
         issues = @($issues)
         diagnostics = $caseRoot
     })

@@ -103,6 +103,20 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Bounded large mission-guide obstacle sweeps by time instead of allowing an
+  actor-sized collision radius to decay for several seconds. The recovered May
+  minimum remains unchanged for small People; large occupied guides now leave
+  one static hull within 0.35 seconds, keep real collision travel and authored
+  route steering, and never teleport. The two complete Level.03N routes now
+  expose worst-segment, consecutive-contact and pitch telemetry and retain
+  exact progressed save/load plus baseline rollback.
+- Closed the complete `ProjectS22 -> ProjectA39` presentation handoff. A
+  successor briefing no longer erases the retail mission-result line, and its
+  synchronous wall-clock dwell is discarded before fixed cadence resumes
+  instead of being interpreted as an invalid/catch-up frame. The exact real
+  chain proves status/result/restore publication, A39 briefing, a 61-second
+  stale host sample, the next 25 ms tick, save/load and rollback; frame failure
+  diagnostics now name their rejected boundary.
 - Made authored Level-intro FLIC/flight briefings skippable with Escape or
   Enter while retaining the archival Space binding. The maintained presenter
   now pumps the real Win32 queue without recursively advancing Session,
@@ -324,11 +338,13 @@ claim authorship of inherited Logos code or retail data.
 - Real Level.03N mission guides now complete their full 15-node and 34-node
   authored Routes through static town geometry instead of compounding a
   persistent ten-degree contact response into an orbit. Horizontal classes
-  `1/3` are bounded to the route bearing and ownerless static contact gets one
-  timed opposite-side retry; support/dynamic contact and scheduler behavior
-  remain intact. A new two-center, three-configuration gate proves terminal
-  progress, occupied Player Vehicle binding and exact progressed/baseline LCN1
-  restore plus rollback across all seventeen owner sections.
+  `1/3` are bounded to the route bearing; the later visible repeat replaced
+  the ineffective timed opposite-side retry with a bounded large-actor sweep
+  lifetime. Support/dynamic contact and scheduler behavior remain intact. A
+  two-center, three-configuration gate proves terminal progress, occupied
+  Player Vehicle binding, bounded contact density and exact
+  progressed/baseline LCN1 restore plus rollback across all seventeen owner
+  sections.
 - Restored the May Portal status path with exact centered CP866 singular,
   plural and restored messages. `Level.04D` now creates its authored
   `Portal.Arabesk` through the real archived Fountain/FountainAttr tables and

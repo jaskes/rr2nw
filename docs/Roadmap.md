@@ -2361,3 +2361,10 @@ The shortest critical path to `0.1.0` is:
 Broader audio, full campaign proof, deferred state projections, sanitizer and
 remaining localization continue as evidence-backed `0.x` milestones toward
 the separate `1.0` product definition above.
+
+The 2026-08-12 visible Level.03N pass added two release-blocking corrections
+before refreezing `0.1.0`: large mission guides now have a bounded static-sweep
+lifetime with contact-density telemetry, and the complete S22-to-A39 handoff
+retains its exact result line while excluding synchronous cinematic dwell from
+fixed cadence. Both changes require the three-configuration automated gate and
+a fresh package hash; no previous manual ledger row transfers to that package.

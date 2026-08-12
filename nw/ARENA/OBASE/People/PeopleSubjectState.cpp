@@ -2753,6 +2753,9 @@ bool PeopleSubjectState_StageGuideRoute(
         initialVehiclePosition.z - previous.z);
     int previousRouteNode = actor->m_previousRouteNode;
     int currentRouteNode = actor->m_curNode;
+    std::vector<int> staticContactFramesBySegment(
+        static_cast<std::size_t>(summary->routeNodes), 0);
+    int consecutiveStaticContactFrames = 0;
 
     // Route authority is split between the recurring MOVE sample and the
     // scheduled NEXTNODE compatibility event.  Driving MOVE alone can orbit a
@@ -2857,7 +2860,27 @@ bool PeopleSubjectState_StageGuideRoute(
         if (isMove)
         {
             if (actor->m_obstacleRecoveryTime > recoveryBefore + 1e-9)
+            {
                 ++summary->staticContactFrames;
+                ++consecutiveStaticContactFrames;
+                if (actor->m_curNode >= 0 &&
+                    actor->m_curNode < summary->routeNodes)
+                {
+                    const int frames = ++staticContactFramesBySegment[
+                        static_cast<std::size_t>(actor->m_curNode)];
+                    if (frames > summary->worstStaticContactFrames)
+                    {
+                        summary->worstStaticContactFrames = frames;
+                        summary->worstStaticContactSegment = actor->m_curNode;
+                    }
+                }
+            }
+            else
+                consecutiveStaticContactFrames = 0;
+            if (consecutiveStaticContactFrames >
+                    summary->maximumConsecutiveStaticContactFrames)
+                summary->maximumConsecutiveStaticContactFrames =
+                    consecutiveStaticContactFrames;
             if (actor->m_isClz != 0)
                 ++summary->contactFrames;
             switch (actor->m_isClz)
@@ -2869,6 +2892,9 @@ bool PeopleSubjectState_StageGuideRoute(
             case 11: ++summary->contactCode11Frames; break;
             default: break;
             }
+            const double pitch = std::fabs(actor->m_rotateOx);
+            if (std::isfinite(pitch) && pitch > summary->maximumAbsPitch)
+                summary->maximumAbsPitch = pitch;
         }
 
         const double terminalDistance = hypot(

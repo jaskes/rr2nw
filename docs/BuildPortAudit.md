@@ -4062,16 +4062,17 @@ host-speed timeout.
 
 The long run also isolated a production route defect. Persistent horizontal
 contact classes were applied relative to the guide's already changed heading,
-compounding a ten-degree response into an orbit. Classes `1/3` are now anchored
-to the authored route bearing, with one opposite-side retry after one second
-of continuous ownerless static contact. Support classes, dynamic-owner logic,
-route data and event cadence are preserved.
+compounding a ten-degree response into an orbit. Classes `1/3` are anchored to
+the authored route bearing. The later visible repeat replaced the ineffective
+one-second opposite-side retry with BD-230's bounded large-actor sweep
+lifetime. Support classes, dynamic-owner logic, route data and event cadence
+are preserved.
 
 The maintained wrapper runs both Level.03N centers. The Inhabitants guide
 reaches segment 13/14 after 13 transitions; the Marauders guide reaches 32/33
 after 32. Both travel more than 75 percent of their authored Route, exercise
-real static contacts plus classes `1` and `3`, retain the occupied Player
-Vehicle binding and produce finite bounded motion. Progressed LCN1
+real static contacts, retain the occupied Player Vehicle binding and produce
+finite bounded motion. Progressed LCN1
 restore/recapture and baseline rollback are byte-exact across seventeen owner
 sections. The normal Taxi travel gate remains separate because LCN1
 reconstruction intentionally reallocates process-local ObjectIDs; it must not
@@ -4623,3 +4624,33 @@ buffer submissions, 1,048,576 streamed bytes and zero underruns. Installed
 retail is 27/27, cross-Level Save/Load 2/2, Portal 9/9, campaign 6/6,
 RecruitCenter presentation 3/3 and Farter/Vehicle audio 3/3 each. No package or
 manual acceptance ledger is reused across the resulting executable identity.
+
+### 2026-08-12: visible guide and S22-to-A39 presentation closure
+
+The visible Level.03N repeat invalidated two overly weak automated claims. A
+large guide could eventually finish while spending most frames against static
+geometry, and a successful S22 result could be erased by the immediately
+synchronous A39 briefing. The latter briefing also returned its complete wall
+time to the fixed-cadence submission and produced a generic runtime error.
+
+Guide acceptance now records static-contact ratio, worst segment, maximum
+consecutive contacts and pitch. Large-actor sweep decay is bounded to 0.35
+seconds while retaining real collision and the source two-unit minimum. S22
+falls from roughly 303 to 134 simulated seconds and Marauders completes in
+roughly 66; both retain exact progressed restore and baseline rollback.
+
+RecruitCenter admission now restores only the exact result line it published
+after a real successor briefing. Presentation exit marks the next outer clock
+sample as stale; one 61-second sample advances no gameplay and the following
+25 ms sample advances exactly one tick. The combined installed S22-to-A39 gate
+then proves exact committed save/load and pre-result rollback. These changes
+do not rewrite the CP866 archives, create result cinematics, widen the cadence
+stall cap or serialize UI/presentation state.
+
+The final gate passes complete Debug, Release and RelWithDebInfo builds and
+76/76 sequential CTest in each configuration. Installed S22-to-A39 is 3/3,
+the two guide routes are 6/6, Level.03N briefing preflight is 3/3,
+RecruitCenter presentation is 3/3, Portal transitions are 9/9, the campaign
+chain is 3/3, cross-Level Save/Load is 2/2 and the installed retail matrix is
+27/27. CTest configurations must remain sequential because their legacy
+config smoke intentionally shares one bounded temporary path.

@@ -2886,15 +2886,15 @@ playable Level begins.
   Full-route acceptance then runs the real Inhabitants and Marauders guides
   through 13 and 32 segment transitions respectively. Persistent horizontal
   classes `1/3` anchor their recovered ten-degree detour to the authored route
-  bearing, and one second of continuous ownerless class-`1` static contact
-  permits one class-`3` retry; this bounds the previously reproduced orbit
-  without changing support classes or dynamic-owner selection. Both guides
-  reach their terminal segment, exercise real static scene contacts, retain
-  the occupied Player Vehicle binding and restore/recapture progressed plus
+  bearing; this bounds the previously reproduced orbit without changing
+  support classes or dynamic-owner selection. The later visible repeat removed
+  the ineffective one-second opposite-side retry and RP-PEOPLE-004 now owns
+  the large-actor sweep-lifetime and contact-density rule. Both guides reach
+  their terminal segment, exercise real static scene contacts, retain the
+  occupied Player Vehicle binding and restore/recapture progressed plus
   baseline LCN1 exactly across seventeen owners. Code `4` remains an
   accepted/restored class, but no literal producer exists in the complete May
-  People field-write set. A visible human repeat remains the presentation
-  closure row.
+  People field-write set.
 - The free-flight far/near ATTACK branches retain their authored target
   prediction and random offset, but clamped relative vectors are restored to
   enemy/actor world space before assignment to `m_nextNode`. Assigning the
@@ -3370,6 +3370,32 @@ playable Level begins.
 - Six unretried installed Level.04D service reconstructions reproduce the same
   initial/reconstructed world. General Fountain population, visuals,
   cache/removal lifecycle and legacy world conversion remain outside this row.
+
+### RP-CAMPAIGN-036: a successor briefing preserves the authored result line
+
+- The May source publishes mission status at condition completion and an exact
+  center reaction on result revisit. It does not define a second result FLC or
+  a queue of arbitrary urgent messages.
+- The maintained synchronous presenter temporarily owns that same console slot
+  for authored subtitles. Replaying only the already-published center reaction
+  after the successor briefing is a presentation compatibility rule; mission,
+  reward, Project and successor semantics remain source-owned.
+- Installed Level.03N proves the complete `ProjectS22 -> ProjectA39` handoff,
+  exact result text, successor briefing, save/load and rollback. Presentation
+  dwell is explicitly excluded from simulation cadence.
+
+### RP-PEOPLE-004: large guide obstacle sweeps are time-bounded compatibility
+
+- The recovered May `ON_OBJ` formula and its two-unit radius-decay minimum are
+  preserved as evidence. No retail trace proves that a large occupied Roller
+  should spend several seconds repeatedly sweeping one static hull.
+- The modern port therefore bounds only large-actor sweep lifetime at 0.35
+  seconds. This is not byte-exact movement parity and does not add a planner;
+  authored Route steering, real collision, contact travel and dynamic-owner
+  decisions remain active.
+- Complete installed S22 and Marauders routes publish contact density,
+  worst-segment, consecutive-contact and pitch telemetry and preserve exact
+  LCN1 save/load/rollback. Visible acceptance remains the final parity check.
 
 ## Binary analysis boundary
 

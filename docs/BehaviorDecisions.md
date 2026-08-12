@@ -5471,7 +5471,8 @@ parity remain separate work and must not be inferred from this acceptance row.
 
 ### BD-156: full guide routes bound persistent horizontal contacts
 
-Status: accepted on 2026-08-06 for the automated Level.03N town-route gate.
+Status: accepted on 2026-08-06 for the automated Level.03N town-route gate;
+partially superseded by BD-230 after the visible 2026-08-12 repeat.
 
 The short collision probes proved individual May contact classes but did not
 prove that a visible guide could leave a wall and finish its authored Route.
@@ -5479,22 +5480,23 @@ Chronological dispatch of the real guide queue exposed a persistent-contact
 failure: class `1/3` was reapplied to the already turned heading every frame,
 so a wall could compound the ten-degree response into a circular orbit.
 
-Horizontal classes `1/3` now retain their authored ten-degree direction and
+Horizontal classes `1/3` retain their authored ten-degree direction and
 80-percent roll speed while anchoring that detour to the current authored
-route bearing. If an ownerless static forward sweep remains class `1` for one
-continuous second, the existing persisted recovery timer permits one bounded
-class-`3` side retry. Support classes `2/9/11`, dynamic-owner selection, Route
-cursor policy, scheduler cadence and combat remain unchanged. This is a narrow
-compatibility boundary, not a new planner, navigation mesh or balance policy.
+route bearing. The former one-second opposite-side retry did not prevent a
+large occupied Roller from visibly remaining in contact and was removed by
+BD-230 in favour of a bounded sweep lifetime. Support classes `2/9/11`,
+dynamic-owner selection, Route cursor policy, scheduler cadence and combat
+remain unchanged. This is a narrow compatibility boundary, not a new planner,
+navigation mesh or balance policy.
 
 The maintained probe records an event's dispatch timestamp before the legacy
 receiver mutates that same `KR_Event` into its successor deadline. It executes
 real `STARTSHOW`, `STARTMOVE`, `NEXTNODE`, grounded-next-node and `MOVE` events
 until the terminal segment, with no synthetic position writes. `ProjectS22`
 traverses 13 segment transitions across its 15-node Route; `ProjectS25`
-traverses 32 across 34 nodes. Both exercise real static scene contact and both
-horizontal response classes while the real occupied Player Vehicle remains
-bound.
+traverses 32 across 34 nodes. Both exercise real static scene contact while the
+real occupied Player Vehicle remains bound. BD-230 owns the stronger contact
+density, consecutive-contact and pitch acceptance.
 
 The progressed LCN1 checkpoint restores and immediately recaptures exactly,
 then the baseline checkpoint rolls back exactly across all seventeen owner
@@ -7190,3 +7192,46 @@ stable token is promoted by a later authored position and device recovery uses
 that promoted state. Direct occupied-vehicle engine and Cinematic streams keep
 their distinct listener-centred owners. This is a class/lifecycle rule, never
 a filename blacklist or a change to simulation, LCN1/RR2SLOT1 or content ABI.
+
+### BD-229: a blocking successor briefing preserves its result handoff
+
+Status: accepted on 2026-08-12 for the S22-to-A39 playtest failure.
+
+The archived console owns one urgent-message slot. A successful RecruitCenter
+revisit publishes its exact retail reaction and immediately admits the next
+Project; the successor briefing then uses and clears that same slot for its
+subtitles. Because the maintained presenter is synchronous, no gameplay frame
+can display the result between those two operations.
+
+The admission transaction now carries only the result string it actually
+published. If and only if a real successor briefing completed, it republishes
+that exact string after return. It does not invent a result FLC, queue arbitrary
+messages or serialize presentation state. The status transition, result,
+Project retirement, reward and successor mission still commit at their
+existing source-owned boundaries.
+
+The outer Windows clock was sampled before entering the same synchronous
+presenter. Its first post-return delta therefore includes cinematic dwell and
+owns no simulation time. The cadence owner consumes that one positive finite
+sample as a rebase marker; the following sample resumes fixed ticks normally.
+This is narrower than raising the global stall cap and prevents an A39 briefing
+from becoming catch-up gameplay or a generic `loop-not-ready` error.
+
+### BD-230: large guide sweeps have a bounded collision lifetime
+
+Status: accepted on 2026-08-12 after the visible guide remained stuck.
+
+BD-156 corrected compounded heading, but its full-route gate did not measure
+how long an occupied large Roller stayed in static contact. The source formula
+shrinks radius by `2 * recoveryTime`; with a large vehicle radius this can
+retest one town hull for seconds even while the synthetic route eventually
+finishes. The user's visible Level.03N repeat showed that this is not an
+acceptable modern gameplay result.
+
+The May decay of two units per second remains the minimum. For a large actor,
+the maintained compatibility owner instead chooses a decay that exhausts the
+forward sweep in at most 0.35 seconds. Collision detection, 80-percent contact
+travel, route-relative heading, support classes, dynamic-owner avoidance and
+authoritative movement remain unchanged; there is no teleport, navmesh or
+collision disable. The obsolete one-second forced opposite-side retry is
+removed because it cannot be reached inside the bounded sweep lifetime.

@@ -1113,6 +1113,10 @@ SRecoveredVehicleDriveTelemetry g_vehicleDriveTelemetry = {};
 SRecoveredFrameTimingTelemetry g_frameTimingTelemetry = {};
 SimulationCadence g_productionCadence;
 bool g_productionCadenceReady = false;
+bool g_productionCadenceDiscardBlockingPresentationSample = false;
+std::uint64_t g_productionCadenceDiscardedBlockingPresentationSamples = 0u;
+double g_productionCadenceLastDiscardedBlockingPresentationSeconds = 0.0;
+std::string g_lastFrameFailure;
 CFVector3 g_vehicleTelemetryStartPosition(0.0, 0.0, 0.0);
 CFVector3 g_vehicleTelemetryStartForward(0.0, 0.0, 1.0);
 bool g_vehicleDriveTelemetryReady = false;
@@ -5265,6 +5269,10 @@ void BeginLoop() {
   dwTime0 = GetTickCount();
   g_frameTimingTelemetry = {};
   g_productionCadenceReady = false;
+  g_productionCadenceDiscardBlockingPresentationSample = false;
+  g_productionCadenceDiscardedBlockingPresentationSamples = 0u;
+  g_productionCadenceLastDiscardedBlockingPresentationSeconds = 0.0;
+  g_lastFrameFailure.clear();
   pScene->CheckDynamicMap();
   GRSetViewport(ppViewports[0]);
   g_loopReady = true;
@@ -5384,6 +5392,11 @@ void HandleLevelBriefingPresentationBoundary(int entering) {
     Report(RECOVERED_GAME_SERVICES_FRAME_FAILURE);
   }
   g_productionCadenceReady = false;
+  // The outer Windows loop sampled its host clock before entering the
+  // synchronous presenter. Its next elapsed value therefore contains the
+  // complete FLIC/briefing dwell, even though that wall time owns no gameplay
+  // ticks. Configure a fresh epoch and explicitly consume that stale sample.
+  g_productionCadenceDiscardBlockingPresentationSample = true;
 }
 
 }  // namespace
@@ -5458,6 +5471,8 @@ void RecoveredGameServices_Release() {
   g_platformReady = false;
   g_loopReady = false;
   g_productionCadenceReady = false;
+  g_productionCadenceDiscardBlockingPresentationSample = false;
+  g_lastFrameFailure.clear();
 }
 
 bool RecoveredGameServices_PlatformReady() { return g_platformReady; }
@@ -8537,6 +8552,8 @@ bool RecoveredGameServices_ProductionCadenceTelemetry(
   telemetry->active = true;
   telemetry->presentationSamples = source.presentationSamples;
   telemetry->simulationTicks = source.simulationTicks;
+  telemetry->discardedBlockingPresentationSamples =
+      g_productionCadenceDiscardedBlockingPresentationSamples;
   telemetry->zeroTickPresentations = source.zeroTickSamples;
   telemetry->catchUpPresentations = source.catchUpSamples;
   telemetry->cappedPresentations = source.cappedSamples;
@@ -8545,6 +8562,8 @@ bool RecoveredGameServices_ProductionCadenceTelemetry(
       source.maximumTicksPerSample;
   telemetry->accumulatorSeconds = source.accumulatorSeconds;
   telemetry->droppedSeconds = source.droppedSeconds;
+  telemetry->lastDiscardedBlockingPresentationSeconds =
+      g_productionCadenceLastDiscardedBlockingPresentationSeconds;
   return true;
 }
 
@@ -8720,6 +8739,10 @@ bool RecoveredGameServices_IsReady() {
 
 unsigned int RecoveredGameServices_Issues() { return g_issues; }
 
+const char* RecoveredGameServices_LastFrameFailure() {
+  return g_lastFrameFailure.c_str();
+}
+
 const SRecoveredObserverState* RecoveredGameServices_ObserverState() {
   return g_sessionReady ? &g_observerInput.state() : nullptr;
 }
@@ -8815,17 +8838,24 @@ static SSimulationCadenceConfig ProductionCadenceConfig() {
 
 static int RunFrameInternal(const double* explicitSimulationTime,
                             const double* presentationElapsedSeconds) {
+  g_lastFrameFailure.clear();
   if (!RecoveredGameServices_IsReady()) {
+    g_lastFrameFailure = "recovered game services are not ready";
     Report(RECOVERED_GAME_SERVICES_BEGIN_LOOP_FAILURE);
     return FALSE;
   }
   if (explicitSimulationTime != nullptr &&
-      presentationElapsedSeconds != nullptr)
+      presentationElapsedSeconds != nullptr) {
+    g_lastFrameFailure =
+        "conflicting simulation and presentation time owners";
     return FALSE;
+  }
   if (explicitSimulationTime != nullptr &&
       (!std::isfinite(*explicitSimulationTime) ||
        *explicitSimulationTime <= Session::m_viewTime ||
        *explicitSimulationTime - Session::m_viewTime > 0.1)) {
+    g_lastFrameFailure =
+        "explicit simulation time is outside its admitted boundary";
     return FALSE;
   }
   typedef std::chrono::steady_clock FrameClock;
@@ -8834,18 +8864,28 @@ static int RunFrameInternal(const double* explicitSimulationTime,
   const FrameClock::time_point inputEnd = FrameClock::now();
   const bool shellPaused = g_inGameShellState.open;
   if (explicitSimulationTime != nullptr && shellPaused) {
+    g_lastFrameFailure =
+        "explicit simulation frame requested while the shell is paused";
     return FALSE;
   }
 
   std::vector<double> scheduledTimes;
   if (presentationElapsedSeconds != nullptr) {
     if (!std::isfinite(*presentationElapsedSeconds) ||
-        *presentationElapsedSeconds <= 0.0)
+        *presentationElapsedSeconds <= 0.0) {
+      g_lastFrameFailure =
+          "presentation elapsed time is not finite and positive";
       return FALSE;
+    }
     if (!g_productionCadenceReady) {
       g_productionCadenceReady = g_productionCadence.Configure(
           ProductionCadenceConfig(), Session::m_viewTime);
-      if (!g_productionCadenceReady) return FALSE;
+      if (!g_productionCadenceReady) {
+        g_lastFrameFailure =
+            "production cadence could not establish a simulation epoch";
+        Report(RECOVERED_GAME_SERVICES_FRAME_FAILURE);
+        return FALSE;
+      }
     }
     // WM_ACTIVATEAPP has already been translated by PumpMessages into the
     // semantic adapter before this decision. Do not resample foreground
@@ -8853,10 +8893,19 @@ static int RunFrameInternal(const double* explicitSimulationTime,
     // and exclusive-mode recovery all share this admitted focus owner.
     const bool applicationFocused = !shellPaused &&
         g_windowsInputAdapter.ApplicationActive();
-    if (!g_productionCadence.Submit(
-            *presentationElapsedSeconds, applicationFocused,
-            &scheduledTimes))
+    if (g_productionCadenceDiscardBlockingPresentationSample) {
+      g_productionCadenceDiscardBlockingPresentationSample = false;
+      ++g_productionCadenceDiscardedBlockingPresentationSamples;
+      g_productionCadenceLastDiscardedBlockingPresentationSeconds =
+          *presentationElapsedSeconds;
+    } else if (!g_productionCadence.Submit(
+                   *presentationElapsedSeconds, applicationFocused,
+                   &scheduledTimes)) {
+      g_lastFrameFailure =
+          "production cadence rejected the presentation elapsed time";
+      Report(RECOVERED_GAME_SERVICES_FRAME_FAILURE);
       return FALSE;
+    }
   }
   if (shellPaused) {
     // The session poll is intentionally skipped while the shell is open.
@@ -9155,4 +9204,12 @@ int RecoveredGameServices_RunFrameAt(double simulationTime) {
 int RecoveredGameServices_RunScheduledPresentation(
     double elapsedSeconds) {
   return RunFrameInternal(nullptr, &elapsedSeconds);
+}
+
+bool RecoveredGameServices_TestOnlyRebaseBlockingPresentation() {
+  if (!RecoveredGameServices_IsReady() || !RebasePausedRuntimeClock())
+    return false;
+  g_productionCadenceReady = false;
+  g_productionCadenceDiscardBlockingPresentationSample = true;
+  return true;
 }

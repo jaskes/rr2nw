@@ -114,8 +114,8 @@ foreach ($configurationName in $Configuration) {
             $route = if ($log.ContainsKey("mission_guide_route")) {
                 @($log["mission_guide_route"] -split '/')
             } else { @() }
-            if ($route.Count -ne 36) {
-                $issues.Add("mission_guide_route=$($route -join '/') expected 36 fields")
+            if ($route.Count -ne 40) {
+                $issues.Add("mission_guide_route=$($route -join '/') expected 40 fields")
             } else {
                 foreach ($index in @(3, 4, 5, 15, 16, 17)) {
                     if ($route[$index] -ne "1") {
@@ -129,7 +129,7 @@ foreach ($configurationName in $Configuration) {
                     @(13, "static-contact frames"),
                     @(14, "contact frames"),
                     @(22, "clockwise contact frames"),
-                    @(24, "retry-side contact frames"))) {
+                    @(28, "worst-segment static-contact frames"))) {
                     Require-PositiveInteger $issues $route `
                         $requirement[0] $requirement[1]
                 }
@@ -145,6 +145,19 @@ foreach ($configurationName in $Configuration) {
                 if ($route[18] -ne "0") {
                     $issues.Add("failure code=$($route[18]) expected=0")
                 }
+                $staticFrames = 0
+                $staticContacts = 0
+                $maximumConsecutive = 0
+                if (-not [Int32]::TryParse($route[12], [ref]$staticFrames) -or
+                    -not [Int32]::TryParse($route[13], [ref]$staticContacts) -or
+                    $staticFrames -le 0 -or
+                    $staticContacts * 100 -gt $staticFrames * 55) {
+                    $issues.Add("static contacts=$($route[13])/$($route[12]) expected <=55%")
+                }
+                if (-not [Int32]::TryParse($route[29], [ref]$maximumConsecutive) -or
+                    $maximumConsecutive -gt 8) {
+                    $issues.Add("maximum consecutive static contacts=$($route[29]) expected <=8")
+                }
                 if (-not [Int32]::TryParse($route[20], [ref]$endingPrevious) -or
                     -not [Int32]::TryParse($route[21], [ref]$endingCurrent) -or
                     $endingPrevious -ne ($terminal - 1) -or
@@ -154,16 +167,24 @@ foreach ($configurationName in $Configuration) {
                 $authoredDistance = 0.0
                 $travelledDistance = 0.0
                 if (-not [Double]::TryParse(
-                        $route[28], [Globalization.NumberStyles]::Float,
+                        $route[31], [Globalization.NumberStyles]::Float,
                         [Globalization.CultureInfo]::InvariantCulture,
                         [ref]$authoredDistance) -or
                     -not [Double]::TryParse(
-                        $route[29], [Globalization.NumberStyles]::Float,
+                        $route[32], [Globalization.NumberStyles]::Float,
                         [Globalization.CultureInfo]::InvariantCulture,
                         [ref]$travelledDistance) -or
                     $authoredDistance -le 0.0 -or
                     $travelledDistance -le $authoredDistance * 0.75) {
-                    $issues.Add("travel=$($route[29]) authored=$($route[28]) expected >75%")
+                    $issues.Add("travel=$($route[32]) authored=$($route[31]) expected >75%")
+                }
+                $maximumPitch = 0.0
+                if (-not [Double]::TryParse(
+                        $route[39], [Globalization.NumberStyles]::Float,
+                        [Globalization.CultureInfo]::InvariantCulture,
+                        [ref]$maximumPitch) -or
+                    $maximumPitch -lt 0.0 -or $maximumPitch -gt 0.7) {
+                    $issues.Add("maximum pitch=$($route[39]) expected 0..0.7 radians")
                 }
             }
 

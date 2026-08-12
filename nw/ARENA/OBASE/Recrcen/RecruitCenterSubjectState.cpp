@@ -61,6 +61,8 @@ RecruitCenterMissionProbeSummary g_lastMissionSummary = {};
 bool g_hasLastMissionSummary = false;
 int g_missionStatusPresentations = 0;
 int g_missionResultPresentations = 0;
+int g_missionResultPresentationRestores = 0;
+char g_lastMissionResultPresentationRestore[121] = {};
 
 struct PendingReachedScript
 {
@@ -1564,11 +1566,16 @@ struct MissionVisitResult
     bool repaired;
     bool refilled;
     bool rewardCreated;
+    bool presentationPublished;
+    char presentationMessage[121];
 
     MissionVisitResult()
         : found(false), blocksNewMission(false), success(false),
           failure(false), repaired(false), refilled(false),
-          rewardCreated(false) {}
+          rewardCreated(false), presentationPublished(false)
+    {
+        presentationMessage[0] = 0;
+    }
 };
 
 bool ProcessMissionVisit(SimulationContext *context, double timeStamp,
@@ -1993,6 +2000,27 @@ class RecruitCenter : public ct_Subject, public IDynamicObject
                                              &staged, &summary);
             if (admitted && staged)
             {
+                // Mission briefings use the archival single urgent-message
+                // slot for their subtitles and clear it on completion.  A
+                // result revisit and its successor admission happen inside
+                // this same collision event, so restore the exact retail
+                // result line after the synchronous briefing has returned.
+                // This is presentation-only and deliberately not serialized.
+                if (summary.presentedBriefings > 0 &&
+                    visit.presentationPublished &&
+                    visit.presentationMessage[0] != 0 &&
+                    g_GameConsole.MessagesReady())
+                {
+                    g_GameConsole.PrintUrgent(
+                        visit.presentationMessage, 12,
+                        GameConsole::CENTER);
+                    ++g_missionResultPresentationRestores;
+                    std::snprintf(
+                        g_lastMissionResultPresentationRestore,
+                        sizeof(g_lastMissionResultPresentationRestore),
+                        "%s", visit.presentationMessage);
+                    summary.restoredResultPresentations = 1;
+                }
                 if (presentation != NULL)
                 {
                     summary.centerPresentationAttempts =
@@ -2493,6 +2521,8 @@ class RecruitCenterTable : public ct_SubjectTable
         g_reachedScriptRollbacks = 0;
         g_reachedScriptRequeues = 0;
         g_failNextReachedScriptForTesting = false;
+        g_missionResultPresentationRestores = 0;
+        g_lastMissionResultPresentationRestore[0] = 0;
     }
 
     ct_Object *getObjectPTR(int index) override
@@ -2821,7 +2851,10 @@ bool ProcessMissionVisit(SimulationContext *context, double timeStamp,
             : (renegade
                    ? "You did your best but failed! We're disappointed"
                    : "You're nuts! Go fight and proove your loyalty");
+        std::snprintf(result->presentationMessage,
+                      sizeof(result->presentationMessage), "%s", message);
         g_GameConsole.PrintUrgent(message, 12, GameConsole::CENTER);
+        result->presentationPublished = true;
         ++g_missionResultPresentations;
     }
     result->success = success;
@@ -3303,6 +3336,136 @@ bool RecruitCenterSubjectState_CompleteMissionProbeForCenter(
                     summary->nextProjectName) != 0;
     if (!exact)
         SetError("RecruitCenter result invariants did not hold");
+    return exact;
+}
+
+bool RecruitCenterSubjectState_ResultPresentationHandoffProbeForCenter(
+    SimulationContext *context, double timeStamp, const char *centerName,
+    RecruitCenterMissionResultPresentationProbeSummary *summary)
+{
+    g_lastError[0] = 0;
+    if (context == NULL || summary == NULL || centerName == NULL ||
+        centerName[0] == 0 || !std::isfinite(timeStamp) || timeStamp < 0.0 ||
+        g_vehicle == NULL || g_vehicle->getContext() != context)
+    {
+        SetError("RecruitCenter result-presentation handoff arguments are "
+                 "invalid");
+        return false;
+    }
+    std::memset(summary, 0, sizeof(*summary));
+    RecruitCenter *center = FindRecruitCenter(context, centerName);
+    if (center == NULL)
+    {
+        SetError("RecruitCenter result-presentation handoff lost its center");
+        return false;
+    }
+    Player &player = static_cast<Player &>(g_vehicle->player());
+    int missionIndex = -1;
+    for (int index = 0; index < player.m_missCnt; ++index)
+        if (player.m_mission[index].comID == center->commanderID() &&
+            player.m_mission[index].m_status == MISSION_INPROCESS)
+        {
+            missionIndex = index;
+            break;
+        }
+    if (missionIndex < 0)
+    {
+        SetError("RecruitCenter result-presentation handoff has no active "
+                 "mission");
+        return false;
+    }
+    PlayerMission &mission = player.m_mission[missionIndex];
+    const char *completedProject = context->searchObject(mission.mID);
+    if (completedProject == NULL || mission.success_needKill.getCount() <= 0 ||
+        mission.success_needLive.getCount() != 0 ||
+        mission.success_needReached.getCount() != 0 ||
+        !MissionReferencesBound(mission))
+    {
+        SetError("RecruitCenter result-presentation handoff needs a bound "
+                 "all-kill mission");
+        return false;
+    }
+    std::snprintf(summary->centerName, sizeof(summary->centerName), "%s",
+                  centerName);
+    std::snprintf(summary->completedProjectName,
+                  sizeof(summary->completedProjectName), "%s",
+                  completedProject);
+    summary->missionsBefore = player.m_missCnt;
+
+    std::vector<KR_ObjectID> targets;
+    for (int index = 0; index < mission.success_needKill.getCount(); ++index)
+        if (context->isExist(mission.success_needKill[index]))
+            targets.push_back(mission.success_needKill[index]);
+    if (targets.size() !=
+        static_cast<std::size_t>(mission.success_needKill.getCount()))
+    {
+        SetError("RecruitCenter result-presentation kill graph is incomplete");
+        return false;
+    }
+    context->removeEventsTo(rc_CHECK_MISSION, center->getObjectID());
+    for (std::size_t index = 0; index < targets.size(); ++index)
+    {
+        context->removeObject(targets[index]);
+        ++summary->conditionsRemoved;
+    }
+    const int statusBefore = g_missionStatusPresentations;
+    KR_Event check(rc_CHECK_MISSION, timeStamp,
+                   g_vehicle->getObjectID(), center->getObjectID());
+    check.data.open(EDO_WRITE).putInt(missionIndex).close();
+    context->sendEventNow(check);
+    summary->statusPresentations =
+        g_missionStatusPresentations - statusBefore;
+    if (player.m_mission[missionIndex].m_status != MISSION_SUCCESS)
+    {
+        SetError("RecruitCenter result-presentation condition check did not "
+                 "succeed");
+        return false;
+    }
+
+    const int resultBefore = g_missionResultPresentations;
+    const int restoresBefore = g_missionResultPresentationRestores;
+    KR_Event admission(rc_NEW_MISSION, timeStamp + 0.1,
+                       g_vehicle->getObjectID(), center->getObjectID());
+    context->sendEventNow(admission);
+    const RecruitCenterMissionProbeSummary &committed =
+        center->lastMissionSummary();
+    summary->resultPresentations =
+        g_missionResultPresentations - resultBefore;
+    summary->resultPresentationRestores =
+        g_missionResultPresentationRestores - restoresBefore;
+    summary->nextMissionStaged = committed.stagedMissions;
+    summary->presentedBriefings = committed.presentedBriefings;
+    summary->missionsAfter = player.m_missCnt;
+    std::snprintf(summary->restoredMessage,
+                  sizeof(summary->restoredMessage), "%s",
+                  g_lastMissionResultPresentationRestore);
+    for (int index = 0; index < player.m_missCnt; ++index)
+        if (player.m_mission[index].comID == center->commanderID() &&
+            player.m_mission[index].m_status == MISSION_INPROCESS)
+        {
+            const char *nextProject =
+                context->searchObject(player.m_mission[index].mID);
+            if (nextProject != NULL)
+                std::snprintf(summary->nextProjectName,
+                              sizeof(summary->nextProjectName), "%s",
+                              nextProject);
+            break;
+        }
+
+    const bool exact = summary->conditionsRemoved ==
+                           static_cast<int>(targets.size()) &&
+        summary->statusPresentations == 1 &&
+        summary->resultPresentations == 1 &&
+        summary->resultPresentationRestores == 1 &&
+        summary->nextMissionStaged == 1 &&
+        summary->presentedBriefings > 0 &&
+        summary->missionsAfter == summary->missionsBefore &&
+        summary->nextProjectName[0] != 0 &&
+        std::strcmp(summary->completedProjectName,
+                    summary->nextProjectName) != 0 &&
+        summary->restoredMessage[0] != 0;
+    if (!exact)
+        SetError("RecruitCenter result-presentation handoff diverged");
     return exact;
 }
 

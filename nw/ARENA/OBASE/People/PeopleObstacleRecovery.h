@@ -28,8 +28,8 @@ struct SPeopleObstacleRecoveryResult
 // Deterministic policy recovered from the May 1999 ON_OBJ branch. Scene
 // collision detection remains at the call site; this kernel owns the shrinking
 // sweep radius, contact travel fraction and recovery timer transitions. The
-// modern compatibility boundary also performs one bounded opposite-side retry
-// for a persistent ownerless horizontal obstruction.
+// May minimum decay remains intact for small actors; a modern bounded lifetime
+// keeps large mission guides from spending seconds re-testing one town hull.
 bool PeopleObstacleRecovery_Advance(
     const SPeopleObstacleRecoveryRequest &request,
     SPeopleObstacleRecoveryResult *result);

@@ -7,10 +7,10 @@ namespace
 {
 
 const double kMinimumSweepRadius = 0.01;
-const double kRadiusDecayPerSecond = 2.0;
+const double kMinimumRadiusDecayPerSecond = 2.0;
+const double kMaximumLargeActorSweepSeconds = 0.35;
 const double kRecoveryDecayPerSecond = 2.0;
 const double kContactTravelFraction = 0.8;
-const double kStaticSideRetrySeconds = 1.0;
 
 bool SupportedContactCode(int code)
 {
@@ -42,9 +42,12 @@ bool PeopleObstacleRecovery_Advance(
         request.stateDepth < 0)
         return false;
 
+    const double radiusDecayPerSecond = std::max(
+        kMinimumRadiusDecayPerSecond,
+        request.objectRadius / kMaximumLargeActorSweepSeconds);
     result->sweepRadius = std::min(
         request.objectRadius -
-            kRadiusDecayPerSecond * request.recoveryTime,
+            radiusDecayPerSecond * request.recoveryTime,
         request.maximumRadius);
     result->sweepEnabled = request.visible != 0 &&
         result->sweepRadius >= kMinimumSweepRadius ? 1 : 0;
@@ -66,12 +69,6 @@ bool PeopleObstacleRecovery_Advance(
         result->recoveryTime += request.deltaTime;
         result->contactCode = request.contactCode != 0
             ? request.contactCode : request.detectedContactCode;
-        // A forward static sweep has no dynamic owner from which to derive a
-        // preferred side. Retry the opposite horizontal class after one
-        // continuous second instead of orbiting indefinitely on class 1.
-        if (result->contactCode == 1 &&
-            result->recoveryTime >= kStaticSideRetrySeconds)
-            result->contactCode = 3;
         result->popState = request.stateDepth > 0 ? 1 : 0;
         const double boundedCollisionTime = std::max(
             0.0, std::min(request.collisionTime, request.deltaTime));
@@ -94,11 +91,11 @@ bool PeopleObstacleRecovery_Advance(
 bool PeopleObstacleRecovery_Probe()
 {
     SPeopleObstacleRecoveryRequest request = {};
-    request.objectRadius = 3.0;
+    request.objectRadius = 10.0;
     request.maximumRadius = 2.5;
-    request.recoveryTime = 0.25;
-    request.deltaTime = 0.2;
-    request.collisionTime = 0.1;
+    request.recoveryTime = 0.1;
+    request.deltaTime = 0.1;
+    request.collisionTime = 0.05;
     request.visible = 1;
     request.collisionDetected = 1;
     request.contactCode = 0;
@@ -107,34 +104,19 @@ bool PeopleObstacleRecovery_Probe()
 
     SPeopleObstacleRecoveryResult hit = {};
     if (!PeopleObstacleRecovery_Advance(request, &hit) ||
-        !Near(hit.sweepRadius, 2.5) || !Near(hit.recoveryTime, 0.45) ||
-        !Near(hit.travelTime, 0.08) || hit.sweepEnabled != 1 ||
+        !Near(hit.sweepRadius, 2.5) || !Near(hit.recoveryTime, 0.2) ||
+        !Near(hit.travelTime, 0.04) || hit.sweepEnabled != 1 ||
         hit.popState != 1 || hit.contactCode != 3)
         return false;
 
-    request.recoveryTime = 0.9;
+    request.recoveryTime = hit.recoveryTime;
     request.deltaTime = 0.2;
-    request.contactCode = 1;
-    request.detectedContactCode = 1;
-    SPeopleObstacleRecoveryResult retried = {};
-    if (!PeopleObstacleRecovery_Advance(request, &retried) ||
-        !Near(retried.recoveryTime, 1.1) || retried.contactCode != 3)
-        return false;
-
     request.collisionDetected = 0;
     request.contactCode = hit.contactCode;
-    request.recoveryTime = hit.recoveryTime;
     SPeopleObstacleRecoveryResult clear = {};
     if (!PeopleObstacleRecovery_Advance(request, &clear) ||
-        !Near(clear.recoveryTime, 0.05) || clear.contactCode != 3 ||
+        !Near(clear.recoveryTime, 0.0) || clear.contactCode != 0 ||
         clear.popState != 0)
-        return false;
-
-    request.recoveryTime = clear.recoveryTime;
-    SPeopleObstacleRecoveryResult recovered = {};
-    if (!PeopleObstacleRecovery_Advance(request, &recovered) ||
-        !Near(recovered.recoveryTime, 0.0) ||
-        recovered.contactCode != 0)
         return false;
 
     request.objectRadius = 0.4;
@@ -149,7 +131,7 @@ bool PeopleObstacleRecovery_Probe()
         !Near(exhausted.recoveryTime, 0.0))
         return false;
 
-    request.objectRadius = 3.0;
+    request.objectRadius = 10.0;
     request.recoveryTime = 0.25;
     request.visible = 0;
     request.contactCode = 11;

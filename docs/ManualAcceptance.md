@@ -1492,11 +1492,14 @@ in every maintained Windows configuration:
   -Configuration Debug,Release,RelWithDebInfo
 ```
 
-Each row must report `mission_guide_route` with 36 slash-separated fields. It
+Each row must report `mission_guide_route` with 40 slash-separated fields. It
 must identify a route and occupied Player Vehicle, make the guide visible,
 reach its terminal segment with finite bounded motion, travel at least 75
-percent of authored distance, observe real static scene contact and both
-horizontal classes `1/3`, and finish with failure code zero. The companion
+percent of authored distance, observe real static scene contact, keep static
+contact at or below 55 percent of static-scene frames, keep any consecutive
+static-contact run at eight frames or fewer and pitch below 0.7 radians, and
+finish with failure code zero. Contact class `1` must occur; class `3` remains
+supported but is no longer manufactured by a one-second retry. The companion
 `mission_guide_route_save` row must be
 `1/1/1/1/1/1/1/1/1/17`: baseline and progressed LCN1 capture, restore,
 immediate recapture and rollback are exact across seventeen owner sections.
@@ -1509,6 +1512,28 @@ same town geometry while driving the occupied Vehicle. Retain the log and a
 screenshot near a former obstruction. The guide must make bounded detours,
 resume the authored path and must not circle, teleport or finish hidden. That
 human repeat remains the presentation-parity row.
+
+## Mission-result to successor-briefing handoff
+
+Run the exact Level.03N S22-to-A39 transaction in every maintained Windows
+configuration:
+
+```powershell
+& ".\tools\acceptance\Invoke-MissionResultSmoke.ps1" `
+  -DataRoot "E:\Games\The Next Worlds" `
+  -Configuration Debug,Release,RelWithDebInfo `
+  -PresentationHandoff `
+  -TimeoutSeconds 180
+```
+
+Every row must report `ProjectS22/ProjectA39`, one status publication, one
+result publication, one post-briefing restore and at least one A39 briefing.
+`mission_result_presentation_cadence` must begin `1/1`: the synthetic
+61-second synchronous dwell advances no simulation, while the next 25 ms
+sample advances one tick. Save must be `1/1/1/1`, rollback `1/1/1`, service
+issues zero and shutdown clean. In a visible run, `Mission complete` may be
+seen before returning to the center; after the A39 briefing the exact retail
+result line `Well done, great job` must remain visible instead of being erased.
 
 ## Simultaneous objective-chain pass
 

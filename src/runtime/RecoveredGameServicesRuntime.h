@@ -72,6 +72,7 @@ struct SRecoveredProductionCadenceTelemetry {
   bool active;
   std::uint64_t presentationSamples;
   std::uint64_t simulationTicks;
+  std::uint64_t discardedBlockingPresentationSamples;
   std::uint64_t zeroTickPresentations;
   std::uint64_t catchUpPresentations;
   std::uint64_t cappedPresentations;
@@ -79,6 +80,7 @@ struct SRecoveredProductionCadenceTelemetry {
   unsigned int maximumTicksPerPresentation;
   double accumulatorSeconds;
   double droppedSeconds;
+  double lastDiscardedBlockingPresentationSeconds;
 };
 
 struct SRecoveredMissionMapProbeTelemetry {
@@ -1008,6 +1010,7 @@ unsigned int RecoveredGameServices_VehicleFallbackReason();
 bool RecoveredGameServices_QuitRequested();
 bool RecoveredGameServices_IsReady();
 unsigned int RecoveredGameServices_Issues();
+const char* RecoveredGameServices_LastFrameFailure();
 const SRecoveredObserverState* RecoveredGameServices_ObserverState();
 int RecoveredGameServices_RunFrame();
 // Executes the existing complete input/simulation/render/present/boundary
@@ -1019,3 +1022,7 @@ int RecoveredGameServices_RunFrameAt(double simulationTime);
 // presented and transactionally closed exactly once. The elapsed time is a
 // host presentation sample; focus loss and the in-game shell discard it.
 int RecoveredGameServices_RunScheduledPresentation(double elapsedSeconds);
+// Hidden acceptance seam for the same clock boundary used when a synchronous
+// FLIC/briefing returns to the Windows presentation loop. It never advances
+// gameplay or presentation by itself.
+bool RecoveredGameServices_TestOnlyRebaseBlockingPresentation();

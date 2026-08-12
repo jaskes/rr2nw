@@ -20,6 +20,7 @@ struct RecruitCenterMissionProbeSummary
     int presentedCenterFlicks;
     int presentedHostilityBriefings;
     int centerPresentationFailures;
+    int restoredResultPresentations;
     int postBriefingCollisionEvents;
     int postBriefingCollisionSuppressions;
     int postBriefingPresentationRepeats;
@@ -117,6 +118,22 @@ struct RecruitCenterMissionResultProbeSummary
     char centerName[81];
     char completedProjectName[81];
     char nextProjectName[81];
+};
+
+struct RecruitCenterMissionResultPresentationProbeSummary
+{
+    int conditionsRemoved;
+    int statusPresentations;
+    int resultPresentations;
+    int resultPresentationRestores;
+    int nextMissionStaged;
+    int presentedBriefings;
+    int missionsBefore;
+    int missionsAfter;
+    char centerName[81];
+    char completedProjectName[81];
+    char nextProjectName[81];
+    char restoredMessage[121];
 };
 
 struct RecruitCenterMissionNoRewardResultProbeSummary
@@ -297,6 +314,9 @@ void RecruitCenterSubjectState_FailNextReachedScriptForTesting();
 bool RecruitCenterSubjectState_CompleteMissionProbeForCenter(
     SimulationContext *context, double timeStamp, const char *centerName,
     RecruitCenterMissionResultProbeSummary *summary);
+bool RecruitCenterSubjectState_ResultPresentationHandoffProbeForCenter(
+    SimulationContext *context, double timeStamp, const char *centerName,
+    RecruitCenterMissionResultPresentationProbeSummary *summary);
 bool RecruitCenterSubjectState_CompleteNoRewardMissionProbeForCenter(
     SimulationContext *context, double timeStamp, const char *centerName,
     RecruitCenterMissionNoRewardResultProbeSummary *summary);

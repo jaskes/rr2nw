@@ -4400,26 +4400,27 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 ### CQ-221: persistent horizontal contact could orbit authored geometry
 
 - Status: `AUTOMATED_LONG_ROUTE_REPRODUCED`,
-  `BOUNDED_COMPATIBILITY_POLICY_ACCEPTED`, `WINDOWS_RUNTIME_ACCEPTED`.
+  `BOUNDED_COMPATIBILITY_POLICY_ACCEPTED`, `WINDOWS_RUNTIME_ACCEPTED`,
+  `PARTIALLY_SUPERSEDED_BY_CQ-295`.
 - Evidence: the real `ProjectS22` guide repeatedly stalled on segment `7 -> 8`
   and the real `ProjectS25` guide on `16 -> 17`. Their static forward sweeps
   remained class `1`; applying ten degrees to the already turned heading on
   every event generated a circle instead of a bounded detour.
 - Handling: horizontal classes `1/3` retain their recovered sign and speed but
-  use the authored route bearing as the reference. One continuous second of
-  ownerless class-`1` static contact permits a class-`3` retry through the
-  already persisted recovery timer. Classes `2/9/11`, dynamic-owner contact,
-  Route cursor logic, mission scripts and save schema are unchanged.
+  use the authored route bearing as the reference. CQ-295 later removed the
+  ineffective one-second class-`3` retry and bounds the large-actor sweep
+  lifetime instead. Classes `2/9/11`, dynamic-owner contact, Route cursor
+  logic, mission scripts and save schema are unchanged.
 - Verification: both real Level.03N mission guides reach their terminal Route
-  segment through authored town geometry. They exercise static contacts and
-  both horizontal classes, preserve the occupied Player Vehicle binding, and
+  segment through authored town geometry. They exercise static contacts,
+  preserve the occupied Player Vehicle binding, and
   restore/recapture progressed plus baseline LCN1 state exactly across all
   seventeen owners. The route matrix passes 6/6, ordinary mission save/fresh
   loads 3/3, fresh Level.03N continuation 3/3, retail startup 3/3 and each of
   Debug, Release and RelWithDebInfo passes 67/67 CTest.
-- Revisit when: a visible human repeat supplies the exact route and frame
-  evidence, or a controlled May trace establishes a different side-selection
-  rule. Do not generalize this bounded retry into a new path planner.
+- Revisit when: a controlled May trace establishes a different side-selection
+  rule. CQ-295 owns the visible route/contact gate; do not generalize either
+  compatibility rule into a new path planner.
 
 ### CQ-222: the modern map accepted only its toggle key
 
@@ -6336,6 +6337,58 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Boundary: the symmetric linear attenuation/equal-power pan remains a
   documented XAudio2 compatibility mapping, not byte-exact Intel RSX. Authored
   `wav.Crow` remains enabled; this fix does not special-case retail filenames.
+
+### CQ-294: S22-to-A39 lost its result and resumed with cinematic wall time
+
+- Status: `REAL_CHAIN_REPRODUCED`, `RESULT_HANDOFF_RESTORED`,
+  `BLOCKING_DWELL_DISCARDED`.
+- Evidence: after the player destroyed all four S22 robots, the next authored
+  ProjectA39 was admitted but no completion/result line remained visible. The
+  source does publish `Mission complete` and `Well done, great job`; however,
+  `CBriefing::PlayBriefing` uses the same single urgent slot for subtitles and
+  clears it after every action. The outer Windows loop also measured the full
+  synchronous presentation as its next cadence delta; a briefing longer than
+  the admitted stall ceiling produced `loop-not-ready` with zero service
+  issues, matching the reported generic modal.
+- Handling: carry the exact result line through only the admission that
+  published it and replay it once after a real successor briefing. Rebase
+  cadence on presentation exit and discard exactly the next positive finite
+  host sample before accepting normal fixed-step input. Frame rejection now
+  records a concrete boundary in diagnostics. No result cinematic, gameplay
+  tick, global stall tolerance or serialized presentation state is added.
+- Verification: the exact installed Level.03N chain reports
+  `ProjectS22/ProjectA39`, four removed conditions, status/result/restore
+  `1/1/1`, one successor briefing and the exact restored line. A 61-second
+  stale sample advances zero ticks, the following 25 ms sample advances one,
+  committed LCN1 save/load is exact and the pre-result rollback is exact. The
+  gate passes 3/3 across Debug, Release and RelWithDebInfo; the neighbouring
+  Level.03N briefing and RecruitCenter presentation gates also pass 3/3.
+- Revisit when: urgent UI becomes a general queued/localized message owner.
+  Preserve the one-result handoff test rather than inferring visibility from a
+  publication counter.
+
+### CQ-295: a guide could pass the old route gate while visibly stuck
+
+- Status: `VISIBLE_REPEAT_FAILED`, `CONTACT_LIFETIME_BOUNDED`,
+  `SAVE_ROLLBACK_RETAINED`.
+- Evidence: CQ-221 eventually completed both synthetic routes but did not
+  measure static-contact density or consecutive contact. The old S22 run took
+  about 303 simulated seconds, spent 2,176 of 2,796 static-scene frames in
+  contact and held one segment for 901 contact frames. The user's occupied
+  Roller visibly stopped/tipped against terrain despite that nominal pass.
+- Handling: retain the source decay as a minimum but bound a large actor's
+  sweep lifetime to 0.35 seconds. Remove the now-unreachable one-second forced
+  class-3 retry. Do not write positions, teleport, disable static collision or
+  change Route nodes.
+- Verification: current S22 reaches its terminal segment in about 134 seconds
+  with 666/1,316 static contact frames and at most four consecutive contacts;
+  the Marauders route reaches its terminal in about 66 seconds with 222/703
+  and at most five consecutive contacts. Both travel more than 75 percent of
+  authored distance, remain below 0.7 radians pitch and retain exact progressed
+  LCN1 restore plus baseline rollback. Both routes pass in all three maintained
+  configurations, 6/6 total.
+- Revisit when: a visible repeat still finds a specific authored obstruction;
+  add its segment/contact trace instead of increasing the global bound.
 
 ## Maintenance rule
 
