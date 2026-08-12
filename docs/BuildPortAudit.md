@@ -4654,3 +4654,32 @@ RecruitCenter presentation is 3/3, Portal transitions are 9/9, the campaign
 chain is 3/3, cross-Level Save/Load is 2/2 and the installed retail matrix is
 27/27. CTest configurations must remain sequential because their legacy
 config smoke intentionally shares one bounded temporary path.
+
+### 2026-08-12: first player-facing startup shell
+
+The existing recovered shell already owned Save/Load previews, settings,
+Controls, Video, Audio, Mods and typed Developer commands, but ordinary startup
+still released the Player immediately after the initial presentation. CQ-296
+adds a distinct startup policy without adding a second world or UI service.
+The configured initial Level remains alive as a disposable background, uses
+the proven Player camera without its cockpit panel, advances fixed simulation
+ticks and receives no gameplay input while the title owns the overlay.
+
+New Game captures that source only as a rollback checkpoint and then enters the
+normal campaign restart. Continue chooses the newest compatible RR2SLOT1 row;
+explicit Load uses the same catalog. Both replace the preview before releasing
+control, and target failure restores the source continuation before reopening
+the title. Explicit Level selection and all smoke paths bypass the policy.
+
+The bounded runtime contract traverses all frontend subpages, an empty
+Continue, New Game rollback/reapply and absence of direct preview release. The
+physical acceptance starts an ordinary process, proves Escape cannot dismiss
+the title, commits New Game and a real Save, then uses an independent process
+to Continue that slot. The visual Debug inspection rendered a textured
+configured-Level landscape and more than one hundred live preview frames with
+clean shutdown; the full three-configuration and regression totals are
+recorded with the closing commit. Final verification is Debug, Release and
+RelWithDebInfo full builds plus sequential CTest `76/76` in each; frontend
+physical `3/3`, in-game shell `3/3`, initial presentation `6/6`, Portal `9/9`,
+campaign `6/6`, cross-Level Save/Load `2/2` and installed retail `27/27` all
+pass without retry.

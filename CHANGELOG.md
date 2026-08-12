@@ -7,6 +7,16 @@ claim authorship of inherited Logos code or retail data.
 
 ### Added
 
+- Added the first player-facing startup front end. An ordinary launch presents
+  the authored Level intro and then opens an in-frame `0.1.0` title menu over a
+  live but disposable retail world; explicit `--start-level` automation keeps
+  its direct-entry contract. New Game replaces the preview through the existing
+  closed-frame restart coordinator, Continue chooses the newest compatible one
+  of eight RR2SLOT1 saves, and Load/Controls/Video/Audio/Mods reuse the proven
+  pause-shell owners. Escape cannot leak into the preview, Developer remains
+  hidden, failed New Game/Load reopens the menu after exact rollback, and a
+  two-process physical gate proves New Game, Save and fresh-process Continue in
+  every maintained Windows configuration.
 - Added the frozen M6 candidate verifier and exact archive-bound manual ledger.
   It consumes an existing ZIP without rebuilding, rejects dirty/debug/playtest,
   stale-revision, symbol/manifest, sidecar and expected-hash mismatches, reruns

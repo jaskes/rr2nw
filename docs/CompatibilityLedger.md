@@ -6390,6 +6390,37 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
 - Revisit when: a visible repeat still finds a specific authored obstruction;
   add its segment/contact trace instead of increasing the global bound.
 
+### CQ-296: a live title background cannot become the player's campaign state
+
+- Status: `STARTUP_SHELL_OWNED`, `DISPOSABLE_PREVIEW_TRANSACTIONAL`,
+  `DIRECT_ENTRY_PRESERVED`.
+- Evidence: before this slice, ordinary startup returned directly from the
+  initial presentation into an already advancing Player world. The recovered
+  in-frame shell had every required page but no distinct startup policy. A
+  naive title overlay would therefore let AI, physics and RNG advance before
+  New Game, while a parallel miniature world would duplicate Level/VFS/save
+  ownership. Physical inspection also showed that a guessed world-coordinate
+  orbit can look beyond authored terrain; the proven Player camera produces a
+  finite textured scene on the configured Level.
+- Handling: ordinary no-override startup opens a non-dismissible title root
+  after presentation. The existing initialized session renders and simulates
+  behind it with gameplay input neutralized and the Vehicle panel suppressed.
+  New Game replaces it through campaign restart; Continue and Load use the
+  asynchronous eight-slot catalog and typed Save/Load coordinator. Failed
+  target work restores the source continuation and reopens the title. Settings
+  and Mods remain their existing atomic/restart-only owners, and Developer is
+  not projected into the title catalog.
+- Verification: the runtime smoke traverses Load, Controls, Video, Audio and
+  Mods while retaining title ownership, proves empty Continue, New Game source
+  capture, rollback reopen and committed closure. The real-window gate proves
+  live preview frames, Escape ownership, New Game, one real Save and newest-save
+  Continue in a fresh process. Direct `--start-level` rows in the existing
+  retail/campaign/Portal/presentation matrices remain unchanged.
+- Boundary: the first front end composes the currently configured campaign
+  Level through its proven gameplay camera. A future authored menu tableau or
+  camera script may replace that presentation only if it remains disposable
+  and preserves these transaction/direct-entry gates.
+
 ## Maintenance rule
 
 When a new quirk is found:

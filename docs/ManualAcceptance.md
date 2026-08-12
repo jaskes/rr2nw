@@ -49,6 +49,44 @@ present and boundary stages under `frame_profile_*`. Compare those with
 above the timer guard with growing clamped seconds is confirmed slow motion,
 not merely uneven presentation. Retain the log and the exact Level/route.
 
+## Startup front end pass
+
+An ordinary launch deliberately omits `--start-level`:
+
+```powershell
+cmake --build --preset windows-msvc-x86-playtest
+& ".\build\windows-msvc-x86\RelWithDebInfo\rr2nw.exe" --data-dir "E:\Games\The Next Worlds"
+```
+
+After the authored initial presentation, the `RR2NW 0.1.0` title card must
+appear over a textured live scene. The cockpit panel is absent, world actors
+may continue their normal simulation, and player movement/fire input must have
+no effect. `Esc` at the root must keep the title menu open.
+
+1. Choose **New game**. The menu must disappear only after the closed-frame
+   restart is accepted, and gameplay must begin from a freshly reconstructed
+   campaign-start Level rather than from the elapsed preview world.
+2. Save into any empty slot, exit, launch with the same save directory and
+   choose **Continue**. It must select the newest compatible slot and restore
+   it through the ordinary Save/Load coordinator.
+3. Launch again and open **Load game**, **Controls**, **Video**, **Audio** and
+   **Mods**. These are the existing bounded pages; returning from each must
+   preserve the title root and its neutralized input. No Developer row is
+   permitted on the title root.
+4. Launch with an explicit `--start-level "Level.03N"`. This diagnostic and
+   playtest contract must still enter that Level directly without opening the
+   startup title menu.
+
+For a fast automated physical pass that suppresses only the initial briefing:
+
+```powershell
+& ".\tools\acceptance\Invoke-FrontEndMenu.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo
+```
+
+The gate uses isolated settings/saves, proves non-dismissible Escape, performs
+New Game plus a real slot Save, then starts an independent process and proves
+Continue. It never closes an unrelated user game process.
+
 ## In-game shell and settings pass
 
 Build the optimized playtest configuration and start an ordinary game without

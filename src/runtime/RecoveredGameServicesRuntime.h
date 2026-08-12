@@ -411,6 +411,7 @@ struct SRecoveredSaveMenuState {
 // value keeps both the requested save and an in-memory rollback checkpoint.
 struct SRecoveredCrossLevelLoadRequest {
   bool ready = false;
+  bool frontEndLaunch = false;
   std::uint32_t slot = 0;
   std::string sourceLevel;
   std::string targetLevel;
@@ -435,6 +436,7 @@ struct SRecoveredCampaignRestartState {
   unsigned int lastCommandAttempts = 0;
   unsigned int rollbacks = 0;
   unsigned int rollbackFailures = 0;
+  bool frontEndLaunch = false;
   std::string currentLevel;
   std::string lastError;
 };
@@ -451,6 +453,7 @@ struct SRecoveredCampaignRestartRequest {
   unsigned int rollbackFailuresBefore = 0;
   std::string level;
   bool sourceDead = false;
+  bool frontEndLaunch = false;
   std::vector<std::uint8_t> sourceContinuation;
   SLevelContinuationSummary sourceContinuationSummary;
 };
@@ -640,6 +643,10 @@ enum ERecoveredInGameShellTextEntry {
 struct SRecoveredInGameShellState {
   bool configured = false;
   bool open = false;
+  // The startup shell owns a disposable, fully constructed preview session.
+  // It may render and simulate behind the menu, but New Game always replaces
+  // it through the existing closed-frame Level restart transaction.
+  bool frontEndActive = false;
   bool developerMode = false;
   bool safeMode = false;
   ERecoveredInGameShellPage page = RECOVERED_SHELL_PAGE_ROOT;
@@ -694,6 +701,12 @@ struct SRecoveredInGameShellState {
   unsigned int developerCatalogBlockedSelections = 0;
   unsigned int developerCommandsQueued = 0;
   unsigned int commandFailurePresentations = 0;
+  unsigned int frontEndOpens = 0;
+  unsigned int frontEndPreviewFrames = 0;
+  unsigned int frontEndNewGameRequests = 0;
+  unsigned int frontEndContinueRequests = 0;
+  unsigned int frontEndLoadRequests = 0;
+  unsigned int frontEndRollbackReopens = 0;
   unsigned int legacyConfigImports = 0;
   unsigned int legacyConfigBindingProjections = 0;
   unsigned int legacyConfigIgnoredSettings = 0;
@@ -872,6 +885,10 @@ bool RecoveredGameServices_ConfigureDebugMenu(
     bool enabled, const std::vector<std::string>& levelCatalog);
 bool RecoveredGameServices_ConfigureInGameShell(
     const std::wstring& settingsPath, bool developerMode, bool safeMode);
+// Opens the player-facing startup shell over a disposable live Level preview.
+// The caller must invoke this only after the initial Level presentation has
+// returned and the regular loop owns a valid closed-frame boundary.
+bool RecoveredGameServices_OpenFrontEnd();
 bool RecoveredGameServices_ImportLegacyConfig(
     const std::wstring& path, SLegacyConfigImport* imported,
     SLegacyImportStatus* status);

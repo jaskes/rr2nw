@@ -790,6 +790,28 @@ marker before settings are admitted. The remaining M2.5 breadth is final
 multi-monitor/Win10/Win11 packaged soak; the native fallback is already isolated
 from the product UX and retained only as an explicit diagnostic capability.
 
+### Startup front-end status — 2026-08-12
+
+Ordinary startup now reaches a real in-frame title menu after the authored
+initial Level presentation. Its background is the fully reconstructed retail
+scene at the configured campaign start, rendered without a cockpit panel while
+the disposable preview session continues its fixed simulation cadence. Player
+input is neutralized and `Esc` cannot dismiss the root into that preview.
+
+The front end reuses the same bounded shell instead of creating parallel
+services: New Game, Continue, Load, Controls, Video, Audio, Mods and Exit are
+the only root rows. Continue resolves the newest compatible RR2SLOT1 slot from
+the asynchronous eight-slot catalog. New Game and Load close the UI only after
+queuing an existing typed world command; the preview world is replaced by the
+normal restart/load coordinator, and a failed target transaction restores the
+exact preview continuation before reopening the menu. Developer commands are
+deliberately absent even when the process has developer capability.
+
+Explicit `--start-level`, startup Save/Load and every runtime smoke retain
+their direct-entry behavior. This preserves deterministic automation and makes
+the title flow an ordinary player-facing policy rather than a hidden change to
+Level selection, `game.cfg`, content identity or save ABI.
+
 ### Gate
 
 - Main and pause shells render inside the game and return to the same finite
@@ -805,6 +827,10 @@ from the product UX and retained only as an explicit diagnostic capability.
   supported transactional catalog.
 - A corrupt or newer settings file yields a useful diagnostic and a safe
   runnable configuration rather than preventing startup.
+- Ordinary startup shows the title shell after presentation, renders at least
+  one live preview frame, cannot expose preview control through Escape, and
+  replaces that disposable session through New Game/Continue/Load rollback
+  transactions before gameplay begins.
 
 ## M3. Восстановление retail parity — 0.5.0
 

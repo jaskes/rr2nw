@@ -5685,6 +5685,107 @@ int main(int argc, char** argv) {
       saveSlotDirectory + L"\\shell-settings.cfg";
   if (!RecoveredGameServices_ConfigureInGameShell(
           shellSettingsPath, false, false) ||
+      !RecoveredGameServices_OpenFrontEnd()) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("startup frontend did not open");
+  }
+  const SRecoveredInGameShellState* frontEnd =
+      RecoveredGameServices_InGameShellState();
+  const SRecoveredSaveSlotCatalogSnapshot* frontEndCatalog = nullptr;
+  for (unsigned int attempt = 0; attempt < 200u; ++attempt) {
+    frontEndCatalog = RecoveredGameServices_InGameShellSaveCatalog();
+    if (frontEndCatalog != nullptr && frontEndCatalog->ready) break;
+    Sleep(5u);
+  }
+  bool frontEndReady = frontEnd != nullptr && frontEnd->configured &&
+      frontEnd->open && frontEnd->frontEndActive &&
+      frontEnd->page == RECOVERED_SHELL_PAGE_ROOT &&
+      frontEnd->frontEndOpens == 1u && frontEnd->opens == 1u &&
+      frontEnd->inputNeutralizations == 1u &&
+      frontEndCatalog != nullptr && frontEndCatalog->ready &&
+      frontEndCatalog->emptySlots == LevelSaveSlot_Count() &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_ESCAPE) &&
+      frontEnd->open && frontEnd->frontEndActive;
+  const ERecoveredInGameShellPage frontEndPages[] = {
+      RECOVERED_SHELL_PAGE_LOAD, RECOVERED_SHELL_PAGE_CONTROLS,
+      RECOVERED_SHELL_PAGE_VIDEO, RECOVERED_SHELL_PAGE_AUDIO,
+      RECOVERED_SHELL_PAGE_MODS};
+  for (std::size_t pageIndex = 0u;
+       frontEndReady && pageIndex < sizeof(frontEndPages) /
+                                          sizeof(frontEndPages[0]);
+       ++pageIndex) {
+    for (std::size_t down = 0u; down < pageIndex + 2u; ++down)
+      frontEndReady = frontEndReady &&
+          RecoveredGameServices_InGameShellKeyForTesting(VK_DOWN);
+    frontEndReady = frontEndReady &&
+        RecoveredGameServices_InGameShellKeyForTesting(VK_RETURN) &&
+        frontEnd->open && frontEnd->frontEndActive &&
+        frontEnd->page == frontEndPages[pageIndex] &&
+        RecoveredGameServices_InGameShellKeyForTesting(VK_ESCAPE) &&
+        frontEnd->open && frontEnd->frontEndActive &&
+        frontEnd->page == RECOVERED_SHELL_PAGE_ROOT &&
+        frontEnd->selected == 0u;
+  }
+  frontEndReady = frontEndReady &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_DOWN) &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_RETURN) &&
+      frontEnd->open && frontEnd->frontEndActive &&
+      frontEnd->frontEndContinueRequests == 0u &&
+      frontEnd->status.find("no compatible save") != std::string::npos &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_UP) &&
+      RecoveredGameServices_InGameShellKeyForTesting(VK_RETURN) &&
+      !frontEnd->open && !frontEnd->frontEndActive &&
+      frontEnd->frontEndNewGameRequests == 1u &&
+      RecoveredGameServices_ProcessPendingCampaignRestart();
+  SRecoveredCampaignRestartRequest frontEndRestart;
+  frontEndReady = frontEndReady &&
+      RecoveredGameServices_TakeCampaignRestartRequest(&frontEndRestart) &&
+      frontEndRestart.frontEndLaunch &&
+      !frontEndRestart.sourceContinuation.empty() &&
+      frontEndRestart.sourceContinuationSummary.ready;
+  if (frontEndReady) {
+    RecoveredGameServices_RecordCampaignRestartResult(
+        frontEndRestart, false, false, false,
+        "synthetic frontend preflight rejection");
+    frontEndReady = frontEnd->open && frontEnd->frontEndActive &&
+        frontEnd->frontEndOpens == 2u &&
+        frontEnd->frontEndRollbackReopens == 1u &&
+        RecoveredGameServices_InGameShellKeyForTesting(VK_RETURN) &&
+        RecoveredGameServices_ProcessPendingCampaignRestart();
+  }
+  frontEndRestart = {};
+  frontEndReady = frontEndReady &&
+      RecoveredGameServices_TakeCampaignRestartRequest(&frontEndRestart) &&
+      frontEndRestart.frontEndLaunch;
+  if (frontEndReady) {
+    RecoveredGameServices_RecordCampaignRestartResult(
+        frontEndRestart, false, true, true,
+        "synthetic frontend rollback acceptance");
+    frontEndReady = frontEnd->open && frontEnd->frontEndActive &&
+        frontEnd->frontEndOpens == 3u &&
+        frontEnd->frontEndRollbackReopens == 2u &&
+        RecoveredGameServices_InGameShellKeyForTesting(VK_RETURN) &&
+        RecoveredGameServices_ProcessPendingCampaignRestart();
+  }
+  frontEndRestart = {};
+  frontEndReady = frontEndReady &&
+      RecoveredGameServices_TakeCampaignRestartRequest(&frontEndRestart) &&
+      frontEndRestart.frontEndLaunch;
+  if (frontEndReady) {
+    RecoveredGameServices_RecordCampaignRestartResult(
+        frontEndRestart, true, false, false, std::string());
+    frontEndReady = !frontEnd->open && !frontEnd->frontEndActive &&
+        frontEnd->frontEndNewGameRequests == 3u &&
+        frontEnd->frontEndRollbackReopens == 2u;
+  }
+  if (!frontEndReady) {
+    ZAV_DeInitLevel();
+    ZAV_Deinit();
+    return Fail("startup frontend transaction contract failed");
+  }
+  if (!RecoveredGameServices_ConfigureInGameShell(
+          shellSettingsPath, false, false) ||
       !RecoveredGameServices_InGameShellKeyForTesting(VK_ESCAPE)) {
     ZAV_DeInitLevel();
     ZAV_Deinit();

@@ -1200,6 +1200,8 @@ int g_inGameShellRequestedExclusiveWidth = 640;
 int g_inGameShellRequestedExclusiveHeight = 480;
 int g_inGameShellRequestedExclusiveBits = 32;
 int g_inGameShellRequestedExclusiveFrequency = 60;
+bool g_frontEndCameraReady = false;
+bool g_frontEndLoadPending = false;
 unsigned int g_mapTogglePresses = 0;
 FixedFontOBJ* g_debugMapMissionFont = nullptr;
 FixedFontOBJ* g_gameConsoleFont = nullptr;
@@ -1217,6 +1219,8 @@ struct SRecoveredPendingWindowsInput {
 };
 constexpr std::size_t kMaximumPendingWindowsInput = 4096u;
 std::vector<SRecoveredPendingWindowsInput> g_pendingWindowsInput;
+
+bool ExplicitWorldCommandPending();
 
 void Report(unsigned int issue) { g_issues |= issue; }
 
@@ -1247,6 +1251,43 @@ std::string ContinuationLevelIdentity() {
                                ? path
                                : path.substr(separator + 1);
   return name.empty() ? "direct-context" : name;
+}
+
+void ResetFrontEndCamera() {
+  g_frontEndCameraReady = false;
+}
+
+bool ConfigureFrontEndCamera() {
+  if (!g_sessionReady || g_super.m_context == nullptr) return false;
+  KR_ObjectID player = g_super.m_context->searchObject("Vehicle.Default");
+  if (!player.isNUL()) {
+    SRecoveredVehicleRuntimeState vehicle = {};
+    if (!VehicleRuntimeState_Inspect(g_super.m_context, player, &vehicle) ||
+        !std::isfinite(vehicle.position.x) ||
+        !std::isfinite(vehicle.position.y) ||
+        !std::isfinite(vehicle.position.z))
+      return false;
+  } else {
+    const SRecoveredObserverState& observer = g_observerInput.state();
+    if (!std::isfinite(observer.x) || !std::isfinite(observer.y) ||
+        !std::isfinite(observer.z))
+      return false;
+  }
+  g_frontEndCameraReady = true;
+  return true;
+}
+
+bool BuildFrontEndCamera(CFMatrix3x4* direction) {
+  if (direction == nullptr || !g_frontEndCameraReady) return false;
+  // Reuse the already-proven gameplay camera transform.  A hand-authored
+  // orbit guessed from world coordinates can put the camera below terrain or
+  // beyond the authored scene on some Levels.  The title shell suppresses the
+  // cockpit panel, while the disposable world itself continues to animate.
+  if (g_vehicleControlReady &&
+      VehicleRuntimeState_BuildCamera(g_super.m_context, direction))
+    return true;
+  g_observerInput.BuildCamera(direction);
+  return true;
 }
 
 constexpr UINT kNativeSaveSlotBase = 0x7200u;
@@ -2602,6 +2643,7 @@ void ResetSaveMenuSession() {
   }
   g_windowsInputAdapter.LeaveOverlay();
   g_inGameShellState.open = false;
+  g_inGameShellState.frontEndActive = false;
   g_inGameShellState.page = RECOVERED_SHELL_PAGE_ROOT;
   g_inGameShellState.selected = 0;
   g_inGameShellState.captureBinding = -1;
@@ -2610,6 +2652,8 @@ void ResetSaveMenuSession() {
   g_inGameShellState.videoConfirmationActive = false;
   g_inGameShellState.pendingVideoCommand = RECOVERED_SHELL_VIDEO_NONE;
   g_inGameShellVideoDeadline = 0;
+  ResetFrontEndCamera();
+  g_frontEndLoadPending = false;
   DestroyNativeSaveMenu();
   g_debugVehicleCatalog.clear();
   g_debugTaxiSettlements.clear();
@@ -3063,6 +3107,8 @@ std::size_t ShellPageItemCount() {
   RefreshInGameDeveloperCatalog();
   switch (g_inGameShellState.page) {
     case RECOVERED_SHELL_PAGE_ROOT:
+      if (g_inGameShellState.frontEndActive)
+        return 8u;
       return g_inGameShellState.developerMode &&
                      g_debugMenuState.configured
                  ? 10u
@@ -3130,6 +3176,7 @@ bool OpenInGameShell() {
     return false;
   }
   g_inGameShellState.open = true;
+  g_inGameShellState.frontEndActive = false;
   ShellSelectPage(RECOVERED_SHELL_PAGE_ROOT);
   ++g_inGameShellState.opens;
   ++g_inGameShellState.inputNeutralizations;
@@ -3292,7 +3339,55 @@ bool ActivateShellLoadSlot(std::uint32_t slot) {
     return true;
   }
   ++g_inGameShellState.loadRequests;
+  if (g_inGameShellState.frontEndActive) {
+    ++g_inGameShellState.frontEndLoadRequests;
+    g_frontEndLoadPending = true;
+    g_inGameShellState.frontEndActive = false;
+    ResetFrontEndCamera();
+  }
   g_inGameShellState.status = "Load queued at the closed frame boundary";
+  CloseInGameShell();
+  return true;
+}
+
+bool ActivateFrontEndContinue() {
+  PollShellSaveCatalog();
+  if (!g_inGameShellSaveCatalog.ready) {
+    g_inGameShellState.status = "Scanning the eight save slots...";
+    return true;
+  }
+  const SRecoveredSaveSlotCatalogEntry* newest = nullptr;
+  for (const SRecoveredSaveSlotCatalogEntry& entry :
+       g_inGameShellSaveCatalog.entry) {
+    if (!entry.loadable) continue;
+    if (newest == nullptr ||
+        entry.summary.savedAtUnixSeconds >
+            newest->summary.savedAtUnixSeconds ||
+        (entry.summary.savedAtUnixSeconds ==
+             newest->summary.savedAtUnixSeconds &&
+         entry.slot < newest->slot))
+      newest = &entry;
+  }
+  if (newest == nullptr) {
+    g_inGameShellState.status =
+        "Continue unavailable: no compatible save slot";
+    return true;
+  }
+  ++g_inGameShellState.frontEndContinueRequests;
+  return ActivateShellLoadSlot(newest->slot);
+}
+
+bool ActivateFrontEndNewGame() {
+  if (!RecoveredGameServices_RequestCampaignRestart()) {
+    g_inGameShellState.lastError = g_campaignRestartState.lastError;
+    return true;
+  }
+  g_campaignRestartState.frontEndLaunch = true;
+  ++g_inGameShellState.frontEndNewGameRequests;
+  g_inGameShellState.status =
+      "Fresh game queued at the closed frame boundary";
+  g_inGameShellState.frontEndActive = false;
+  ResetFrontEndCamera();
   CloseInGameShell();
   return true;
 }
@@ -3513,6 +3608,37 @@ bool ActivateShellSelection() {
   const std::size_t selected = g_inGameShellState.selected;
   switch (g_inGameShellState.page) {
     case RECOVERED_SHELL_PAGE_ROOT: {
+      if (g_inGameShellState.frontEndActive) {
+        if (selected == 0u)
+          return ActivateFrontEndNewGame();
+        if (selected == 1u)
+          return ActivateFrontEndContinue();
+        if (selected == 2u) {
+          ShellSelectPage(RECOVERED_SHELL_PAGE_LOAD);
+          return true;
+        }
+        if (selected == 3u) {
+          ShellSelectPage(RECOVERED_SHELL_PAGE_CONTROLS);
+          return true;
+        }
+        if (selected == 4u) {
+          ShellSelectPage(RECOVERED_SHELL_PAGE_VIDEO);
+          return true;
+        }
+        if (selected == 5u) {
+          ShellSelectPage(RECOVERED_SHELL_PAGE_AUDIO);
+          return true;
+        }
+        if (selected == 6u) {
+          ShellSelectPage(RECOVERED_SHELL_PAGE_MODS);
+          return true;
+        }
+        if (_gr_hWnd != nullptr) PostMessageW(_gr_hWnd, WM_CLOSE, 0, 0);
+        g_inGameShellState.frontEndActive = false;
+        ResetFrontEndCamera();
+        CloseInGameShell();
+        return true;
+      }
       if (selected == 0u) {
         CloseInGameShell();
       } else if (selected == 1u) {
@@ -3707,8 +3833,15 @@ bool HandleInGameShellKey(std::uint32_t key) {
   }
   if (key == VK_ESCAPE) {
     if (g_inGameShellState.page == RECOVERED_SHELL_PAGE_ROOT ||
-        g_inGameShellState.page == RECOVERED_SHELL_PAGE_VIDEO_CONFIRM)
-      CloseInGameShell();
+        g_inGameShellState.page == RECOVERED_SHELL_PAGE_VIDEO_CONFIRM) {
+      if (g_inGameShellState.frontEndActive &&
+          g_inGameShellState.page == RECOVERED_SHELL_PAGE_ROOT) {
+        g_inGameShellState.status =
+            "Choose an action or Exit";
+      } else {
+        CloseInGameShell();
+      }
+    }
     else if (g_inGameShellState.page ==
                  RECOVERED_SHELL_PAGE_DEVELOPER_SPAWN ||
              g_inGameShellState.page ==
@@ -4026,21 +4159,43 @@ void DrawInGameShell() {
   PollShellSaveCatalog();
   const unsigned long background = GRFillColor(18, 24, 32);
   const unsigned long border = GRFillColor(150, 165, 180);
+  const bool frontEndRoot = g_inGameShellState.frontEndActive &&
+      g_inGameShellState.page == RECOVERED_SHELL_PAGE_ROOT;
   GREnable2D();
-  GRBar(52, 32, 587, 447, background);
-  GRRect(52, 32, 587, 447, border);
+  if (frontEndRoot) {
+    // Leave most of the 4:3 scene visible. The software renderer has no
+    // alpha-blended UI primitive, so a deliberately compact opaque card is
+    // clearer than pretending the legacy palette can provide transparency.
+    GRBar(28, 30, 344, 448, background);
+    GRRect(28, 30, 344, 448, border);
+  } else {
+    GRBar(52, 32, 587, 447, background);
+    GRRect(52, 32, 587, 447, border);
+  }
   GRDisable2D();
-  ShellPrint(72, 50, "RR2NW - IN-GAME MENU");
+  if (frontEndRoot) {
+    ShellPrint(48, 48, "RUSSIAN ROULETTE II");
+    ShellPrint(48, 64, "THE NEXT WORLDS");
+    ShellPrint(48, 80, "RR2NW 0.1.0");
+  } else {
+    ShellPrint(72, 50, "RR2NW - IN-GAME MENU");
+  }
 
   std::vector<std::string> lines;
   switch (g_inGameShellState.page) {
     case RECOVERED_SHELL_PAGE_ROOT:
-      lines = {"Continue", "Save game", "Load game",
-               "Restart current Level", "Controls", "Video", "Audio",
-               "Mods"};
-      if (g_inGameShellState.developerMode && g_debugMenuState.configured)
-        lines.push_back("Developer");
-      lines.push_back("Exit game");
+      if (g_inGameShellState.frontEndActive) {
+        lines = {"New game", "Continue", "Load game", "Controls",
+                 "Video", "Audio", "Mods"};
+        lines.push_back("Exit game");
+      } else {
+        lines = {"Continue", "Save game", "Load game",
+                 "Restart current Level", "Controls", "Video", "Audio",
+                 "Mods"};
+        if (g_inGameShellState.developerMode && g_debugMenuState.configured)
+          lines.push_back("Developer");
+        lines.push_back("Exit game");
+      }
       break;
     case RECOVERED_SHELL_PAGE_SAVE:
     case RECOVERED_SHELL_PAGE_LOAD:
@@ -4297,11 +4452,12 @@ void DrawInGameShell() {
     g_inGameShellState.modSelectorVisibleFirst = window.first;
     g_inGameShellState.modSelectorVisibleLast = window.onePastLast - 1u;
   }
-  int y = 92;
+  int y = frontEndRoot ? 122 : 92;
   for (std::size_t index = window.first;
        index < lines.size() && index < window.onePastLast; ++index, y += 18) {
-    ShellPrint(78, y, std::string(index == g_inGameShellState.selected
-                                      ? "> " : "  ") + lines[index],
+    ShellPrint(frontEndRoot ? 48 : 78, y,
+               std::string(index == g_inGameShellState.selected
+                               ? "> " : "  ") + lines[index],
                index == g_inGameShellState.selected);
   }
   if (g_inGameShellState.page == RECOVERED_SHELL_PAGE_MODS &&
@@ -4321,17 +4477,20 @@ void DrawInGameShell() {
     }
     ShellPrint(72, 394, detail);
   }
+  const int footerX = frontEndRoot ? 48 : 72;
   if (!g_inGameShellState.lastError.empty())
-    ShellPrint(72, 410, "ERROR: " + g_inGameShellState.lastError);
+    ShellPrint(footerX, 410, "ERROR: " + g_inGameShellState.lastError);
   else if (!g_inGameShellState.status.empty())
-    ShellPrint(72, 410, g_inGameShellState.status);
+    ShellPrint(footerX, 410, g_inGameShellState.status);
   ShellPrint(
-      72, 428,
+      footerX, 428,
       g_inGameShellState.textEntry != RECOVERED_SHELL_TEXT_NONE
           ? "ASCII name   Backspace: erase   Enter: stage   Esc: cancel"
           : g_inGameShellState.page == RECOVERED_SHELL_PAGE_MODS
                 ? "Arrows/Pg/Home/End  Ins:new  F2:rename  Enter:accept"
-                : "Arrows: select   Enter: accept   Esc: back");
+                : frontEndRoot
+                      ? "Arrows: select   Enter: accept"
+                      : "Arrows: select   Enter: accept   Esc: back");
 }
 
 bool ProcessPendingInGameShellVideoCommand() {
@@ -6865,6 +7024,31 @@ bool RecoveredGameServices_ConfigureInGameShell(
   return true;
 }
 
+bool RecoveredGameServices_OpenFrontEnd() {
+  if (!g_inGameShellState.configured || !g_sessionReady || !g_loopReady ||
+      g_inGameShellState.open || ExplicitWorldCommandPending()) {
+    g_inGameShellState.lastError =
+        "startup menu requires an idle initialized Level boundary";
+    return false;
+  }
+  if (!ConfigureFrontEndCamera()) {
+    g_inGameShellState.lastError =
+        "startup scene camera could not bind to the preview Level";
+    return false;
+  }
+  if (!OpenInGameShell()) {
+    ResetFrontEndCamera();
+    return false;
+  }
+  g_inGameShellState.frontEndActive = true;
+  ++g_inGameShellState.frontEndOpens;
+  g_inGameShellState.status =
+      "Live preview - choose an action";
+  g_inGameShellState.lastError.clear();
+  RequestShellSaveCatalogRefresh();
+  return true;
+}
+
 bool RecoveredGameServices_ImportLegacyConfig(
     const std::wstring& path, SLegacyConfigImport* imported,
     SLegacyImportStatus* status) {
@@ -7815,6 +7999,8 @@ bool RecoveredGameServices_ProcessPendingSaveCommand(
       } else {
         g_crossLevelLoadRequest = {};
         g_crossLevelLoadRequest.ready = true;
+        g_crossLevelLoadRequest.frontEndLaunch =
+            g_frontEndLoadPending;
         g_crossLevelLoadRequest.slot = slot;
         g_crossLevelLoadRequest.sourceLevel =
             ContinuationLevelIdentity();
@@ -7853,6 +8039,14 @@ bool RecoveredGameServices_ProcessPendingSaveCommand(
       RefreshNativeSaveMenu();
       return false;
     }
+    if (action == RECOVERED_SAVE_MENU_LOAD && g_frontEndLoadPending) {
+      g_frontEndLoadPending = false;
+      if (RecoveredGameServices_OpenFrontEnd()) {
+        ++g_inGameShellState.frontEndRollbackReopens;
+        g_inGameShellState.lastError =
+            "Load failed: " + g_saveMenuState.lastError;
+      }
+    }
     g_saveMenuState.lastCommandAttempts = attempt;
     ++g_saveMenuState.failedCommands;
     RefreshNativeSaveMenu();
@@ -7863,8 +8057,10 @@ bool RecoveredGameServices_ProcessPendingSaveCommand(
   g_saveMenuState.lastContinuation = completedContinuation;
   if (action == RECOVERED_SAVE_MENU_SAVE)
     ++g_saveMenuState.completedSaves;
-  else if (!crossLevelStaged)
-    ++g_saveMenuState.completedLoads;
+  else {
+    if (!crossLevelStaged) ++g_saveMenuState.completedLoads;
+    g_frontEndLoadPending = false;
+  }
   if (slotSummary != nullptr) *slotSummary = completedSlot;
   if (continuationSummary != nullptr)
     *continuationSummary = completedContinuation;
@@ -7920,6 +8116,7 @@ bool RecoveredGameServices_ApplyCrossLevelLoad(
   ++g_saveMenuState.loadRequests;
   ++g_saveMenuState.completedLoads;
   ++g_saveMenuState.completedCrossLevelLoads;
+  g_frontEndLoadPending = false;
   *continuationSummary = restored;
   RefreshNativeSaveMenu();
   RequestShellSaveCatalogRefresh();
@@ -7944,6 +8141,14 @@ void RecoveredGameServices_RecordCrossLevelLoadFailure(
       ++g_saveMenuState.crossLevelRollbacks;
     else
       ++g_saveMenuState.crossLevelRollbackFailures;
+  }
+  if (request.frontEndLaunch &&
+      (rollbackRestored || !restartAttempted)) {
+    if (RecoveredGameServices_OpenFrontEnd()) {
+      ++g_inGameShellState.frontEndRollbackReopens;
+      g_inGameShellState.lastError =
+          "Load failed: " + g_saveMenuState.lastError;
+    }
   }
   RefreshNativeSaveMenu();
 }
@@ -8005,6 +8210,15 @@ bool RecoveredGameServices_ProcessPendingCampaignRestart() {
     }
     g_campaignRestartState.lastCommandAttempts = attempt;
     ++g_campaignRestartState.failedRestarts;
+    if (g_campaignRestartState.frontEndLaunch) {
+      const std::string captureFailure =
+          g_campaignRestartState.lastError;
+      if (RecoveredGameServices_OpenFrontEnd()) {
+        ++g_inGameShellState.frontEndRollbackReopens;
+        g_inGameShellState.lastError =
+            "New game failed: " + captureFailure;
+      }
+    }
     RefreshNativeSaveMenu();
     RefreshNativeDebugMenu();
     return false;
@@ -8028,6 +8242,8 @@ bool RecoveredGameServices_ProcessPendingCampaignRestart() {
   g_campaignRestartRequest.rollbackFailuresBefore =
       g_campaignRestartState.rollbackFailures;
   g_campaignRestartRequest.level = ContinuationLevelIdentity();
+  g_campaignRestartRequest.frontEndLaunch =
+      g_campaignRestartState.frontEndLaunch;
   KR_ObjectID sourceVehicle = g_super.m_context->searchObject(
       "Vehicle.Default");
   SRecoveredVehicleRuntimeState sourceVehicleState = {};
@@ -8087,6 +8303,17 @@ void RecoveredGameServices_RecordCampaignRestartResult(
         ++g_campaignRestartState.rollbacks;
       else
         ++g_campaignRestartState.rollbackFailures;
+    }
+  }
+  if (!committed && request.frontEndLaunch &&
+      (!rollbackAttempted || rollbackRestored)) {
+    if (RecoveredGameServices_OpenFrontEnd()) {
+      ++g_inGameShellState.frontEndRollbackReopens;
+      g_inGameShellState.lastError =
+          "New game failed: " + g_campaignRestartState.lastError;
+    } else if (g_inGameShellState.lastError.empty()) {
+      g_inGameShellState.lastError =
+          "startup menu could not reopen after New game rollback";
     }
   }
   RefreshNativeSaveMenu();
@@ -8862,7 +9089,9 @@ static int RunFrameInternal(const double* explicitSimulationTime,
   const FrameClock::time_point frameStart = FrameClock::now();
   if (!PumpMessages()) return FALSE;
   const FrameClock::time_point inputEnd = FrameClock::now();
-  const bool shellPaused = g_inGameShellState.open;
+  const bool frontEndPreview = g_inGameShellState.open &&
+      g_inGameShellState.frontEndActive;
+  const bool shellPaused = g_inGameShellState.open && !frontEndPreview;
   if (explicitSimulationTime != nullptr && shellPaused) {
     g_lastFrameFailure =
         "explicit simulation frame requested while the shell is paused";
@@ -9018,7 +9247,9 @@ static int RunFrameInternal(const double* explicitSimulationTime,
 
   CViewDynamicList dynamics;
   CFMatrix3x4 direction;
-  if (g_vehicleControlReady) {
+  if (frontEndPreview && BuildFrontEndCamera(&direction)) {
+    ++g_inGameShellState.frontEndPreviewFrames;
+  } else if (g_vehicleControlReady) {
     if (!VehicleRuntimeState_BuildCamera(
             g_super.m_context, &direction)) {
       if (!ActivateVehicleFallback(5)) {
@@ -9040,7 +9271,7 @@ static int RunFrameInternal(const double* explicitSimulationTime,
   }
   if (!g_debugMap.IsActive()) {
     ZAV_RenderFrame(&direction, dynamics);
-    if (g_vehicleControlReady && g_vehicle != nullptr)
+    if (!frontEndPreview && g_vehicleControlReady && g_vehicle != nullptr)
       g_vehicle->drawPanel();
   } else {
     SGRViewport* oldViewport = GRGetViewport();

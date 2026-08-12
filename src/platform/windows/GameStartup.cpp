@@ -4190,6 +4190,26 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
     log.Line("failure_level_briefing=" + levelBriefingFailure);
     loopFailed = true;
   }
+  // An ordinary launch now stops at the player-facing title shell after the
+  // authored intro. Explicit --start-level and automation retain their direct
+  // Level-entry contract. The already constructed initial session becomes a
+  // disposable live preview and is replaced transactionally before New game
+  // or Load can hand control to the player.
+  const bool frontEndRequested = !options.runtimeSmoke &&
+      options.startLevel.empty() && options.startupSaveSlot < 0 &&
+      options.startupLoadSlot < 0;
+  log.Line(std::string("front_end_requested=") +
+           (frontEndRequested ? "1" : "0"));
+  if (!loopFailed && frontEndRequested &&
+      !RecoveredGameServices_OpenFrontEnd()) {
+    const SRecoveredInGameShellState* failedFrontEnd =
+        RecoveredGameServices_InGameShellState();
+    log.Line(std::string("failure_front_end=") +
+             (failedFrontEnd == nullptr
+                  ? "startup menu state is unavailable"
+                  : failedFrontEnd->lastError));
+    loopFailed = true;
+  }
   // A mission acceptance save must be captured after the synthetic retail
   // mission has run.  Ordinary startup saves retain the original first-frame
   // boundary below; the mission path is committed later in the mission block.
@@ -8118,6 +8138,20 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
              std::to_string(shellState->configured ? 1 : 0));
     log.Line("in_game_shell_open=" +
              std::to_string(shellState->open ? 1 : 0));
+    log.Line("front_end_active=" +
+             std::to_string(shellState->frontEndActive ? 1 : 0));
+    log.Line("front_end_opens=" +
+             std::to_string(shellState->frontEndOpens));
+    log.Line("front_end_preview_frames=" +
+             std::to_string(shellState->frontEndPreviewFrames));
+    log.Line("front_end_new_game_requests=" +
+             std::to_string(shellState->frontEndNewGameRequests));
+    log.Line("front_end_continue_requests=" +
+             std::to_string(shellState->frontEndContinueRequests));
+    log.Line("front_end_load_requests=" +
+             std::to_string(shellState->frontEndLoadRequests));
+    log.Line("front_end_rollback_reopens=" +
+             std::to_string(shellState->frontEndRollbackReopens));
     log.Line("in_game_shell_developer=" +
              std::to_string(shellState->developerMode ? 1 : 0));
     log.Line("in_game_shell_safe_mode=" +

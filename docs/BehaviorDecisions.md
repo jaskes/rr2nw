@@ -7235,3 +7235,24 @@ travel, route-relative heading, support classes, dynamic-owner avoidance and
 authoritative movement remain unchanged; there is no teleport, navmesh or
 collision disable. The obsolete one-second forced opposite-side retry is
 removed because it cannot be reached inside the bounded sweep lifetime.
+
+### BD-231: the startup scene is disposable gameplay, not a second world model
+
+Status: accepted on 2026-08-12 for the first player-facing title menu.
+
+The recovered startup already owns a complete configured retail Level before
+the initial presentation. Ordinary launch may retain that world as a live
+title background, but the player must never inherit time, movement, damage or
+RNG consumed while choosing a menu action. The title therefore owns input and
+presentation only; its underlying session is explicitly disposable.
+
+New Game enters the existing typed campaign-restart coordinator and rebuilds
+the configured Level before control is released. Continue and Load enter the
+existing RR2SLOT1 coordinator. A failed target transaction restores the exact
+preview continuation and reopens the title shell. No second serializer, VFS,
+save catalog, settings service or special preview object graph is introduced.
+
+The title root cannot be dismissed with Escape and never exposes Developer
+commands. Explicit `--start-level`, startup Save/Load and automated smoke keep
+direct Level entry. This is an ordinary-launch policy, not a change to retail
+`game.cfg`, campaign ordering, content identity or serialized gameplay state.
