@@ -4683,3 +4683,29 @@ RelWithDebInfo full builds plus sequential CTest `76/76` in each; frontend
 physical `3/3`, in-game shell `3/3`, initial presentation `6/6`, Portal `9/9`,
 campaign `6/6`, cross-Level Save/Load `2/2` and installed retail `27/27` all
 pass without retry.
+
+### 2026-08-13: canonical campaign root, last-world preview and atomic present
+
+The local installed `game.cfg` was confirmed to carry `StartLevel=3`, unlike
+the May/CD `StartLevel=0`. Ordinary frontend startup now validates catalog row
+zero as `Level.03N` and uses it for the authored opening and every New Game,
+without writing the retail tree. After the intro, a bounded read-only scan of
+the eight RR2SLOT1 headers may reconstruct a fresh disposable copy of the
+newest save's listed Level for the title background. Continue remains the only
+path that restores that saved continuation.
+
+The shared flicker owner was the physical GDI present rather than FLIC timing:
+`GRDumpScreen` painted the whole client black before copying each completed
+software frame. Presentation now copies first and clears only real aspect bars;
+telemetry records requests, completed copies, bar fills and the forbidden
+full-client erase count. The focused layout smoke and physical startup/briefing
+gates require that count to remain zero.
+
+The closing gate passes full Debug, Release and RelWithDebInfo builds and
+sequential CTest `76/76` in each configuration. The physical frontend is `3/3`
+with a real `Level.05D -> title -> New Game Level.03N` split; briefing
+Escape/Enter is `6/6`; shell is `3/3`; installed retail starts are `27/27`;
+Portal is `9/9`; the connected campaign matrix is `6/6`; and cross-Level
+Save/Load is `2/2`. A deliberately concurrent first retail sweep exhausted
+the bounded three-frame service window and was rejected; the required
+sequential matrix passed every row without retry.

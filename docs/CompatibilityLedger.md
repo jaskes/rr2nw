@@ -6421,6 +6421,30 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   camera script may replace that presentation only if it remains disposable
   and preserves these transaction/direct-entry gates.
 
+### CQ-297: local StartLevel and pre-copy black clears are not player policy
+
+- Status: `LEVEL03N_CAMPAIGN_ROOT`, `LAST_SAVE_LEVEL_PREVIEW`,
+  `ATOMIC_GDI_PRESENT`.
+- Evidence: the installed root has `StartLevel=3` while the mounted/May retail
+  copy has `StartLevel=0`; both catalogs name row zero `Level.03N`. Ordinary
+  startup consequently showed `Level.05D` islands. Independently,
+  `GRDumpScreen` cleared the complete client black immediately before each
+  `StretchDIBits`, matching the reported dark television-like flashes across
+  gameplay and presentation paths.
+- Handling: player-facing startup selects row zero in memory, plays its
+  authored intro, and may then reconstruct only the symbolic Level of the
+  newest readable RR2SLOT1 row for a disposable title background. New Game
+  still targets row zero; Continue alone restores the save. The GDI presenter
+  copies the completed image first and clears only nonempty aspect bars.
+- Verification: the physical gate seeds `Level.05D`, observes an actual title
+  preview there, commits New Game to `Level.03N`, saves, restarts and Continues
+  the newer slot. All paths require positive physical presents and exactly
+  zero full-client black erases. Layout tests cover exact, pillarboxed and
+  letterboxed clients.
+- Boundary: this is last-Level identity, not exact saved camera/world state.
+  A future authored menu tableau may replace the fresh preview, but may not
+  restore or mutate a save outside the Save/Load transaction.
+
 ## Maintenance rule
 
 When a new quirk is found:

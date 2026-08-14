@@ -124,6 +124,7 @@ struct EdgeSample {
 
 SGRSoftwareRasterStats g_frameRasterStats = {};
 SGRSoftwareRasterStats g_totalRasterStats = {};
+SGRSoftwarePresentStats g_presentStats = {};
 int g_zPrecision = 0;
 int g_hazeStart = 0;
 int g_hazeLength = 0;
@@ -1105,6 +1106,43 @@ void GRSoftwareResetTotalStats()
     std::memset(&g_totalRasterStats,0,sizeof(g_totalRasterStats));
 }
 
+int GRSoftwareComputePresentLayout(int clientWidth,int clientHeight,
+                                   SGRSoftwarePresentLayout *layout)
+{
+    if( layout == NULL || clientWidth <= 0 || clientHeight <= 0 ||
+        _gr_nScreenWidth <= 0 || _gr_nScreenHeight <= 0 ) return FALSE;
+    SGRSoftwarePresentLayout candidate = {};
+    candidate.clientWidth = clientWidth;
+    candidate.clientHeight = clientHeight;
+    candidate.targetWidth = clientWidth;
+    candidate.targetHeight = candidate.targetWidth*_gr_nScreenHeight/
+                             _gr_nScreenWidth;
+    if( candidate.targetHeight > clientHeight ) {
+        candidate.targetHeight = clientHeight;
+        candidate.targetWidth = candidate.targetHeight*_gr_nScreenWidth/
+                                _gr_nScreenHeight;
+    }
+    if( candidate.targetWidth <= 0 || candidate.targetHeight <= 0 )
+        return FALSE;
+    candidate.targetX = (clientWidth-candidate.targetWidth)/2;
+    candidate.targetY = (clientHeight-candidate.targetHeight)/2;
+    candidate.letterboxBars = 0;
+    if( candidate.targetY > 0 ) candidate.letterboxBars += 2;
+    if( candidate.targetX > 0 ) candidate.letterboxBars += 2;
+    *layout = candidate;
+    return TRUE;
+}
+
+void GRSoftwareGetPresentStats(SGRSoftwarePresentStats *stats)
+{
+    if( stats != NULL ) *stats = g_presentStats;
+}
+
+void GRSoftwareResetPresentStats()
+{
+    std::memset(&g_presentStats,0,sizeof(g_presentStats));
+}
+
 void GRZBufferEnable(int enable)
 {
     (void)enable;
@@ -1135,23 +1173,43 @@ int GRDumpScreen()
             _gr_hDC,0,0,_gr_nScreenWidth,_gr_nScreenHeight,0,0,0,
             _gr_nScreenHeight,_gr_pScreen,
             reinterpret_cast<BITMAPINFO *>(&_gr_DIBInfo),DIB_RGB_COLORS) != 0;
-    const int clientWidth = client.right-client.left;
-    const int clientHeight = client.bottom-client.top;
-    if( clientWidth <= 0 || clientHeight <= 0 ) return TRUE;
-    int width = clientWidth;
-    int height = width*_gr_nScreenHeight/_gr_nScreenWidth;
-    if( height > clientHeight ) {
-        height = clientHeight;
-        width = height*_gr_nScreenWidth/_gr_nScreenHeight;
-    }
-    const int x = (clientWidth-width)/2;
-    const int y = (clientHeight-height)/2;
-    FillRect(_gr_hDC,&client,(HBRUSH)GetStockObject(BLACK_BRUSH));
+    SGRSoftwarePresentLayout layout = {};
+    if( !GRSoftwareComputePresentLayout(client.right-client.left,
+                                        client.bottom-client.top,&layout) )
+        return TRUE;
+    ++g_presentStats.requests;
     SetStretchBltMode(_gr_hDC,COLORONCOLOR);
-    return StretchDIBits(
-        _gr_hDC,x,y,width,height,0,0,_gr_nScreenWidth,_gr_nScreenHeight,
+    // Copy the finished frame before touching any uncovered pixels.  The old
+    // full-client FillRect made black observable between every pair of frames,
+    // especially on a slow software render or during palette-heavy FLICs.
+    if( StretchDIBits(
+        _gr_hDC,layout.targetX,layout.targetY,
+        layout.targetWidth,layout.targetHeight,
+        0,0,_gr_nScreenWidth,_gr_nScreenHeight,
         _gr_pScreen,reinterpret_cast<BITMAPINFO *>(&_gr_DIBInfo),
-        DIB_RGB_COLORS,SRCCOPY) != GDI_ERROR;
+        DIB_RGB_COLORS,SRCCOPY) == GDI_ERROR ) return FALSE;
+
+    const HBRUSH black = (HBRUSH)GetStockObject(BLACK_BRUSH);
+    const int targetRight = layout.targetX+layout.targetWidth;
+    const int targetBottom = layout.targetY+layout.targetHeight;
+    RECT bars[4] = {
+        {0,0,layout.clientWidth,layout.targetY},
+        {0,targetBottom,layout.clientWidth,layout.clientHeight},
+        {0,layout.targetY,layout.targetX,targetBottom},
+        {targetRight,layout.targetY,layout.clientWidth,targetBottom}
+    };
+    for( int index = 0; index < 4; ++index ) {
+        if( bars[index].right <= bars[index].left ||
+            bars[index].bottom <= bars[index].top ) continue;
+        if( FillRect(_gr_hDC,&bars[index],black) == 0 ) return FALSE;
+        ++g_presentStats.letterboxBarFills;
+    }
+    ++g_presentStats.completed;
+    if( layout.letterboxBars == 0 )
+        ++g_presentStats.exactClientPresents;
+    else
+        ++g_presentStats.letterboxedPresents;
+    return TRUE;
 }
 
 #if defined(_MSC_VER) && defined(_DEBUG)

@@ -7247,7 +7247,7 @@ RNG consumed while choosing a menu action. The title therefore owns input and
 presentation only; its underlying session is explicitly disposable.
 
 New Game enters the existing typed campaign-restart coordinator and rebuilds
-the configured Level before control is released. Continue and Load enter the
+the canonical campaign root before control is released. Continue and Load enter the
 existing RR2SLOT1 coordinator. A failed target transaction restores the exact
 preview continuation and reopens the title shell. No second serializer, VFS,
 save catalog, settings service or special preview object graph is introduced.
@@ -7256,3 +7256,29 @@ The title root cannot be dismissed with Escape and never exposes Developer
 commands. Explicit `--start-level`, startup Save/Load and automated smoke keep
 direct Level entry. This is an ordinary-launch policy, not a change to retail
 `game.cfg`, campaign ordering, content identity or serialized gameplay state.
+
+### BD-232: campaign root, last-world title preview and mutable StartLevel are separate
+
+Status: accepted on 2026-08-13 after the installed root opened islands instead
+of the first robot world.
+
+Retail and May evidence define catalog row zero as `Level.03N`. The installed
+root is known to be user-modified only at `Init/StartLevel=3`, so treating that
+mutable value as New Game policy silently redirects the campaign to
+`Level.05D`. Ordinary frontend startup now selects row zero in memory and
+fails closed if the nine-row retail catalog no longer names `Level.03N` there.
+No retail file is rewritten. Explicit `--start-level`, startup Save/Load and
+automation keep their existing direct-entry contracts.
+
+After the `Level.03N` opening presentation, the title may inspect only bounded
+RR2SLOT1 metadata and reconstruct a fresh disposable instance of the newest
+readable save's listed Level. It never restores that continuation merely to
+draw the title. New Game carries an explicit frontend-launch policy through
+the existing closed-frame coordinator and always targets row zero; failure
+reconstructs the exact source preview before reopening the title. This keeps
+last-world presentation, campaign creation and Continue as three distinct
+owners.
+
+The software presenter also copies a complete frame before clearing uncovered
+letterbox pixels. A full-client GDI black erase is forbidden because it was
+observable between frames in gameplay, FLICs and the title alike.

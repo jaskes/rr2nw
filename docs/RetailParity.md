@@ -3329,10 +3329,13 @@ playable Level begins.
 
 ### RP-PACKAGE-001: portable data discovery is a modern read-only boundary
 
-- Retail `game.cfg` remains the authority for `Init/StartLevel` and the exact
-  nine configured Level directories. The new folder picker and `RR2DATA1` do
-  not reinterpret or normalize that content; every source is passed through
-  the same existing admission path before a Level or mod runtime exists.
+- Retail `game.cfg` remains the authority for the exact nine configured Level
+  directories and for direct diagnostic `Init/StartLevel` admission. The
+  player-facing New Game policy separately validates retail row zero as
+  `Level.03N`; this prevents a mutable installed StartLevel from redefining the
+  campaign root without rewriting or normalizing the source. The new folder
+  picker and `RR2DATA1` pass every source through the same admission path before
+  a Level or mod runtime exists.
 - Command-line selection is deterministic strict precedence. A persisted path
   is only a local convenience and may not rescue an invalid explicit path.
   Safe mode keeps the legal base-data location while continuing to disable

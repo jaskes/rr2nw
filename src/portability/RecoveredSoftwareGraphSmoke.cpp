@@ -90,9 +90,35 @@ int main() {
     return Fail("software graph state was not published");
   }
 
+  SGRSoftwarePresentLayout exactLayout = {};
+  SGRSoftwarePresentLayout wideLayout = {};
+  SGRSoftwarePresentLayout tallLayout = {};
+  if (!GRSoftwareComputePresentLayout(640, 480, &exactLayout) ||
+      exactLayout.targetX != 0 || exactLayout.targetY != 0 ||
+      exactLayout.targetWidth != 640 || exactLayout.targetHeight != 480 ||
+      exactLayout.letterboxBars != 0 ||
+      !GRSoftwareComputePresentLayout(1920, 1080, &wideLayout) ||
+      wideLayout.targetX != 240 || wideLayout.targetY != 0 ||
+      wideLayout.targetWidth != 1440 || wideLayout.targetHeight != 1080 ||
+      wideLayout.letterboxBars != 2 ||
+      !GRSoftwareComputePresentLayout(1080, 1920, &tallLayout) ||
+      tallLayout.targetX != 0 || tallLayout.targetY != 555 ||
+      tallLayout.targetWidth != 1080 || tallLayout.targetHeight != 810 ||
+      tallLayout.letterboxBars != 2 ||
+      GRSoftwareComputePresentLayout(0, 480, &exactLayout) ||
+      GRSoftwareComputePresentLayout(640, 0, &exactLayout) ||
+      GRSoftwareComputePresentLayout(640, 480, nullptr)) {
+    return Fail("software present layout is not bounded and aspect-safe");
+  }
+
   if (!GRClearScreen(TRUE, 37) || firstScreen[0] != 37 ||
       firstScreen[640 * 480 - 1] != 37 || !GRDumpScreen()) {
     return Fail("headless software framebuffer is not operational");
+  }
+  SGRSoftwarePresentStats presentStats = {};
+  GRSoftwareGetPresentStats(&presentStats);
+  if (presentStats.fullClientBlackErases != 0u) {
+    return Fail("software presenter retained a full-client black erase");
   }
 
   const SGameEntryRuntimeHooks hooks = GameEntry_RecoveredRuntimeHooks();

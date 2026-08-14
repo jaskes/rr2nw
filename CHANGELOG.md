@@ -5,6 +5,19 @@ claim authorship of inherited Logos code or retail data.
 
 ## Unreleased
 
+### Fixed
+
+- Removed the GDI full-client black clear that was exposed immediately before
+  every software-frame copy. Complete 640x480 frames are now presented first
+  and only real letterbox bars are cleared, eliminating the shared dark flash
+  path in gameplay, FLICs, briefings and the live title scene.
+- Separated the canonical campaign root from mutable installation state.
+  Ordinary startup always plays the authored `Level.03N` opening and New Game
+  always reconstructs catalog row zero even when the installed `game.cfg`
+  points elsewhere. The disposable title background may reconstruct the Level
+  named by the newest readable RR2SLOT1 save, while explicit `--start-level`,
+  startup Save/Load and automation retain direct-entry behavior.
+
 ### Added
 
 - Added the first player-facing startup front end. An ordinary launch presents

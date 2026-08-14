@@ -166,6 +166,16 @@ foreach ($configurationName in $Configuration) {
         } else {
             $issues.Add("presentation telemetry missing")
         }
+        if (-not $values.ContainsKey("renderer_present_completed") -or
+            [int64]$values["renderer_present_completed"] -lt 1) {
+            $issues.Add("physical GDI presentation telemetry missing")
+        }
+        if (-not $values.ContainsKey(
+                "renderer_present_full_client_black_erases") -or
+            [int64]$values[
+                "renderer_present_full_client_black_erases"] -ne 0) {
+            $issues.Add("full-client black erase observed")
+        }
         if ($values.ContainsKey("level_briefing_audio_streams")) {
             $audioParts = @($values["level_briefing_audio_streams"].Split('/'))
             if ($audioParts.Count -ne 5 -or $audioParts[0] -ne "1" -or

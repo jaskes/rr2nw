@@ -497,6 +497,7 @@ int RecoveredSoftwareGraph_Initialize(HINSTANCE instance) {
   }
 
   GRSoftwareResetTotalStats();
+  GRSoftwareResetPresentStats();
 
   std::memset(&g_softwareDevice, 0, sizeof(g_softwareDevice));
   std::strcpy(g_softwareDevice.name, "RR2NW software DIB");

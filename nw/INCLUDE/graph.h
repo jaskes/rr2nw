@@ -255,6 +255,28 @@ typedef struct {
    unsigned long long rasterizedByType[TYPE_COUNT];
 } SGRSoftwareRasterStats;
 
+// Physical software-frame presentation diagnostics.  The authoritative
+// 640x480 image is already complete before this boundary; the GDI owner must
+// never expose a full-client black erase between that image and its copy.
+typedef struct {
+   int clientWidth;
+   int clientHeight;
+   int targetX;
+   int targetY;
+   int targetWidth;
+   int targetHeight;
+   int letterboxBars;
+} SGRSoftwarePresentLayout;
+
+typedef struct {
+   unsigned long long requests;
+   unsigned long long completed;
+   unsigned long long exactClientPresents;
+   unsigned long long letterboxedPresents;
+   unsigned long long letterboxBarFills;
+   unsigned long long fullClientBlackErases;
+} SGRSoftwarePresentStats;
+
 
 typedef struct {
    unsigned char * pTable;
@@ -755,6 +777,10 @@ int GRSoftwareDitherTableReady();
 void GRSoftwareGetFrameStats(SGRSoftwareRasterStats *stats);
 void GRSoftwareGetTotalStats(SGRSoftwareRasterStats *stats);
 void GRSoftwareResetTotalStats();
+int GRSoftwareComputePresentLayout(int clientWidth, int clientHeight,
+                                   SGRSoftwarePresentLayout *layout);
+void GRSoftwareGetPresentStats(SGRSoftwarePresentStats *stats);
+void GRSoftwareResetPresentStats();
 int GRDumpScreen();
 void GRInitBump();
 int GREndScene();

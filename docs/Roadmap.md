@@ -2394,3 +2394,9 @@ lifetime with contact-density telemetry, and the complete S22-to-A39 handoff
 retains its exact result line while excluding synchronous cinematic dwell from
 fixed cadence. Both changes require the three-configuration automated gate and
 a fresh package hash; no previous manual ledger row transfers to that package.
+
+The 2026-08-13 startup correction separates mutable installation state from
+player policy: `Level.03N` is the canonical New Game root, while a newest-save
+Level may provide only the disposable title background. The same slice removes
+the shared full-client black erase before GDI frame copies. Both are part of
+the next `0.1.0` candidate and require a new package hash and fresh human rows.

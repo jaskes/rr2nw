@@ -24,8 +24,11 @@ Level.04D  Level.05D  Level.06N  Level.07N
 ```
 
 Names are matched case-insensitively, but they must appear in the selected
-root's `[Levels]` section. With no `--start-level`, the executable continues to
-honour `[Init]/StartLevel` from `game.cfg`.
+root's `[Levels]` section. With no `--start-level`, an ordinary player launch
+uses retail catalog row zero (`Level.03N`) for the authored opening and New
+Game. The mutable `[Init]/StartLevel` remains diagnostic evidence and is still
+honoured by direct startup Save/Load and smoke contracts; it cannot redirect a
+fresh player campaign.
 
 ## Playtest build for normal manual gameplay
 
@@ -61,7 +64,9 @@ cmake --build --preset windows-msvc-x86-playtest
 After the authored initial presentation, the `RR2NW 0.1.0` title card must
 appear over a textured live scene. The cockpit panel is absent, world actors
 may continue their normal simulation, and player movement/fire input must have
-no effect. `Esc` at the root must keep the title menu open.
+no effect. With no saves the scene is `Level.03N`; with compatible saves the
+newest save's Level may supply a fresh disposable background without restoring
+or advancing that save. `Esc` at the root must keep the title menu open.
 
 1. Choose **New game**. The menu must disappear only after the closed-frame
    restart is accepted, and gameplay must begin from a freshly reconstructed
@@ -76,16 +81,23 @@ no effect. `Esc` at the root must keep the title menu open.
 4. Launch with an explicit `--start-level "Level.03N"`. This diagnostic and
    playtest contract must still enter that Level directly without opening the
    startup title menu.
+5. Launch with `--developer-mode` but without `--start-level`. The title still
+   opens and does not expose Developer. Choose New Game, press `Esc`, and verify
+   the pause shell now exposes the existing Developer catalog, including Level
+   switching and supported spawns.
 
-For a fast automated physical pass that suppresses only the initial briefing:
+For a fast automated physical pass that skips the real initial presentation
+with Enter after it starts:
 
 ```powershell
 & ".\tools\acceptance\Invoke-FrontEndMenu.ps1" -DataRoot "E:\Games\The Next Worlds" -Configuration Debug,Release,RelWithDebInfo
 ```
 
-The gate uses isolated settings/saves, proves non-dismissible Escape, performs
-New Game plus a real slot Save, then starts an independent process and proves
-Continue. It never closes an unrelated user game process.
+The gate uses isolated settings/saves, seeds a `Level.05D` last-visited row,
+proves the title background switches there while New Game still targets
+`Level.03N`, performs a real slot Save, then starts an independent process and
+proves Continue. It requires physical presents with zero full-client black
+erases and never closes an unrelated user game process.
 
 ## In-game shell and settings pass
 

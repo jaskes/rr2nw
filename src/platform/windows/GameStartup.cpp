@@ -7,6 +7,7 @@
 #include "ActiveWorldReplayHash.h"
 #include "ActiveWorldSave.h"
 #include "GameEntryRuntimeState.h"
+#include "LevelSaveSlot.h"
 #include "RecoveredArenaSeanceRuntime.h"
 #include "RecoveredDrawableSceneRuntime.h"
 #include "RecoveredGameLevelRuntime.h"
@@ -1187,6 +1188,31 @@ bool SelectStartLevel(const StartupOptions& options, RetailData* data,
   return false;
 }
 
+bool RequestsPlayerFrontEnd(const StartupOptions& options) {
+  return !options.launchSmoke && !options.runtimeSmoke &&
+      options.startLevel.empty() &&
+      options.startupSaveSlot < 0 && options.startupLoadSlot < 0;
+}
+
+bool SelectPlayerCampaignRoot(const StartupOptions& options,
+                              RetailData* data,
+                              std::wstring* failure) {
+  if (!RequestsPlayerFrontEnd(options)) return true;
+
+  // The May retail catalog defines row zero as the campaign opening world.
+  // Init/StartLevel is mutable installation state (the user's installed copy
+  // currently points at another world), so it must not redefine New game or
+  // the authored pre-title presentation.  Keep explicit --start-level and
+  // startup Save/Load contracts untouched.
+  if (data->levels.empty() ||
+      _wcsicmp(data->levels.front().c_str(), L"Level.03N") != 0) {
+    *failure = L"player frontend requires retail Levels/0 = Level.03N";
+    return false;
+  }
+  data->startLevel = 0;
+  return true;
+}
+
 void ShowMessage(bool silent, UINT icon, const wchar_t* title,
                  const std::wstring& text) {
   if (!silent) {
@@ -1209,6 +1235,49 @@ int FindRetailLevel(const RetailData& data, const std::string& identity) {
       return static_cast<int>(index);
   }
   return -1;
+}
+
+int SelectLatestSavePreviewLevel(const std::wstring& saveDirectory,
+                                 const RetailData& data,
+                                 StartupLog* log) {
+  const SLevelSaveSlotSummary* newest = nullptr;
+  SLevelSaveSlotSummary newestStorage;
+  unsigned int readable = 0;
+  unsigned int rejected = 0;
+  for (std::uint32_t slot = 0; slot < LevelSaveSlot_Count(); ++slot) {
+    SLevelSaveSlot archive;
+    SLevelSaveSlotStatus status;
+    SLevelSaveSlotSummary summary;
+    if (!LevelSaveSlot_Read(saveDirectory, slot, &archive, &status) ||
+        !LevelSaveSlot_Summarize(archive, &summary, &status)) {
+      continue;
+    }
+    ++readable;
+    if (FindRetailLevel(data, summary.level) < 0) {
+      ++rejected;
+      continue;
+    }
+    if (newest == nullptr ||
+        summary.savedAtUnixSeconds > newest->savedAtUnixSeconds ||
+        (summary.savedAtUnixSeconds == newest->savedAtUnixSeconds &&
+         summary.slot < newest->slot)) {
+      newestStorage = summary;
+      newest = &newestStorage;
+    }
+  }
+  if (log != nullptr) {
+    log->Line("front_end_preview_readable_slots=" +
+              std::to_string(readable));
+    log->Line("front_end_preview_rejected_slots=" +
+              std::to_string(rejected));
+  }
+  if (newest == nullptr) return 0;
+  if (log != nullptr) {
+    log->Line("front_end_preview_save_slot=" +
+              std::to_string(newest->slot + 1u));
+    log->Line("front_end_preview_level=" + newest->level);
+  }
+  return FindRetailLevel(data, newest->level);
 }
 
 std::string RecoveredLevelStartFailure(const char* stage) {
@@ -2053,15 +2122,28 @@ bool ProcessCampaignRestart(const RetailData& data,
     return true;
   }
 
-  if (log != nullptr)
+  const int targetLevelIndex = request.frontEndLaunch ? 0 : sourceLevelIndex;
+  if (targetLevelIndex < 0 ||
+      targetLevelIndex >= static_cast<int>(data.levels.size())) {
+    const std::string detail = "campaign restart target is invalid";
+    RecoveredGameServices_RecordCampaignRestartResult(
+        request, false, false, false, detail);
+    if (log != nullptr) log->Line("campaign_restart_preflight_failure=" + detail);
+    return true;
+  }
+
+  if (log != nullptr) {
     log->Line("campaign_restart_begin=" + request.level);
+    log->WideLine("campaign_restart_target",
+                  data.levels[static_cast<std::size_t>(targetLevelIndex)]);
+  }
   ZAV_DeInitLevel();
 
   std::string restartFailure;
   if (StartRecoveredLevel(
-          data, sourceLevelIndex, ELevelBriefingPolicy::Suppress,
+          data, targetLevelIndex, ELevelBriefingPolicy::Suppress,
           "campaign_restart", log, &restartFailure)) {
-    *currentLevelIndex = sourceLevelIndex;
+    *currentLevelIndex = targetLevelIndex;
     RecoveredGameServices_RecordCampaignRestartResult(
         request, true, false, false, std::string());
     if (log != nullptr)
@@ -2379,6 +2461,7 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 failure + L"\n\nDiagnostic log:\n" + log.path());
     return kDataNotReady;
   }
+  const int configuredStartLevel = data.startLevel;
   if (!SelectStartLevel(options, &data, &failure)) {
     log.WideLine("failure", failure);
     log.WideLine("start_level_requested", options.startLevel);
@@ -2388,12 +2471,26 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                 failure + L"\n\nDiagnostic log:\n" + log.path());
     return kInvalidArguments;
   }
+  if (!SelectPlayerCampaignRoot(options, &data, &failure)) {
+    log.WideLine("failure", failure);
+    log.Line("marker=front-end-campaign-root-invalid");
+    ShowMessage(options.launchSmoke || options.runtimeSmoke, MB_ICONERROR,
+                L"RR2NW campaign start error",
+                failure + L"\n\nDiagnostic log:\n" + log.path());
+    return kDataNotReady;
+  }
 
   log.WideLine("data_dir", data.root);
   log.Line("retail_level_count=9");
   log.Line("level_catalog_count=" + std::to_string(data.levels.size()));
+  log.Line("configured_start_level=" +
+           std::to_string(configuredStartLevel));
+  log.WideLine("configured_start_level_dir",
+               data.levels[static_cast<std::size_t>(configuredStartLevel)]);
   log.Line(std::string("start_level_source=") +
-           (options.startLevel.empty() ? "game.cfg" : "command-line"));
+           (RequestsPlayerFrontEnd(options)
+                ? "front-end-campaign-root"
+                : options.startLevel.empty() ? "game.cfg" : "command-line"));
   if (!options.startLevel.empty()) {
     log.WideLine("start_level_requested", options.startLevel);
   }
@@ -4195,11 +4292,41 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
   // Level-entry contract. The already constructed initial session becomes a
   // disposable live preview and is replaced transactionally before New game
   // or Load can hand control to the player.
-  const bool frontEndRequested = !options.runtimeSmoke &&
-      options.startLevel.empty() && options.startupSaveSlot < 0 &&
-      options.startupLoadSlot < 0;
+  const bool frontEndRequested = RequestsPlayerFrontEnd(options);
   log.Line(std::string("front_end_requested=") +
            (frontEndRequested ? "1" : "0"));
+  if (!loopFailed && frontEndRequested) {
+    const int previewLevelIndex =
+        SelectLatestSavePreviewLevel(options.saveDirectory, data, &log);
+    if (previewLevelIndex != currentLevelIndex) {
+      const int sourceLevelIndex = currentLevelIndex;
+      log.WideLine("front_end_preview_switch_target",
+                   data.levels[static_cast<std::size_t>(previewLevelIndex)]);
+      ZAV_DeInitLevel();
+      std::string previewFailure;
+      if (StartRecoveredLevel(
+              data, previewLevelIndex, ELevelBriefingPolicy::Suppress,
+              "front_end_preview", &log, &previewFailure)) {
+        currentLevelIndex = previewLevelIndex;
+        log.Line("front_end_preview_switch=committed");
+      } else {
+        ZAV_DeInitLevel();
+        std::string rollbackFailure;
+        const bool rollbackStarted = StartRecoveredLevel(
+            data, sourceLevelIndex, ELevelBriefingPolicy::Suppress,
+            "front_end_preview_rollback", &log, &rollbackFailure);
+        log.Line(std::string("front_end_preview_switch=") +
+                 (rollbackStarted ? "rolled-back" : "rollback-failed"));
+        log.Line("front_end_preview_switch_failure=" + previewFailure);
+        if (!rollbackStarted) {
+          log.Line("front_end_preview_rollback_failure=" + rollbackFailure);
+          loopFailed = true;
+        }
+      }
+    } else {
+      log.Line("front_end_preview_switch=not-needed");
+    }
+  }
   if (!loopFailed && frontEndRequested &&
       !RecoveredGameServices_OpenFrontEnd()) {
     const SRecoveredInGameShellState* failedFrontEnd =
@@ -7878,6 +8005,20 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(rasterStats.framebufferHash));
   log.Line("renderer_framebuffer_nonclear_pixels=" +
            std::to_string(rasterStats.framebufferNonClearPixels));
+  SGRSoftwarePresentStats presentStats = {};
+  GRSoftwareGetPresentStats(&presentStats);
+  log.Line("renderer_present_requests=" +
+           std::to_string(presentStats.requests));
+  log.Line("renderer_present_completed=" +
+           std::to_string(presentStats.completed));
+  log.Line("renderer_present_exact_client=" +
+           std::to_string(presentStats.exactClientPresents));
+  log.Line("renderer_present_letterboxed=" +
+           std::to_string(presentStats.letterboxedPresents));
+  log.Line("renderer_present_letterbox_bar_fills=" +
+           std::to_string(presentStats.letterboxBarFills));
+  log.Line("renderer_present_full_client_black_erases=" +
+           std::to_string(presentStats.fullClientBlackErases));
   static const char* const kPolygonTypeNames[TYPE_COUNT] = {
       "flat", "transparent", "gouraud", "texture_perspective",
       "texture_linear", "sprite_perspective", "texture_alpha",
