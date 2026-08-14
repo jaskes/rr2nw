@@ -100,6 +100,14 @@ struct RecruitCenterMissionResultProbeSummary
     int completedMissions;
     int rewardsCreated;
     int rewardInterfaceReady;
+    int rewardMoveEventScheduled;
+    int rewardMoveEventDispatched;
+    int rewardPositionChanged;
+    int rewardMoveEventContinued;
+    int rewardStillExistsAfterMove;
+    int rewardAttachedAfterMove;
+    int rewardChangeDirEventScheduled;
+    int rewardFreeFlightAdvanced;
     int repaired;
     int refilled;
     int repeatIdempotent;

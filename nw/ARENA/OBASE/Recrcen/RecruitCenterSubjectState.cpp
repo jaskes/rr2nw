@@ -2733,7 +2733,6 @@ bool CreateMissionReward(SimulationContext *context, double timeStamp,
         return false;
     }
     unit->setCommander(KR_ObjectID::NUL());
-    artefact->artefactMove(CFVector3(0.0, 0.0, 0.0));
     // May retail uses the fixed Artifact identity and offsets the center's
     // first two position components by +50/+30 before publishing the pickup.
     const CFVector3 position = center->getPos() + CFVector3(50.0, 30.0, 0.0);
@@ -2745,7 +2744,24 @@ bool CreateMissionReward(SimulationContext *context, double timeStamp,
     }
     CFMatrix3x4 orientation;
     orientation.LoadIdentity().TranslateL(position);
-    artefact->moveTo(orientation);
+    // The archived Artefact owns its gravity, collision and bounce lifecycle
+    // through the private ARTEFACT_MOVE queue.  Publishing only the recovered
+    // transform leaves the reward suspended forever at the +30 vertical
+    // offset.  drop() is the surviving source-owned free-flight entry point:
+    // it publishes the pose, initial downward velocity and exactly one move
+    // deadline without inventing a second physics implementation here.
+    artefact->drop(orientation, timeStamp);
+    KR_Event moveEvents[2];
+    const int moveCount = context->copyEvents(
+        ARTEFACT_MOVE, object, moveEvents, 2);
+    if (moveCount != 1 || moveEvents[0].source != object ||
+        moveEvents[0].destination != object ||
+        moveEvents[0].timeStamp <= timeStamp)
+    {
+        RemoveMissionReward(context, object);
+        SetError("RecruitCenter reward free-flight publication failed");
+        return false;
+    }
     *created = object;
     return true;
 }
@@ -3282,6 +3298,52 @@ bool RecruitCenterSubjectState_CompleteMissionProbeForCenter(
         context->queryInterface(context->searchObject("Artifact"),
                                 IArtefactIID) != NULL ? 1 : 0;
     const KR_ObjectID reward = context->searchObject("Artifact");
+    IArtefact *rewardArtefact = static_cast<IArtefact *>(
+        context->queryInterface(reward, IArtefactIID));
+    IDynamicObject *rewardDynamic = static_cast<IDynamicObject *>(
+        context->queryInterface(reward, IDynamicObjectIID));
+    KR_Event initialMoveEvents[2];
+    const int initialMoveCount = context->copyEvents(
+        ARTEFACT_MOVE, reward, initialMoveEvents, 2);
+    summary->rewardMoveEventScheduled = initialMoveCount == 1 &&
+        initialMoveEvents[0].source == reward &&
+        initialMoveEvents[0].destination == reward &&
+        initialMoveEvents[0].timeStamp > timeStamp ? 1 : 0;
+    const double initialMoveDeadline = initialMoveCount == 1
+        ? initialMoveEvents[0].timeStamp : 0.0;
+    const CFVector3 rewardBefore = rewardDynamic == NULL
+        ? CFVector3(0.0, 0.0, 0.0) : rewardDynamic->getPos();
+    summary->rewardMoveEventDispatched =
+        summary->rewardMoveEventScheduled == 1 &&
+        context->removeEvent(ARTEFACT_MOVE, reward) == 1 ? 1 : 0;
+    if (summary->rewardMoveEventDispatched == 1)
+        context->sendEventNow(initialMoveEvents[0]);
+    const CFVector3 rewardAfter = rewardDynamic == NULL
+        ? CFVector3(0.0, 0.0, 0.0) : rewardDynamic->getPos();
+    KR_Event continuedMoveEvents[2];
+    const int continuedMoveCount = context->copyEvents(
+        ARTEFACT_MOVE, reward, continuedMoveEvents, 2);
+    // A retail Level may already place a Portal inside the 25-unit homing
+    // radius of the recovered reward pose.  In that case the same first
+    // ARTEFACT_MOVE deadline correctly follows the Portal branch rather than
+    // gravity, so require source-owned motion without prescribing its axis.
+    summary->rewardPositionChanged = rewardDynamic != NULL &&
+        (std::fabs(rewardAfter.x - rewardBefore.x) > 1.0e-7 ||
+         std::fabs(rewardAfter.y - rewardBefore.y) > 1.0e-7 ||
+         std::fabs(rewardAfter.z - rewardBefore.z) > 1.0e-7) ? 1 : 0;
+    summary->rewardMoveEventContinued = continuedMoveCount == 1 &&
+        continuedMoveEvents[0].timeStamp > initialMoveDeadline
+            ? 1 : 0;
+    summary->rewardStillExistsAfterMove = context->isExist(reward) ? 1 : 0;
+    summary->rewardAttachedAfterMove = rewardArtefact != NULL &&
+        rewardArtefact->isAttached() ? 1 : 0;
+    summary->rewardChangeDirEventScheduled = context->copyEvents(
+        ARTEFACT_CHANGEDIR, reward, NULL, 0) > 0 ? 1 : 0;
+    summary->rewardFreeFlightAdvanced =
+        summary->rewardMoveEventDispatched == 1 &&
+        summary->rewardPositionChanged == 1 &&
+        summary->rewardMoveEventContinued == 1 &&
+        summary->rewardStillExistsAfterMove == 1 ? 1 : 0;
     summary->pickupAccepted = g_vehicle->carrierOnCollision(
         g_vehicle->getObjectID(), reward) ? 1 : 0;
     summary->bidirectionalAttachment =
@@ -3292,8 +3354,6 @@ bool RecruitCenterSubjectState_CompleteMissionProbeForCenter(
         context->copyEvents(ARTEFACT_CHANGEDIR, reward,
                             privateEvents, 2) == 0 ? 1 : 0;
     g_vehicle->carrierOnMove();
-    IDynamicObject *rewardDynamic = static_cast<IDynamicObject *>(
-        context->queryInterface(reward, IDynamicObjectIID));
     CFMatrix3x4 expectedCarry;
     CFMatrix3x4 actualCarry;
     g_vehicle->carrierLoadMatrix(expectedCarry);
@@ -3324,7 +3384,9 @@ bool RecruitCenterSubjectState_CompleteMissionProbeForCenter(
                            static_cast<int>(targets.size()) &&
         summary->statusTransitions == 1 &&
         summary->completedMissions == 1 && summary->rewardsCreated == 1 &&
-        summary->rewardInterfaceReady == 1 && summary->repaired == 1 &&
+        summary->rewardInterfaceReady == 1 &&
+        summary->rewardMoveEventScheduled == 1 &&
+        summary->rewardFreeFlightAdvanced == 1 && summary->repaired == 1 &&
         summary->refilled == 1 && summary->repeatIdempotent == 1 &&
         summary->pickupAccepted == 1 &&
         summary->bidirectionalAttachment == 1 &&

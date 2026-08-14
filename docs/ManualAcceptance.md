@@ -1171,7 +1171,8 @@ both sides of the result transaction:
 Each row must advance from `ProjectS22` to a different eligible project,
 remove at least one real condition owner, report
 `mission_result_commit=1/1/1/1/1/1`, preserve the cumulative mission count,
-and prove `mission_result_save=1/1/1/1` plus
+and prove `mission_result_reward_flight=1/1`, at least one
+`game_console_draw_frames`, `mission_result_save=1/1/1/1` plus
 `mission_result_carrier=1/1/1/1/1`, `mission_result_drop=1/1/1/1`,
 `mission_result_drop_save=1/1/1/1`, `mission_result_portal=1/1/1/1/1/1`,
 `mission_result_portal_save=1/1/1/1` and
@@ -1186,6 +1187,17 @@ finish with zero service issues, `marker=level-ready` and clean shutdown.
 This gate proves result ownership, pickup/carry/drop, Portal admission and
 Portal occupancy persistence. Matching the exact retail reward offset remains
 a visible/manual campaign boundary.
+
+For a visible pass, finish the objectives and remain in the world long enough
+to see the centered `Mission complete` line. On the result revisit, the reward
+must descend and bounce rather than remain frozen at its initial high offset.
+Touch it with the Player Vehicle to carry it; approach within the recovered
+25-unit Portal attraction radius and press `F2` to drop it. The free Artifact
+must home into the Portal and publish the remaining-slot message. The installed
+Portal contract is **four** Artifacts, not three: the source constructor,
+`g_enablePortal(..., 4)` path and `Portal.od` default all agree. After the
+fourth admission the Portal reports restored, and Player collision may request
+the next-Level transition at the closed-frame coordinator.
 
 Run the maintained connected-chain matrix after the standalone result pass:
 

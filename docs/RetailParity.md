@@ -3400,6 +3400,21 @@ playable Level begins.
   worst-segment, consecutive-contact and pitch telemetry and preserve exact
   LCN1 save/load/rollback. Visible acceptance remains the final parity check.
 
+### RP-CAMPAIGN-037: reward flight and four-slot Portal are source-owned
+
+- The May loop draws GameConsole after `ZAV_NextFrame`; RecruitCenter and
+  Vehicle code publish the exact mission-complete/result strings through that
+  owner. Restoring the omitted overlay is presentation parity, not a new
+  objective or result state.
+- `Artefact::drop` proves the initial downward direction, recurring 80 ms move
+  event, gravity damping, collision reversal and 25-unit Portal attraction.
+  Using it for the already-recovered reward repairs a missing lifecycle seam;
+  pickup, carrier movement, `F2` drop and ART1/PRT1 persistence remain intact.
+- Three independent definitions set the Portal capacity to four: the Portal
+  constructor, `g_enablePortal` and `Portal.od`. Automated admission and
+  transition keep that count. No retail evidence supports a three-crystal
+  shortcut.
+
 ## Binary analysis boundary
 
 Полное декомпилирование retail EXE не является milestone. Бинарный анализ

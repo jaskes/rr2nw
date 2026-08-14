@@ -85,6 +85,10 @@ foreach ($configurationName in $Configuration) {
         $startup, 'mission_result_conditions=(\d+)/(\d+)')
     $commit = [regex]::Match(
         $startup, 'mission_result_commit=1/1/1/1/1/1')
+    $rewardFlight = [regex]::Match(
+        $startup, 'mission_result_reward_flight=1/1')
+    $consoleDraw = [regex]::Match(
+        $startup, 'game_console_draw_frames=(\d+)')
     $progress = [regex]::Match(
         $startup, 'mission_result_progress=(\d+)/(\d+)/(\d+)/(\d+)')
     $save = [regex]::Match($startup, 'mission_result_save=1/1/1/1')
@@ -122,6 +126,13 @@ foreach ($configurationName in $Configuration) {
         $issues.Add("mission condition completion proof missing")
     }
     if (-not $commit.Success) { $issues.Add("result commit proof missing") }
+    if (-not $rewardFlight.Success) {
+        $issues.Add("Artifact initial free-flight proof missing")
+    }
+    if (-not $consoleDraw.Success -or
+        [int]$consoleDraw.Groups[1].Value -le 0) {
+        $issues.Add("mission status overlay draw proof missing")
+    }
     if (-not $progress.Success -or
         [int]$progress.Groups[1].Value -le 0 -or
         [int]$progress.Groups[2].Value -ne 0 -or

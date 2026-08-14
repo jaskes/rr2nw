@@ -6445,6 +6445,36 @@ probe intentionally omits Left key-up and proves one-frame bounded recovery.
   A future authored menu tableau may replace the fresh preview, but may not
   restore or mutate a save outside the Save/Load transaction.
 
+### CQ-298: mission text and reward free flight lost their final-frame owners
+
+- Status: `CONSOLE_OVERLAY_RESTORED`, `ARTEFACT_DROP_RESTORED`,
+  `FOUR_SLOT_PORTAL_PRESERVED`.
+- Evidence: the maintained RecruitCenter already published the source strings
+  `Mission complete` and `Well done, great job`, but the recovered Windows
+  loop stopped after `ZAV_NextFrame` and never performed the archived
+  `g_GameConsole.Draw()` overlay. Reward publication likewise reconstructed
+  the exact `Artifact` and its +50/+30 center offset but called only `moveTo`,
+  omitting the archived `drop()` entry point and leaving it suspended.
+- Handling: draw a ready GameConsole once after every completed gameplay frame.
+  Create the reward through `Artefact::drop`, which owns its initial downward
+  direction, 80 ms `ARTEFACT_MOVE` cadence, collision reversal and Portal
+  homing. Pickup still cancels private motion; the existing `F2` carrier drop
+  starts it again. No parallel physics, message queue or serialized
+  presentation state is introduced.
+- Verification: the runtime gate requires positive console-overlay frames.
+  The real Level.03N result gate proves initial move publication, one executed
+  position change, a later move deadline, pickup cancellation, carried and
+  dropped save/load, Portal admission, result rollback and clean teardown.
+  Result and the long successor-presentation handoff pass 3/3 each; the
+  separate Portal matrix retains 9/9 transitions on Level.03N, Level.04D and
+  terminal Level.07N. Full builds and CTest 76/76 pass in all three maintained
+  configurations, with retail 27/27, connected campaign 6/6 and cross-Level
+  Save/Load 2/2.
+- Boundary: all surviving definitions specify four Portal slots
+  (`Portal` constructor, `g_enablePortal(..., 4)` and `Portal.od`). Changing
+  the remembered count to three would be a gameplay invention, so visible
+  acceptance must deposit four rewards.
+
 ## Maintenance rule
 
 When a new quirk is found:

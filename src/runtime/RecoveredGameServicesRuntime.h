@@ -985,6 +985,7 @@ bool RecoveredGameServices_DebugMapActive();
 int RecoveredGameServices_DebugMapWidth();
 int RecoveredGameServices_DebugMapHeight();
 unsigned int RecoveredGameServices_DebugMapDrawFrames();
+unsigned int RecoveredGameServices_GameConsoleDrawFrames();
 unsigned int RecoveredGameServices_DebugMapOpenTransitions();
 unsigned int RecoveredGameServices_DebugMapCloseTransitions();
 bool RecoveredGameServices_RequestDebugMapToggle();

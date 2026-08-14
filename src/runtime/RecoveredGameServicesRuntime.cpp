@@ -1211,6 +1211,7 @@ int g_missionMapBaselineMissions = 0;
 int g_missionMapBaselineTexts = 0;
 int g_missionMapBaselineRoutes = 0;
 unsigned int g_missionMapBaselineDrawFrames = 0;
+unsigned int g_gameConsoleDrawFrames = 0;
 bool g_missionMapProbeLive = false;
 struct SRecoveredPendingWindowsInput {
   bool focus = false;
@@ -4814,6 +4815,7 @@ bool BeginPrimaryFireTelemetry(SimulationContext* context) {
   g_missionMapBaselineTexts = 0;
   g_missionMapBaselineRoutes = 0;
   g_missionMapBaselineDrawFrames = 0;
+  g_gameConsoleDrawFrames = 0;
   g_missionMapProbeLive = false;
   g_pendingWindowsInput.clear();
   return true;
@@ -8480,6 +8482,10 @@ unsigned int RecoveredGameServices_DebugMapDrawFrames() {
   return g_debugMap.DrawFrames();
 }
 
+unsigned int RecoveredGameServices_GameConsoleDrawFrames() {
+  return g_gameConsoleDrawFrames;
+}
+
 unsigned int RecoveredGameServices_DebugMapOpenTransitions() {
   return g_debugMap.OpenTransitions();
 }
@@ -9298,6 +9304,13 @@ static int RunFrameInternal(const double* explicitSimulationTime,
   SUA_EndRender(ZAV_Scene());
   ZAV_EndRenderFrame();
   ZAV_NextFrame();
+  // The archival loop draws the GameConsole after the world and HUD.  The
+  // recovered loop previously omitted this final overlay pass, so mission,
+  // Portal, death and service messages were published but never visible.
+  if (g_GameConsole.MessagesReady()) {
+    g_GameConsole.Draw();
+    ++g_gameConsoleDrawFrames;
+  }
   const FrameClock::time_point renderEnd = FrameClock::now();
 
   if (Frame_RuntimeIssues() != 0 || !GRDumpScreen()) {

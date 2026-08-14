@@ -2400,3 +2400,10 @@ player policy: `Level.03N` is the canonical New Game root, while a newest-save
 Level may provide only the disposable title background. The same slice removes
 the shared full-client black erase before GDI frame copies. Both are part of
 the next `0.1.0` candidate and require a new package hash and fresh human rows.
+
+The 2026-08-15 mission-result repeat restored two omitted archival owners:
+GameConsole is again drawn on the completed gameplay frame, and reward
+Artifacts start the real `ARTEFACT_MOVE` bounce/homing lifecycle. Portal
+capacity remains the source-proven four slots. The next `0.1.0` candidate must
+visibly verify the completion/result line, moving pickup, four deposits and
+the resulting Level transition; older package-ledger rows do not transfer.

@@ -6810,6 +6810,16 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
                std::to_string(result.repaired) + "/" +
                std::to_string(result.refilled) + "/" +
                std::to_string(result.repeatIdempotent));
+      log.Line("mission_result_reward_flight=" +
+               std::to_string(result.rewardMoveEventScheduled) + "/" +
+               std::to_string(result.rewardFreeFlightAdvanced));
+      log.Line("mission_result_reward_flight_detail=" +
+               std::to_string(result.rewardMoveEventDispatched) + "/" +
+               std::to_string(result.rewardPositionChanged) + "/" +
+               std::to_string(result.rewardMoveEventContinued) + "/" +
+               std::to_string(result.rewardStillExistsAfterMove) + "/" +
+               std::to_string(result.rewardAttachedAfterMove) + "/" +
+               std::to_string(result.rewardChangeDirEventScheduled));
       log.Line("mission_result_carrier=" +
                std::to_string(result.pickupAccepted) + "/" +
                std::to_string(result.bidirectionalAttachment) + "/" +
@@ -7526,6 +7536,8 @@ int RunGameStartup(HINSTANCE instance, int argc, wchar_t** argv) {
            std::to_string(
                RecoveredGameServices_DebugMapCloseTransitions()) + "/" +
            std::to_string(RecoveredGameServices_DebugMapDrawFrames()));
+  log.Line("game_console_draw_frames=" + std::to_string(
+               RecoveredGameServices_GameConsoleDrawFrames()));
   SRecoveredMissionMapProbeTelemetry missionMapProbe = {};
   if (RecoveredGameServices_MissionMapProbeTelemetry(&missionMapProbe)) {
     log.Line("mission_map_probe=" +

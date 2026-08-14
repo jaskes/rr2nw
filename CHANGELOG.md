@@ -7,6 +7,12 @@ claim authorship of inherited Logos code or retail data.
 
 ### Fixed
 
+- Restored the archived final-frame GameConsole overlay, so authored mission
+  completion/result and Portal-status messages are visible during gameplay.
+  Reward Artifacts now enter their source-owned `ARTEFACT_MOVE` gravity,
+  collision and bounce lifecycle instead of remaining suspended at the
+  RecruitCenter offset; pickup still cancels that lifecycle and `F2` resumes
+  it for the existing Portal homing path.
 - Removed the GDI full-client black clear that was exposed immediately before
   every software-frame copy. Complete 640x480 frames are now presented first
   and only real letterbox bars are cleared, eliminating the shared dark flash

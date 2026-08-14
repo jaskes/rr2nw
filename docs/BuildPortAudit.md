@@ -4709,3 +4709,23 @@ Portal is `9/9`; the connected campaign matrix is `6/6`; and cross-Level
 Save/Load is `2/2`. A deliberately concurrent first retail sweep exhausted
 the bounded three-frame service window and was rejected; the required
 sequential matrix passed every row without retry.
+
+### 2026-08-15: visible mission feedback and reward motion
+
+The visible Level.03N repeat found that mission completion existed in state but
+not on screen, while the issued crystal remained at its elevated spawn pose.
+Source archaeology found both omissions at owner boundaries: the archived main
+loop draws GameConsole after `ZAV_NextFrame`, and `Artefact::drop` publishes the
+private recurring move event used for gravity, bounce and Portal attraction.
+The maintained loop and RecruitCenter reward path now restore those exact
+owners without adding a second UI or physics implementation.
+
+The result acceptance additionally executes the first reward move, requires a
+changed position and later deadline, then retains carried/dropped save-load,
+rollback and Portal admission. Source constructor, helper and descriptor
+evidence all keep four Portal slots; three is not an accepted compatibility
+value. The closing gate passes full Debug, Release and RelWithDebInfo builds
+plus sequential CTest `76/76` in each configuration. Mission result and the
+long successor-presentation handoff are `3/3` each, Portal transitions `9/9`,
+connected reward campaigns `6/6`, RecruitCenter presentation `3/3`, installed
+retail starts `27/27` and cross-Level Save/Load `2/2`, all without retry.

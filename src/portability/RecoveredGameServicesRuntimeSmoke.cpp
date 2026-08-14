@@ -5648,6 +5648,7 @@ int main(int argc, char** argv) {
       RecoveredGameServices_DebugMapWidth() != 1000 ||
       RecoveredGameServices_DebugMapHeight() != 1000 ||
       RecoveredGameServices_DebugMapDrawFrames() != 0 ||
+      RecoveredGameServices_GameConsoleDrawFrames() != 0 ||
       RecoveredGameServices_DebugMapOpenTransitions() != 0 ||
       RecoveredGameServices_DebugMapCloseTransitions() != 0) {
     ZAV_DeInitLevel();
@@ -7641,7 +7642,8 @@ int main(int argc, char** argv) {
       frameTiming.maximumFrameMicroseconds == 0 ||
       frameTiming.renderMicroseconds == 0 ||
       frameTiming.maximumRenderMicroseconds == 0 ||
-      frameTiming.totalMicroseconds < frameTiming.renderMicroseconds) {
+      frameTiming.totalMicroseconds < frameTiming.renderMicroseconds ||
+      RecoveredGameServices_GameConsoleDrawFrames() != 3) {
     ZAV_DeInitLevel();
     ZAV_Deinit();
     return Fail("successful frame timing telemetry is invalid");

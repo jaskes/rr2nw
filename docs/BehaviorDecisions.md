@@ -7282,3 +7282,20 @@ owners.
 The software presenter also copies a complete frame before clearing uncovered
 letterbox pixels. A full-client GDI black erase is forbidden because it was
 observable between frames in gameplay, FLICs and the title alike.
+
+### BD-233: mission feedback and reward motion retain their archived owners
+
+Status: accepted on 2026-08-15 after a visible mission-result repeat.
+
+Mission status and RecruitCenter result strings remain owned by GameConsole;
+the gameplay loop now restores its archived final overlay after
+`ZAV_NextFrame`. It does not translate those strings into modal dialogs, shell
+widgets or a second queue, and presentation state remains outside save data.
+
+The fixed reward identity and +50/+30 RecruitCenter offset remain unchanged.
+Publication now enters the existing `Artefact::drop` path rather than merely
+moving the drawable: its gravity, collision bounce, 25-unit Portal homing,
+pickup cancellation and `F2` restart are one source-owned lifecycle. The
+Portal continues to require four Artifacts because all surviving source and
+descriptor defaults agree; convenience is not evidence for changing it to
+three.
